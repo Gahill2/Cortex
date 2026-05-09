@@ -1,0 +1,22 @@
+{
+  "name": "cortex-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "npm run dev:desktop",
+    "dev:desktop": "tauri dev",
+    "dev:frontend": "npm --prefix ../../frontend run dev",
+    "dev:backend": "npm --prefix ../../backend run dev",
+    "dev:full": "concurrently -k -n backend,frontend,desktop -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:desktop\"",
+    "build": "npm run build:frontend && npm run build:desktop",
+    "build:frontend": "npm --prefix ../../frontend run build",
+    "build:desktop": "tauri build",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "concurrently": "^9.2.1"
+  }
+}
