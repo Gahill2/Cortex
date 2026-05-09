@@ -6,6 +6,8 @@ import { cortexAiRouter } from "./ai.routes.js";
 import { cortexWikiRouter } from "./wiki.routes.js";
 import { cortexGmailRouter } from "./gmail.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
+import { cortexTasksRouter } from "./tasks.routes.js";
+import { cortexProjectsRouter } from "./projects.routes.js";
 
 export const cortexRouter = Router();
 
@@ -24,3 +26,5 @@ cortexRouter.use("/ai", cortexAiRouter);
 cortexRouter.use("/wiki", cortexWikiRouter);
 cortexRouter.use("/gmail", cortexGmailRouter);
 cortexRouter.use("/spotify", cortexSpotifyRouter);
+cortexRouter.use("/tasks", cortexTasksRouter);
+cortexRouter.use("/projects", cortexProjectsRouter);

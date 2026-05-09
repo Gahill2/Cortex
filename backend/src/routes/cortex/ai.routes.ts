@@ -43,12 +43,31 @@ export const cortexAiRouter = Router();
 
 cortexAiRouter.use(requireAuth);
 
-cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), (req, res) => {
+cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
   const input = chatSchema.parse(req.body);
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    sendSuccess(res, {
+      conversationId: input.conversationId ?? `conv_${Date.now()}`,
+      reply: `(AI not configured) You said: ${input.message.slice(0, 120)}`,
+      model: "none"
+    });
+    return;
+  }
+
+  const client = new Anthropic();
+  const message = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 1024,
+    system: "You are Cortex, a personal AI assistant. Be concise and helpful. You help with tasks, productivity, and general questions.",
+    messages: [{ role: "user", content: input.message }]
+  });
+
+  const reply = (message.content[0] as { type: "text"; text: string }).text;
   sendSuccess(res, {
     conversationId: input.conversationId ?? `conv_${Date.now()}`,
-    reply: `Mock AI response for: ${input.message.slice(0, 120)}`,
-    model: "mock-cortex-assistant-v1"
+    reply,
+    model: message.model
   });
 });
 
