@@ -4,7 +4,7 @@ import { HomePage } from "./pages/HomePage";
 import { TasksPage } from "./pages/TasksPage";
 import { AIPage } from "./pages/AIPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { BottomNav } from "./components/BottomNav";
+import { Sidebar } from "./components/Sidebar";
 import { setAuthToken } from "./api/client";
 
 export type Tab = "home" | "tasks" | "ai" | "settings";
@@ -28,14 +28,14 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <main className="app-main">
-        {tab === "home" && <HomePage />}
-        {tab === "tasks" && <TasksPage />}
-        {tab === "ai" && <AIPage />}
+    <div className="desktop-shell">
+      <Sidebar active={tab} onChange={setTab} />
+      <main className="desktop-main">
+        {tab === "home"     && <HomePage />}
+        {tab === "tasks"    && <TasksPage />}
+        {tab === "ai"       && <AIPage />}
         {tab === "settings" && <SettingsPage onLogout={() => { setToken(null); setTab("home"); }} />}
       </main>
-      <BottomNav active={tab} onChange={setTab} />
     </div>
   );
 }

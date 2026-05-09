@@ -2,13 +2,7 @@ import { api } from "../api/client";
 
 interface NowPlaying {
   isPlaying: boolean;
-  track?: {
-    name: string;
-    artists: string;
-    albumArt?: string;
-    progressMs?: number;
-    durationMs?: number;
-  };
+  track?: { name: string; artists: string; albumArt?: string };
   device?: { name: string; volumePercent: number };
 }
 
@@ -18,35 +12,36 @@ interface Props {
   onRefresh: () => void;
 }
 
-const playbackAction = async (action: string) => {
+const control = async (action: string) => {
   try { await api.post(`/spotify/playback/${action}`); } catch { /* best-effort */ }
 };
 
 export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
   if (!connected) {
     return (
-      <div className="spotify-widget spotify-widget--disconnected">
-        <div className="spotify-widget-icon">♫</div>
-        <div>
-          <p className="spotify-widget-title">Spotify</p>
-          <p className="spotify-widget-sub">Not connected</p>
+      <div className="widget-card spotify-widget">
+        <div className="widget-header">
+          <h2 className="widget-title">♫ Spotify</h2>
+          <a
+            className="btn-primary btn-sm"
+            href={`${import.meta.env.VITE_API_BASE_URL ?? "/api"}/spotify/oauth/url`}
+          >
+            Connect
+          </a>
         </div>
-        <a className="spotify-connect-btn" href={`${import.meta.env.VITE_API_BASE_URL ?? "/api"}/spotify/oauth/url`}>
-          Connect
-        </a>
+        <p className="widget-empty">Not connected</p>
       </div>
     );
   }
 
-  if (!nowPlaying || !nowPlaying.isPlaying) {
+  if (!nowPlaying?.isPlaying) {
     return (
-      <div className="spotify-widget spotify-widget--idle">
-        <div className="spotify-widget-icon">♫</div>
-        <div className="spotify-widget-info">
-          <p className="spotify-widget-title">Spotify</p>
-          <p className="spotify-widget-sub">Nothing playing</p>
+      <div className="widget-card spotify-widget">
+        <div className="widget-header">
+          <h2 className="widget-title">♫ Spotify</h2>
+          <button className="btn-ghost btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
-        <button className="spotify-refresh-btn" onClick={onRefresh} aria-label="Refresh">↻</button>
+        <p className="widget-empty">Nothing playing</p>
       </div>
     );
   }
@@ -54,30 +49,30 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
   const { track, device } = nowPlaying;
 
   return (
-    <div className="spotify-widget spotify-widget--playing">
-      <div className="spotify-art">
-        {track?.albumArt ? (
-          <img src={track.albumArt} alt="Album art" className="spotify-art-img" />
-        ) : (
-          <div className="spotify-art-placeholder">♫</div>
-        )}
+    <div className="widget-card spotify-widget spotify-widget--active">
+      <div className="widget-header">
+        <h2 className="widget-title">♫ Now Playing</h2>
+        <button className="btn-ghost btn-sm" onClick={onRefresh}>↻</button>
       </div>
-      <div className="spotify-widget-body">
-        <p className="spotify-track-name">{track?.name ?? "—"}</p>
-        <p className="spotify-artist">{track?.artists ?? "—"}</p>
-        {device && <p className="spotify-device">▸ {device.name}</p>}
-        <div className="spotify-controls">
-          <button onClick={() => void playbackAction("previous")} aria-label="Previous">⏮</button>
-          <button
-            className="spotify-playpause"
-            onClick={() => void playbackAction(nowPlaying.isPlaying ? "pause" : "play")}
-            aria-label={nowPlaying.isPlaying ? "Pause" : "Play"}
-          >
-            {nowPlaying.isPlaying ? "⏸" : "▶"}
-          </button>
-          <button onClick={() => void playbackAction("next")} aria-label="Next">⏭</button>
-          <button className="spotify-refresh-small" onClick={onRefresh} aria-label="Refresh">↻</button>
+      <div className="spotify-body">
+        <div className="spotify-art">
+          {track?.albumArt
+            ? <img src={track.albumArt} alt="Album art" />
+            : <div className="spotify-art-fallback">♫</div>
+          }
         </div>
+        <div className="spotify-info">
+          <p className="spotify-track">{track?.name}</p>
+          <p className="spotify-artist">{track?.artists}</p>
+          {device && <p className="spotify-device">▸ {device.name}</p>}
+        </div>
+      </div>
+      <div className="spotify-controls">
+        <button onClick={() => void control("previous")} title="Previous">⏮</button>
+        <button className="spotify-playpause" onClick={() => void control(nowPlaying.isPlaying ? "pause" : "play")}>
+          {nowPlaying.isPlaying ? "⏸" : "▶"}
+        </button>
+        <button onClick={() => void control("next")} title="Next">⏭</button>
       </div>
     </div>
   );

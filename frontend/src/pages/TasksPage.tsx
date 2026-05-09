@@ -1,12 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api } from "../api/client";
 
-interface Project {
-  id: string;
-  name: string;
-  _count?: { tasks: number };
-}
-
+interface Project { id: string; name: string }
 interface Task {
   id: string;
   title: string;
@@ -16,33 +11,34 @@ interface Task {
   createdAt: string;
 }
 
-const STATUS_LABELS: Record<Task["status"], string> = {
-  TODO: "To do",
-  IN_PROGRESS: "In progress",
-  DONE: "Done"
-};
+const STATUS_COLS: Array<{ key: Task["status"]; label: string }> = [
+  { key: "TODO",        label: "To Do"       },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "DONE",        label: "Done"        },
+];
 
-const STATUS_CYCLE: Task["status"][] = ["TODO", "IN_PROGRESS", "DONE"];
+const NEXT: Record<Task["status"], Task["status"]> = {
+  TODO: "IN_PROGRESS",
+  IN_PROGRESS: "DONE",
+  DONE: "TODO",
+};
 
 export const TasksPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [activeProject, setActiveProject] = useState<string>("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [tasks,    setTasks]    = useState<Task[]>([]);
+  const [filter,   setFilter]   = useState("all");
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
 
-  // add task form
-  const [adding, setAdding] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newProjectId, setNewProjectId] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [enriching, setEnriching] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // add project form
-  const [addingProject, setAddingProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [savingProject, setSavingProject] = useState(false);
+  const [showTaskForm,    setShowTaskForm]    = useState(false);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [newTitle,   setNewTitle]   = useState("");
+  const [newProjId,  setNewProjId]  = useState("");
+  const [newDesc,    setNewDesc]    = useState("");
+  const [enriching,  setEnriching]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [newProjName, setNewProjName] = useState("");
+  const [savingProj,  setSavingProj]  = useState(false);
 
   useEffect(() => { void load(); }, []);
 
@@ -50,14 +46,14 @@ export const TasksPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [pRes, tRes] = await Promise.all([api.get("/projects"), api.get("/tasks")]);
-      const p: Project[] = Array.isArray(pRes.data) ? pRes.data : (pRes.data?.data ?? []);
-      const t: Task[] = Array.isArray(tRes.data) ? tRes.data : (tRes.data?.data ?? []);
+      const [pr, tr] = await Promise.all([api.get("/projects"), api.get("/tasks")]);
+      const p: Project[] = Array.isArray(pr.data) ? pr.data : (pr.data?.data ?? []);
+      const t: Task[]    = Array.isArray(tr.data) ? tr.data : (tr.data?.data ?? []);
       setProjects(p);
       setTasks(t);
-      if (p.length > 0 && !newProjectId) setNewProjectId(p[0].id);
+      if (p.length > 0 && !newProjId) setNewProjId(p[0].id);
     } catch {
-      setError("Could not load tasks. Check your connection.");
+      setError("Could not load tasks.");
     } finally {
       setLoading(false);
     }
@@ -67,212 +63,148 @@ export const TasksPage = () => {
     if (!newTitle.trim()) return;
     setEnriching(true);
     try {
-      const res = await api.post("/ai/tasks/enrich", { title: newTitle });
-      setNewDesc(res.data?.data?.description ?? res.data?.description ?? "");
+      const r = await api.post("/ai/tasks/enrich", { title: newTitle });
+      setNewDesc(r.data?.data?.description ?? r.data?.description ?? "");
     } catch { /* ignore */ }
     finally { setEnriching(false); }
   };
 
   const addTask = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newProjectId) return;
+    if (!newTitle.trim() || !newProjId) return;
     setSaving(true);
     try {
-      await api.post("/tasks", {
-        title: newTitle,
-        projectId: newProjectId,
-        description: newDesc || undefined
-      });
-      setAdding(false);
-      setNewTitle("");
-      setNewDesc("");
+      await api.post("/tasks", { title: newTitle, projectId: newProjId, description: newDesc || undefined });
+      setShowTaskForm(false); setNewTitle(""); setNewDesc("");
       await load();
-    } catch { /* ignore */ }
-    finally { setSaving(false); }
+    } finally { setSaving(false); }
   };
 
   const addProject = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
-    setSavingProject(true);
+    if (!newProjName.trim()) return;
+    setSavingProj(true);
     try {
-      await api.post("/projects", { name: newProjectName });
-      setAddingProject(false);
-      setNewProjectName("");
+      await api.post("/projects", { name: newProjName });
+      setShowProjectForm(false); setNewProjName("");
       await load();
-    } catch { /* ignore */ }
-    finally { setSavingProject(false); }
+    } finally { setSavingProj(false); }
   };
 
   const cycleStatus = async (task: Task) => {
-    const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(task.status) + 1) % STATUS_CYCLE.length];
-    try {
-      await api.patch(`/tasks/${task.id}`, { status: next });
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)));
-    } catch { /* ignore */ }
+    const next = NEXT[task.status];
+    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
+    try { await api.patch(`/tasks/${task.id}`, { status: next }); }
+    catch { await load(); }
   };
 
-  const deleteTask = async (taskId: string) => {
-    try {
-      await api.delete(`/tasks/${taskId}`);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    } catch { /* ignore */ }
+  const deleteTask = async (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    try { await api.delete(`/tasks/${id}`); }
+    catch { await load(); }
   };
 
-  const visible = activeProject === "all"
-    ? tasks
-    : tasks.filter((t) => t.project.id === activeProject);
-
-  const grouped = {
-    TODO: visible.filter((t) => t.status === "TODO"),
-    IN_PROGRESS: visible.filter((t) => t.status === "IN_PROGRESS"),
-    DONE: visible.filter((t) => t.status === "DONE")
-  };
+  const visible = filter === "all" ? tasks : tasks.filter((t) => t.project.id === filter);
 
   return (
-    <div className="page tasks-page">
-      <header className="page-header">
-        <h1 className="page-title">Tasks</h1>
-        <button className="header-action-btn" onClick={() => setAdding(true)}>+ Add</button>
-      </header>
+    <div className="page">
+      <div className="page-titlebar">
+        <div>
+          <h1 className="page-title">Tasks</h1>
+        </div>
+        <div className="page-actions">
+          <button className="btn-ghost" onClick={() => setShowProjectForm(true)}>+ Project</button>
+          <button className="btn-primary" onClick={() => setShowTaskForm(true)}>+ New Task</button>
+        </div>
+      </div>
 
-      {/* Project filter tabs */}
-      <div className="project-tabs">
-        <button
-          className={`project-tab ${activeProject === "all" ? "active" : ""}`}
-          onClick={() => setActiveProject("all")}
-        >
-          All
+      {/* Project filter */}
+      <div className="filter-bar">
+        <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>
+          All <span className="filter-count">{tasks.length}</span>
         </button>
-        {projects.map((p) => (
-          <button
-            key={p.id}
-            className={`project-tab ${activeProject === p.id ? "active" : ""}`}
-            onClick={() => setActiveProject(p.id)}
-          >
-            {p.name}
-          </button>
-        ))}
-        <button className="project-tab project-tab--add" onClick={() => setAddingProject(true)}>+</button>
+        {projects.map((p) => {
+          const count = tasks.filter((t) => t.project.id === p.id).length;
+          return (
+            <button key={p.id} className={`filter-chip ${filter === p.id ? "active" : ""}`} onClick={() => setFilter(p.id)}>
+              {p.name} <span className="filter-count">{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {error && <p className="page-error">{error}</p>}
-      {loading && <p className="page-loading">Loading…</p>}
 
-      {/* Add task form */}
-      {adding && (
-        <div className="task-form-card">
+      {/* Inline forms */}
+      {showTaskForm && (
+        <div className="inline-form-card">
           <form onSubmit={addTask}>
-            <input
-              className="task-form-input"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Task title"
-              autoFocus
-              required
-            />
-            <div className="task-form-row">
-              <select
-                className="task-form-select"
-                value={newProjectId}
-                onChange={(e) => setNewProjectId(e.target.value)}
-                required
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+            <div className="inline-form-row">
+              <input className="form-input form-input--grow" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title…" autoFocus required />
+              <select className="form-select" value={newProjId} onChange={(e) => setNewProjId(e.target.value)} required>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <button
-                type="button"
-                className="task-form-enrich"
-                onClick={() => void enrich()}
-                disabled={enriching || !newTitle.trim()}
-              >
-                {enriching ? "…" : "✦ AI"}
+              <button type="button" className="btn-ghost btn-sm" onClick={() => void enrich()} disabled={enriching || !newTitle.trim()}>
+                {enriching ? "…" : "✦ AI enrich"}
               </button>
-            </div>
-            {newDesc && (
-              <textarea
-                className="task-form-textarea"
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                rows={4}
-              />
-            )}
-            <div className="task-form-actions">
-              <button type="button" className="task-form-cancel" onClick={() => setAdding(false)}>Cancel</button>
-              <button type="submit" className="task-form-save" disabled={saving || !newTitle.trim()}>
+              <button type="submit" className="btn-primary btn-sm" disabled={saving || !newTitle.trim()}>
                 {saving ? "Saving…" : "Create"}
               </button>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
             </div>
+            {newDesc && (
+              <textarea className="form-textarea" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={3} placeholder="Description…" />
+            )}
           </form>
         </div>
       )}
 
-      {/* Add project form */}
-      {addingProject && (
-        <div className="task-form-card">
+      {showProjectForm && (
+        <div className="inline-form-card">
           <form onSubmit={addProject}>
-            <input
-              className="task-form-input"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              placeholder="Project name"
-              autoFocus
-              required
-            />
-            <div className="task-form-actions">
-              <button type="button" className="task-form-cancel" onClick={() => setAddingProject(false)}>Cancel</button>
-              <button type="submit" className="task-form-save" disabled={savingProject}>
-                {savingProject ? "Saving…" : "Create Project"}
-              </button>
+            <div className="inline-form-row">
+              <input className="form-input form-input--grow" value={newProjName} onChange={(e) => setNewProjName(e.target.value)} placeholder="Project name…" autoFocus required />
+              <button type="submit" className="btn-primary btn-sm" disabled={savingProj}>{savingProj ? "Saving…" : "Create Project"}</button>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setShowProjectForm(false)}>Cancel</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Task groups */}
+      {/* Kanban board */}
       {!loading && (
-        <div className="task-groups">
-          {(["TODO", "IN_PROGRESS", "DONE"] as const).map((status) =>
-            grouped[status].length === 0 ? null : (
-              <div key={status} className="task-group">
-                <p className="task-group-label">{STATUS_LABELS[status]} · {grouped[status].length}</p>
-                {grouped[status].map((task) => (
-                  <div key={task.id} className={`task-card task-card--${status.toLowerCase().replace("_", "-")}`}>
-                    <div className="task-card-body">
-                      <button
-                        className="task-status-pill"
-                        onClick={() => void cycleStatus(task)}
-                        title="Cycle status"
-                      >
-                        {status === "TODO" ? "○" : status === "IN_PROGRESS" ? "◑" : "●"}
-                      </button>
-                      <div className="task-card-text">
-                        <p className={`task-card-title ${status === "DONE" ? "done" : ""}`}>{task.title}</p>
-                        <p className="task-card-project">{task.project.name}</p>
+        <div className="kanban-board">
+          {STATUS_COLS.map(({ key, label }) => {
+            const col = visible.filter((t) => t.status === key);
+            return (
+              <div key={key} className={`kanban-col kanban-col--${key.toLowerCase().replace("_", "-")}`}>
+                <div className="kanban-col-header">
+                  <span className="kanban-col-title">{label}</span>
+                  <span className="kanban-col-count">{col.length}</span>
+                </div>
+                <div className="kanban-col-body">
+                  {col.map((task) => (
+                    <div key={task.id} className="kanban-card">
+                      <div className="kanban-card-top">
+                        <p className={`kanban-card-title ${key === "DONE" ? "done" : ""}`}>{task.title}</p>
+                        <button className="kanban-card-delete" onClick={() => void deleteTask(task.id)}>×</button>
+                      </div>
+                      <div className="kanban-card-footer">
+                        <span className="kanban-card-project">{task.project.name}</span>
+                        <button className="kanban-card-advance" onClick={() => void cycleStatus(task)}>
+                          {key === "TODO" ? "Start →" : key === "IN_PROGRESS" ? "Done ✓" : "Reopen"}
+                        </button>
                       </div>
                     </div>
-                    <button
-                      className="task-delete-btn"
-                      onClick={() => void deleteTask(task.id)}
-                      aria-label="Delete task"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                  {col.length === 0 && <p className="kanban-col-empty">Empty</p>}
+                </div>
               </div>
-            )
-          )}
-          {visible.length === 0 && !loading && (
-            <div className="task-empty">
-              <p>No tasks yet</p>
-              <button className="task-empty-btn" onClick={() => setAdding(true)}>Create your first task →</button>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
+      {loading && <p className="page-loading">Loading…</p>}
     </div>
   );
 };

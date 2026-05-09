@@ -13,39 +13,33 @@ const greeting = () => {
 export const HomePage = () => {
     const [nowPlaying, setNowPlaying] = useState(null);
     const [spotifyConnected, setSpotifyConnected] = useState(false);
-    const [openTasks, setOpenTasks] = useState(null);
+    const [tasks, setTasks] = useState([]);
     const [quickPrompt, setQuickPrompt] = useState("");
     const [quickReply, setQuickReply] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
     useEffect(() => {
         void loadSpotify();
-        void loadTaskCount();
+        void loadTasks();
     }, []);
     const loadSpotify = async () => {
         try {
-            const status = await api.get("/spotify/status");
-            const connected = status.data?.data?.connected ?? false;
+            const s = await api.get("/spotify/status");
+            const connected = s.data?.data?.connected ?? false;
             setSpotifyConnected(connected);
             if (connected) {
                 const np = await api.get("/spotify/now-playing");
                 setNowPlaying(np.data?.data ?? np.data ?? null);
             }
         }
-        catch {
-            /* ignore */
-        }
+        catch { /* ignore */ }
     };
-    const loadTaskCount = async () => {
+    const loadTasks = async () => {
         try {
             const res = await api.get("/tasks");
-            const tasks = Array.isArray(res.data)
-                ? res.data
-                : (res.data?.data ?? []);
-            setOpenTasks(tasks.filter((t) => t.status !== "DONE").length);
+            const t = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+            setTasks(t);
         }
-        catch {
-            /* ignore */
-        }
+        catch { /* ignore */ }
     };
     const sendQuick = async () => {
         const msg = quickPrompt.trim();
@@ -59,11 +53,14 @@ export const HomePage = () => {
             setQuickPrompt("");
         }
         catch {
-            setQuickReply("AI unavailable right now.");
+            setQuickReply("AI unavailable.");
         }
         finally {
             setAiLoading(false);
         }
     };
-    return (_jsxs("div", { className: "page home-page", children: [_jsxs("header", { className: "page-header", children: [_jsxs("div", { children: [_jsx("p", { className: "page-eyebrow", children: greeting() }), _jsx("h1", { className: "page-title", children: "Cortex" })] }), _jsx("div", { className: "status-dot", title: "Online" })] }), _jsx(SpotifyWidget, { connected: spotifyConnected, nowPlaying: nowPlaying, onRefresh: loadSpotify }), openTasks !== null && (_jsxs("div", { className: "home-card", children: [_jsx("span", { className: "home-card-icon", children: "\u2713" }), _jsxs("div", { children: [_jsx("p", { className: "home-card-count", children: openTasks }), _jsxs("p", { className: "home-card-label", children: ["open task", openTasks !== 1 ? "s" : ""] })] })] })), _jsxs("div", { className: "quick-ai-card", children: [_jsx("p", { className: "quick-ai-label", children: "Quick ask" }), quickReply && _jsx("p", { className: "quick-ai-reply", children: quickReply }), _jsxs("div", { className: "quick-ai-row", children: [_jsx("input", { className: "quick-ai-input", value: quickPrompt, onChange: (e) => setQuickPrompt(e.target.value), onKeyDown: (e) => e.key === "Enter" && void sendQuick(), placeholder: "Ask anything\u2026" }), _jsx("button", { className: "quick-ai-btn", onClick: () => void sendQuick(), disabled: aiLoading || !quickPrompt.trim(), children: aiLoading ? "…" : "→" })] })] })] }));
+    const open = tasks.filter((t) => t.status === "TODO").length;
+    const active = tasks.filter((t) => t.status === "IN_PROGRESS").length;
+    const done = tasks.filter((t) => t.status === "DONE").length;
+    return (_jsxs("div", { className: "page", children: [_jsx("div", { className: "page-titlebar", children: _jsxs("div", { children: [_jsx("p", { className: "page-eyebrow", children: greeting() }), _jsx("h1", { className: "page-title", children: "Home" })] }) }), _jsxs("div", { className: "stats-row", children: [_jsxs("div", { className: "stat-card", children: [_jsx("p", { className: "stat-value", children: open }), _jsx("p", { className: "stat-label", children: "To do" })] }), _jsxs("div", { className: "stat-card stat-card--active", children: [_jsx("p", { className: "stat-value", children: active }), _jsx("p", { className: "stat-label", children: "In progress" })] }), _jsxs("div", { className: "stat-card stat-card--done", children: [_jsx("p", { className: "stat-value", children: done }), _jsx("p", { className: "stat-label", children: "Done" })] }), _jsxs("div", { className: "stat-card", children: [_jsx("p", { className: "stat-value", children: tasks.length }), _jsx("p", { className: "stat-label", children: "Total tasks" })] })] }), _jsxs("div", { className: "home-grid", children: [_jsxs("div", { className: "home-col", children: [_jsx(SpotifyWidget, { connected: spotifyConnected, nowPlaying: nowPlaying, onRefresh: loadSpotify }), _jsxs("div", { className: "widget-card", children: [_jsx("div", { className: "widget-header", children: _jsx("h2", { className: "widget-title", children: "Recent tasks" }) }), tasks.length === 0 ? (_jsx("p", { className: "widget-empty", children: "No tasks yet" })) : (_jsx("ul", { className: "task-list-mini", children: tasks.slice(0, 8).map((t) => (_jsxs("li", { className: `task-list-mini-item ${t.status === "DONE" ? "done" : ""}`, children: [_jsx("span", { className: "task-mini-dot", children: t.status === "DONE" ? "●" : t.status === "IN_PROGRESS" ? "◑" : "○" }), _jsx("span", { className: "task-mini-title", children: t.title }), _jsx("span", { className: "task-mini-project", children: t.project.name })] }, t.id))) }))] })] }), _jsx("div", { className: "home-col", children: _jsxs("div", { className: "widget-card widget-card--ai", children: [_jsx("div", { className: "widget-header", children: _jsx("h2", { className: "widget-title", children: "\u25C8 Quick AI" }) }), quickReply && (_jsx("div", { className: "quick-reply-box", children: _jsx("p", { className: "quick-reply-text", children: quickReply }) })), _jsxs("div", { className: "quick-ai-row", children: [_jsx("input", { className: "quick-ai-input", value: quickPrompt, onChange: (e) => setQuickPrompt(e.target.value), onKeyDown: (e) => e.key === "Enter" && void sendQuick(), placeholder: "Ask anything\u2026" }), _jsx("button", { className: "quick-ai-btn", onClick: () => void sendQuick(), disabled: aiLoading || !quickPrompt.trim(), children: aiLoading ? "…" : "Ask →" })] })] }) })] })] }));
 };

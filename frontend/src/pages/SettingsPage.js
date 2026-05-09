@@ -3,36 +3,32 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 export const SettingsPage = ({ onLogout }) => {
     const [spotifyConnected, setSpotifyConnected] = useState(false);
-    const [spotifyLoading, setSpotifyLoading] = useState(true);
     const [oauthUrl, setOauthUrl] = useState(null);
-    useEffect(() => {
-        void loadSpotifyStatus();
-    }, []);
-    const loadSpotifyStatus = async () => {
-        setSpotifyLoading(true);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => { void loadSpotify(); }, []);
+    const loadSpotify = async () => {
+        setLoading(true);
         try {
-            const res = await api.get("/spotify/status");
-            setSpotifyConnected(res.data?.data?.connected ?? false);
-            if (!res.data?.data?.connected) {
-                try {
-                    const urlRes = await api.get("/spotify/oauth/url");
-                    setOauthUrl(urlRes.data?.data?.url ?? null);
-                }
-                catch { /* ignore */ }
+            const r = await api.get("/spotify/status");
+            setSpotifyConnected(r.data?.data?.connected ?? false);
+            if (!r.data?.data?.connected) {
+                const u = await api.get("/spotify/oauth/url");
+                setOauthUrl(u.data?.data?.url ?? null);
             }
         }
         catch { /* ignore */ }
         finally {
-            setSpotifyLoading(false);
+            setLoading(false);
         }
     };
-    const disconnectSpotify = async () => {
+    const disconnect = async () => {
         try {
             await api.post("/spotify/disconnect");
-            setSpotifyConnected(false);
-            await loadSpotifyStatus();
+            await loadSpotify();
         }
         catch { /* ignore */ }
     };
-    return (_jsxs("div", { className: "page settings-page", children: [_jsx("header", { className: "page-header", children: _jsx("h1", { className: "page-title", children: "Settings" }) }), _jsxs("section", { className: "settings-section", children: [_jsx("h2", { className: "settings-section-title", children: "Connections" }), _jsxs("div", { className: "settings-row", children: [_jsx("div", { className: "settings-row-icon settings-row-icon--spotify", children: "\u266B" }), _jsxs("div", { className: "settings-row-body", children: [_jsx("p", { className: "settings-row-label", children: "Spotify" }), _jsx("p", { className: "settings-row-sub", children: spotifyLoading ? "Checking…" : spotifyConnected ? "Connected" : "Not connected" })] }), !spotifyLoading && (spotifyConnected ? (_jsx("button", { className: "settings-disconnect-btn", onClick: () => void disconnectSpotify(), children: "Disconnect" })) : (_jsx("a", { className: "settings-connect-btn", href: oauthUrl ?? "#", rel: "noopener noreferrer", children: "Connect" })))] })] }), _jsxs("section", { className: "settings-section", children: [_jsx("h2", { className: "settings-section-title", children: "Account" }), _jsxs("div", { className: "settings-row", children: [_jsx("div", { className: "settings-row-icon", children: "\u2699" }), _jsxs("div", { className: "settings-row-body", children: [_jsx("p", { className: "settings-row-label", children: "Session" }), _jsx("p", { className: "settings-row-sub", children: "Signed in via email OTP" })] })] })] }), _jsx("button", { className: "settings-logout-btn", onClick: onLogout, children: "Sign out" })] }));
+    return (_jsxs("div", { className: "page", children: [_jsx("div", { className: "page-titlebar", children: _jsx("h1", { className: "page-title", children: "Settings" }) }), _jsx("div", { className: "settings-layout", children: _jsxs("div", { className: "settings-col", children: [_jsxs("section", { className: "settings-section", children: [_jsx("h2", { className: "settings-section-title", children: "Integrations" }), _jsxs("div", { className: "settings-item", children: [_jsxs("div", { className: "settings-item-left", children: [_jsx("div", { className: "settings-item-icon settings-item-icon--spotify", children: "\u266B" }), _jsxs("div", { children: [_jsx("p", { className: "settings-item-name", children: "Spotify" }), _jsx("p", { className: "settings-item-desc", children: loading ? "Checking…" : spotifyConnected ? "Connected — now-playing & playback controls active" : "Connect to show what's playing and control playback" })] })] }), !loading && (spotifyConnected
+                                            ? _jsx("button", { className: "btn-ghost btn-sm", onClick: () => void disconnect(), children: "Disconnect" })
+                                            : _jsx("a", { className: "btn-primary btn-sm", href: oauthUrl ?? "#", children: "Connect" }))] })] }), _jsxs("section", { className: "settings-section", children: [_jsx("h2", { className: "settings-section-title", children: "Session" }), _jsxs("div", { className: "settings-item", children: [_jsxs("div", { className: "settings-item-left", children: [_jsx("div", { className: "settings-item-icon", children: "\uD83D\uDC64" }), _jsxs("div", { children: [_jsx("p", { className: "settings-item-name", children: "Account" }), _jsx("p", { className: "settings-item-desc", children: "Signed in via email OTP" })] })] }), _jsx("button", { className: "btn-danger btn-sm", onClick: onLogout, children: "Sign out" })] })] })] }) })] }));
 };

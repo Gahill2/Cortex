@@ -4,8 +4,6 @@ interface NowPlaying {
         name: string;
         artists: string;
         albumArt?: string;
-        progressMs?: number;
-        durationMs?: number;
     };
     device?: {
         name: string;
