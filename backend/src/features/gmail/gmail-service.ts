@@ -7,11 +7,14 @@ const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email"
 ];
 
+const getRedirectUri = () => env.GOOGLE_REDIRECT_URI || env.GOOGLE_REDIRECT_URL || "";
+
 export const isGmailConfigured = (): boolean => {
-  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = env;
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) return false;
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env;
+  const redirectUri = getRedirectUri();
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !redirectUri) return false;
   try {
-    void new URL(GOOGLE_REDIRECT_URI);
+    void new URL(redirectUri);
     return true;
   } catch {
     return false;
@@ -19,7 +22,7 @@ export const isGmailConfigured = (): boolean => {
 };
 
 export const createOAuth2Client = () =>
-  new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, env.GOOGLE_REDIRECT_URI || undefined);
+  new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, getRedirectUri() || undefined);
 
 export const buildGmailAuthUrl = (state: string): string => {
   const client = createOAuth2Client();

@@ -17,6 +17,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_REDIRECT_URI: z.string().optional().default(""),
+  GOOGLE_REDIRECT_URL: z.string().optional().default(""),
   CORTEX_FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
