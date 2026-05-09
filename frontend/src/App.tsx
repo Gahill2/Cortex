@@ -4,10 +4,11 @@ import { HomePage } from "./pages/HomePage";
 import { TasksPage } from "./pages/TasksPage";
 import { AIPage } from "./pages/AIPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { GmailPage } from "./pages/GmailPage";
 import { Sidebar } from "./components/Sidebar";
 import { setAuthToken } from "./api/client";
 
-export type Tab = "home" | "tasks" | "ai" | "settings";
+export type Tab = "home" | "tasks" | "ai" | "settings" | "gmail";
 const TOKEN_KEY = "cortex_token";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
         {tab === "tasks"    && <TasksPage />}
         {tab === "ai"       && <AIPage />}
         {tab === "settings" && <SettingsPage onLogout={() => { setToken(null); setTab("home"); }} />}
+        {tab === "gmail"    && <GmailPage />}
       </main>
     </div>
   );
