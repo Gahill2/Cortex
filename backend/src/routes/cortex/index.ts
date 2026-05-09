@@ -15,7 +15,13 @@ cortexRouter.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "cortex-api",
-    phase: "phase-1-foundation"
+    phase: "phase-1-foundation",
+    gmail_configured: {
+      has_client_id: Boolean(process.env.GOOGLE_CLIENT_ID),
+      has_client_secret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+      has_redirect_uri: Boolean(process.env.GOOGLE_REDIRECT_URI),
+      has_redirect_url: Boolean(process.env.GOOGLE_REDIRECT_URL),
+    }
   });
 });
 
