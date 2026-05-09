@@ -385,6 +385,236 @@ img { display: block; max-width: 100%; }
 }
 .quick-ai-btn:disabled { opacity: 0.4; }
 
+/* ── Home widget board ───────────────────────────────────── */
+.home-page { overflow-y: auto; }
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 220px;
+  gap: 14px;
+}
+
+/* Base widget */
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  transition: border-color 140ms, box-shadow 140ms;
+  position: relative;
+}
+.widget[role="button"] { cursor: pointer; }
+.widget[role="button"]:hover {
+  border-color: var(--border-2);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.widget-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.widget-empty { font-size: 13px; color: var(--text-3); }
+
+.widget-open-hint {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--text-3);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: color 120ms;
+}
+.widget[role="button"]:hover .widget-open-hint,
+.widget-open-hint:hover { color: var(--accent); }
+
+/* Clock widget — spans 1 col */
+.widget--clock {
+  background: linear-gradient(135deg, #12122a 0%, #1a1030 100%);
+  border-color: rgba(91,141,255,0.2);
+  justify-content: center;
+}
+.clock-time {
+  font-size: 42px;
+  font-weight: 200;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.clock-sec { font-size: 28px; color: var(--text-2); }
+.clock-date { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+.widget-status-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.widget-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.widget-status-text { font-size: 11px; color: var(--text-3); }
+
+/* Spotify widget — spans 2 cols */
+.widget--spotify {
+  grid-column: span 2;
+  background: var(--surface);
+}
+.widget--spotify-active {
+  background: linear-gradient(135deg, rgba(30,215,96,0.07) 0%, var(--surface) 60%);
+  border-color: rgba(30,215,96,0.2);
+}
+.widget-cta { display: flex; flex-direction: column; gap: 8px; flex: 1; justify-content: center; }
+.widget-cta-text { font-size: 14px; color: var(--text-2); }
+.widget-cta-btn {
+  font-size: 12px; font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(91,141,255,0.3);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  width: fit-content;
+  transition: background 120ms;
+}
+.widget-cta-btn:hover { background: rgba(91,141,255,0.25); }
+.spotify-widget-body { display: flex; gap: 14px; align-items: center; flex: 1; }
+.spotify-widget-art {
+  width: 72px; height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-3);
+  display: flex; align-items: center; justify-content: center;
+}
+.spotify-widget-art img { width: 100%; height: 100%; object-fit: cover; }
+.spotify-art-fallback { font-size: 28px; color: #1ed760; }
+.spotify-widget-info { flex: 1; min-width: 0; }
+.spotify-widget-track { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-widget-artist { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+.spotify-widget-device { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.spotify-widget-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.spotify-widget-controls button {
+  font-size: 18px;
+  color: var(--text-2);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: color 100ms, background 100ms;
+}
+.spotify-widget-controls button:hover { color: var(--text); background: var(--surface-2); }
+.spotify-pp { font-size: 22px !important; color: var(--text) !important; }
+.spotify-refresh { font-size: 15px !important; margin-left: 4px; }
+
+/* Tasks widget — spans 1 col, 2 rows tall */
+.widget--tasks {
+  grid-row: span 2;
+}
+.widget-task-stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.widget-task-stat {
+  flex: 1;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  text-align: center;
+}
+.widget-task-stat--active { background: var(--accent-dim); }
+.widget-task-stat--done   { background: var(--green-dim); }
+.widget-task-num { display: block; font-size: 22px; font-weight: 700; line-height: 1; }
+.widget-task-lbl { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-top: 3px; }
+.widget-task-list { list-style: none; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: hidden; }
+.widget-task-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 100ms;
+}
+.widget-task-item:hover { background: var(--surface-2); }
+.widget-task-item--active .widget-task-dot { color: var(--accent); }
+.widget-task-dot { font-size: 11px; color: var(--text-3); flex-shrink: 0; }
+.widget-task-title { font-size: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.widget-task-proj { font-size: 11px; color: var(--text-3); flex-shrink: 0; }
+
+/* AI widget */
+.widget--ai { grid-column: span 2; }
+.widget-ai-reply {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+.widget-ai-reply-clear {
+  position: absolute;
+  top: 6px; right: 8px;
+  font-size: 16px;
+  color: var(--text-3);
+}
+.widget-ai-idle { font-size: 13px; color: var(--text-3); flex: 1; }
+.widget-ai-form { display: flex; gap: 6px; flex-shrink: 0; }
+.widget-ai-input {
+  flex: 1;
+  padding: 7px 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: border-color 120ms;
+}
+.widget-ai-input:focus { border-color: var(--accent); }
+.widget-ai-input::placeholder { color: var(--text-3); }
+.widget-ai-send {
+  padding: 7px 14px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  transition: opacity 100ms;
+}
+.widget-ai-send:disabled { opacity: 0.4; }
+
+/* Active tasks widget */
+.widget--active-tasks { grid-column: span 2; }
+
+/* Settings widget */
+.widget--settings { }
+.widget-integrations { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.widget-integration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.widget-integration.connected { border-color: rgba(30,215,96,0.2); }
+.widget-integration-icon { font-size: 16px; }
+.widget-integration-name { font-size: 13px; flex: 1; }
+.widget-integration-status { font-size: 11px; font-weight: 600; }
+.widget-integration-status.on  { color: var(--green); }
+.widget-integration-status.off { color: var(--text-3); }
+
 /* ── Tasks page ──────────────────────────────────────────── */
 .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
 .filter-chip {

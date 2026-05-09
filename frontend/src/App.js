@@ -23,5 +23,5 @@ export default function App() {
     if (!token) {
         return _jsx(LoginPage, { onLogin: setToken });
     }
-    return (_jsxs("div", { className: "desktop-shell", children: [_jsx(Sidebar, { active: tab, onChange: setTab }), _jsxs("main", { className: "desktop-main", children: [tab === "home" && _jsx(HomePage, {}), tab === "tasks" && _jsx(TasksPage, {}), tab === "ai" && _jsx(AIPage, {}), tab === "settings" && _jsx(SettingsPage, { onLogout: () => { setToken(null); setTab("home"); } })] })] }));
+    return (_jsxs("div", { className: "desktop-shell", children: [_jsx(Sidebar, { active: tab, onChange: setTab }), _jsxs("main", { className: "desktop-main", children: [tab === "home" && _jsx(HomePage, { onNavigate: setTab }), tab === "tasks" && _jsx(TasksPage, {}), tab === "ai" && _jsx(AIPage, {}), tab === "settings" && _jsx(SettingsPage, { onLogout: () => { setToken(null); setTab("home"); } })] })] }));
 }

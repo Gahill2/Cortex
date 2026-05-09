@@ -31,7 +31,7 @@ export default function App() {
     <div className="desktop-shell">
       <Sidebar active={tab} onChange={setTab} />
       <main className="desktop-main">
-        {tab === "home"     && <HomePage />}
+        {tab === "home"     && <HomePage onNavigate={setTab} />}
         {tab === "tasks"    && <TasksPage />}
         {tab === "ai"       && <AIPage />}
         {tab === "settings" && <SettingsPage onLogout={() => { setToken(null); setTab("home"); }} />}
