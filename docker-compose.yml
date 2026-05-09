@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    container_name: launchpad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: launchpad
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - launchpad_pg_data:/var/lib/postgresql/data
+
+volumes:
+  launchpad_pg_data:

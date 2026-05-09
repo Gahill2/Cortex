@@ -1,0 +1,13 @@
+{
+  "name": "cortex-root",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Root orchestration scripts for local development",
+  "scripts": {
+    "dev": "npm run dev:stack",
+    "dev:stack": "npm --prefix apps/desktop run dev:full",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:desktop": "npm --prefix apps/desktop run dev:desktop"
+  }
+}

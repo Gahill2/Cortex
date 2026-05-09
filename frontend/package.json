@@ -1,0 +1,52 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Launchpad web app",
+  "private": true,
+  "main": "dist/index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "launchpad",
+    "react",
+    "vite"
+  ],
+  "author": "launchpad",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "axios": "^1.16.0",
+    "cmdk": "^1.1.1",
+    "framer-motion": "^12.38.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-resizable-panels": "^4.11.0",
+    "react-router-dom": "^7.15.0",
+    "react-virtuoso": "^4.18.6",
+    "simple-icons": "^16.18.1",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.11"
+  }
+}
