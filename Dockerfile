@@ -14,6 +14,7 @@ COPY backend/tsconfig.json ./
 
 # Build
 RUN npm run build
+RUN ls -la dist/ && test -f dist/server.js
 
 EXPOSE 4000
 CMD ["npm", "run", "start"]
