@@ -88,7 +88,7 @@ cortexTasksRouter.patch("/:id", routeRateLimit(60, 60_000), async (req, res) => 
   const input = updateTaskSchema.parse(req.body);
 
   const task = await prisma.task.findFirst({
-    where: { id: req.params["id"], organizationId: org.id }
+    where: { id: String(req.params["id"]), organizationId: org.id }
   });
   if (!task) {
     res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Task not found" } });
@@ -117,7 +117,7 @@ cortexTasksRouter.delete("/:id", routeRateLimit(30, 60_000), async (req, res) =>
   const { org } = await getOrCreateCortexUser(userId, email);
 
   const task = await prisma.task.findFirst({
-    where: { id: req.params["id"], organizationId: org.id }
+    where: { id: String(req.params["id"]), organizationId: org.id }
   });
   if (!task) {
     res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Task not found" } });
