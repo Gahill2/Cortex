@@ -2,11 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "Launchpad API server",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
-    "start": "prisma db push --skip-generate && node dist/server.js",
+    "start": "prisma db push --skip-generate && node dist/src/server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
