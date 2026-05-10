@@ -50,6 +50,17 @@ model Project {
   @@unique([id, organizationId])
 }
 
+model OAuthToken {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String   // "spotify" | "google"
+  tokens    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
 model Task {
   id             String     @id @default(cuid())
   title          String

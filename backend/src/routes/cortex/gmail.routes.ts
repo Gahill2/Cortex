@@ -26,10 +26,10 @@ const messageIdBodySchema = z.object({
 
 export const cortexGmailRouter = Router();
 
-cortexGmailRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), (req, res) => {
+cortexGmailRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
   const configured = isGmailConfigured();
   const credentials =
-    configured && req.auth?.userId ? getGoogleCredentials(req.auth.userId) : null;
+    configured && req.auth?.userId ? await getGoogleCredentials(req.auth.userId) : null;
   const connected =
     configured &&
     Boolean(credentials?.refresh_token || credentials?.access_token);
@@ -66,7 +66,7 @@ cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req,
     }
     const { userId } = verifyGmailOAuthState(state);
     const tokens = await exchangeAuthorizationCode(code);
-    saveGoogleCredentials(userId, tokens);
+    await saveGoogleCredentials(userId, tokens);
     res.redirect(`${frontend}/?gmail_connected=1`);
   } catch {
     res.redirect(`${frontend}/?gmail_error=oauth_failed`);
@@ -120,7 +120,7 @@ cortexGmailRouter.post("/messages/star", requireAuth, routeRateLimit(40, 60_000)
   sendSuccess(res, { messageId: body.messageId, action: body.starred ? "starred" : "unstarred" }, "live");
 });
 
-cortexGmailRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), (req, res) => {
-  clearGoogleCredentials(req.auth!.userId);
+cortexGmailRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
+  await clearGoogleCredentials(req.auth!.userId);
   sendSuccess(res, { disconnected: true });
 });

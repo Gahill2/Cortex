@@ -105,12 +105,12 @@ async function refreshAccessToken(tokens: SpotifyTokens): Promise<SpotifyTokens>
 
 /** Get a valid access token, refreshing if expired (with 60s buffer). */
 async function getValidToken(userId: string): Promise<string> {
-  let tokens = getSpotifyTokens(userId);
+  let tokens = await getSpotifyTokens(userId);
   if (!tokens) throw new Error("Not connected to Spotify");
 
   if (Date.now() > tokens.expires_at - 60_000) {
     tokens = await refreshAccessToken(tokens);
-    saveSpotifyTokens(userId, tokens);
+    await saveSpotifyTokens(userId, tokens);
   }
 
   return tokens.access_token;

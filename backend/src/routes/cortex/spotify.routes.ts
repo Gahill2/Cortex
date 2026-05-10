@@ -28,9 +28,9 @@ export const cortexSpotifyRouter = Router();
 
 // ── Status ───────────────────────────────────────────────────────────────────
 
-cortexSpotifyRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), (req, res) => {
+cortexSpotifyRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
   const configured = isSpotifyConfigured();
-  const connected = configured && isSpotifyConnected(req.auth!.userId);
+  const connected = configured && await isSpotifyConnected(req.auth!.userId);
   sendSuccess(res, { configured, connected });
 });
 
@@ -63,7 +63,7 @@ cortexSpotifyRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (re
     }
     const { userId } = verifySpotifyOAuthState(state);
     const tokens = await exchangeSpotifyCode(code);
-    saveSpotifyTokens(userId, tokens);
+    await saveSpotifyTokens(userId, tokens);
     res.redirect(`${frontend}/?spotify_connected=1`);
   } catch {
     res.redirect(`${frontend}/?spotify_error=oauth_failed`);
@@ -77,7 +77,7 @@ cortexSpotifyRouter.get("/now-playing", requireAuth, routeRateLimit(60, 60_000),
     sendSuccess(res, { configured: false, connected: false, playing: false });
     return;
   }
-  if (!isSpotifyConnected(req.auth!.userId)) {
+  if (!await isSpotifyConnected(req.auth!.userId)) {
     sendSuccess(res, { configured: true, connected: false, playing: false });
     return;
   }
@@ -89,7 +89,7 @@ cortexSpotifyRouter.get("/now-playing", requireAuth, routeRateLimit(60, 60_000),
 
 cortexSpotifyRouter.post("/playback/:action", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
   if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
-  if (!isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const action = req.params.action as "play" | "pause" | "next" | "previous";
   if (!["play", "pause", "next", "previous"].includes(action)) {
@@ -102,7 +102,7 @@ cortexSpotifyRouter.post("/playback/:action", requireAuth, routeRateLimit(60, 60
 
 cortexSpotifyRouter.put("/playback/volume", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
   if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
-  if (!isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const { volumePercent } = volumeSchema.parse(req.body);
   await setVolume(req.auth!.userId, volumePercent);
@@ -111,7 +111,7 @@ cortexSpotifyRouter.put("/playback/volume", requireAuth, routeRateLimit(30, 60_0
 
 // ── Disconnect ───────────────────────────────────────────────────────────────
 
-cortexSpotifyRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), (req, res) => {
-  clearSpotifyTokens(req.auth!.userId);
+cortexSpotifyRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
+  await clearSpotifyTokens(req.auth!.userId);
   sendSuccess(res, { disconnected: true });
 });

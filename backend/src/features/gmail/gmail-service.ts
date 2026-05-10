@@ -42,7 +42,7 @@ export const exchangeAuthorizationCode = async (code: string) => {
 };
 
 const gmailForUser = async (userId: string) => {
-  const creds = getGoogleCredentials(userId);
+  const creds = await getGoogleCredentials(userId);
   if (!creds?.access_token && !creds?.refresh_token) {
     return null;
   }

@@ -1,18 +1,21 @@
 import type { Credentials } from "google-auth-library";
+import { prisma } from "../../db/prisma.js";
 
-const tokensByUserId = new Map<string, Credentials>();
-
-export const saveGoogleCredentials = (userId: string, credentials: Credentials): void => {
-  tokensByUserId.set(userId, credentials);
+export const saveGoogleCredentials = async (userId: string, credentials: Credentials): Promise<void> => {
+  await prisma.oAuthToken.upsert({
+    where: { userId_provider: { userId, provider: "google" } },
+    update: { tokens: credentials as object },
+    create: { userId, provider: "google", tokens: credentials as object },
+  });
 };
 
-export const getGoogleCredentials = (userId: string): Credentials | null => tokensByUserId.get(userId) ?? null;
-
-export const clearGoogleCredentials = (userId: string): void => {
-  tokensByUserId.delete(userId);
+export const getGoogleCredentials = async (userId: string): Promise<Credentials | null> => {
+  const row = await prisma.oAuthToken.findUnique({
+    where: { userId_provider: { userId, provider: "google" } },
+  });
+  return row ? (row.tokens as Credentials) : null;
 };
 
-/** Test helper */
-export const resetGoogleTokenStoreForTests = (): void => {
-  tokensByUserId.clear();
+export const clearGoogleCredentials = async (userId: string): Promise<void> => {
+  await prisma.oAuthToken.deleteMany({ where: { userId, provider: "google" } });
 };
