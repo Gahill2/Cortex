@@ -8,6 +8,7 @@ import { cortexGmailRouter } from "./gmail.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
+import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
 
 export const cortexRouter = Router();
 
@@ -17,10 +18,12 @@ cortexRouter.get("/health", (_req, res) => {
     service: "cortex-api",
     phase: "phase-1-foundation",
     gmail_configured: {
+      is_configured: isGmailConfigured(),
       has_client_id: Boolean(process.env.GOOGLE_CLIENT_ID),
       has_client_secret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
       has_redirect_uri: Boolean(process.env.GOOGLE_REDIRECT_URI),
       has_redirect_url: Boolean(process.env.GOOGLE_REDIRECT_URL),
+      redirect_uri_value: process.env.GOOGLE_REDIRECT_URI?.slice(0, 30) + "…",
     }
   });
 });
