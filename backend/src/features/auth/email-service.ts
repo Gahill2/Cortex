@@ -7,24 +7,26 @@ function createTransport() {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS }
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 5_000,
   });
 }
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
   const transport = createTransport();
 
-  // Dev fallback: log to console when SMTP not configured
-  if (!transport) {
-    console.log(`\n[Cortex OTP] ──────────────────────`);
-    console.log(`  To:   ${to}`);
-    console.log(`  Code: ${code}`);
-    console.log(`  (configure SMTP_USER + SMTP_PASS to send real emails)`);
-    console.log(`────────────────────────────────────\n`);
-    return;
-  }
+  // Always log code so it's visible in Railway logs as a fallback
+  console.log(`\n[Cortex OTP] ──────────────────────`);
+  console.log(`  To:   ${to}`);
+  console.log(`  Code: ${code}`);
+  console.log(`────────────────────────────────────\n`);
 
-  await transport.sendMail({
+  if (!transport) return;
+
+  try {
+    await transport.sendMail({
     from: `"Cortex" <${env.SMTP_USER}>`,
     to,
     subject: "Your Cortex verification code",
@@ -50,5 +52,9 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
   </div>
 </body>
 </html>`
-  });
+    });
+  } catch (err) {
+    console.error(`[Cortex OTP] SMTP send failed:`, err);
+    // Don't rethrow — code is already logged above, user can use it
+  }
 }
