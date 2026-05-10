@@ -118,6 +118,17 @@ cortexAuthRouter.post("/logout", requireAuth, routeRateLimit(5, 60_000), (req, r
   res.json({ ok: true });
 });
 
+// ── Desktop (Electron) auto-login ────────────────────────────────────────────
+// Only works when called from localhost — safe for local-only desktop app.
+cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) => {
+  const host = req.hostname;
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    throw new HttpError(403, "Desktop token only available from localhost");
+  }
+  const token = signAccessToken({ userId: "local-user", email: "local@cortex.app" });
+  res.json({ token, user: { id: "local-user", email: "local@cortex.app" } });
+});
+
 // ── OTP flow ─────────────────────────────────────────────────────────────────
 
 /**

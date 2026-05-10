@@ -24,6 +24,15 @@ export default function App() {
     }
   }, [token]);
 
+  // Auto-login when running inside Electron (no OTP needed)
+  useEffect(() => {
+    if ((window as { electron?: { isElectron?: boolean } }).electron?.isElectron && !token) {
+      api.get<{ token: string }>("/auth/desktop-token")
+        .then((r) => setToken(r.data.token))
+        .catch(() => { /* fall through to login page */ });
+    }
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("spotify_connected")) {

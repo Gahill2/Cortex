@@ -1,9 +1,14 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.PROD
-    ? "https://cortex-production-0212.up.railway.app/api"
-    : "http://localhost:4000/api");
+const isElectron = typeof window !== "undefined" &&
+  !!(window as { electron?: { isElectron?: boolean } }).electron?.isElectron;
+
+const baseURL = isElectron
+  ? "http://localhost:4000/api"
+  : (import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD
+      ? "https://cortex-production-0212.up.railway.app/api"
+      : "http://localhost:4000/api"));
 
 export const api = axios.create({
   baseURL

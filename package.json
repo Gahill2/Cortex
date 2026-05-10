@@ -1,13 +1,65 @@
 {
-  "name": "cortex-root",
+  "name": "cortex",
+  "version": "1.0.0",
+  "description": "Cortex — personal command layer",
   "private": true,
-  "version": "0.1.0",
-  "description": "Root orchestration scripts for local development",
+  "main": "electron/dist/main.js",
+  "type": "module",
   "scripts": {
-    "dev": "npm run dev:stack",
-    "dev:stack": "npm --prefix apps/desktop run dev:full",
+    "dev": "concurrently -k -n backend,frontend,electron -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:desktop": "npm --prefix apps/desktop run dev:desktop"
+    "dev:electron": "wait-on http://localhost:5173 http://localhost:4000/api/health && electron .",
+    "build": "npm run build:backend && npm run build:frontend && npm run build:electron",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "dist": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.cortex.app",
+    "productName": "Cortex",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/dist/**/*",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["dist/**/*", "prisma/**/*", "node_modules/**/*", "package.json"]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "frontend/public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^36.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.0.0",
+    "wait-on": "^8.0.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.0.0"
   }
 }

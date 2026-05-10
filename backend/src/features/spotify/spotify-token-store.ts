@@ -9,8 +9,8 @@ export interface SpotifyTokens {
 export const saveSpotifyTokens = async (userId: string, tokens: SpotifyTokens): Promise<void> => {
   await prisma.oAuthToken.upsert({
     where: { userId_provider: { userId, provider: "spotify" } },
-    update: { tokens: tokens as object },
-    create: { userId, provider: "spotify", tokens: tokens as object },
+    update: { tokens: JSON.stringify(tokens) },
+    create: { userId, provider: "spotify", tokens: JSON.stringify(tokens) },
   });
 };
 
@@ -19,12 +19,7 @@ export const getSpotifyTokens = async (userId: string): Promise<SpotifyTokens | 
     where: { userId_provider: { userId, provider: "spotify" } },
   });
   if (!row) return null;
-  const t = row.tokens as Record<string, unknown>;
-  return {
-    access_token: t["access_token"] as string,
-    refresh_token: t["refresh_token"] as string,
-    expires_at: t["expires_at"] as number,
-  };
+  return JSON.parse(row.tokens) as SpotifyTokens;
 };
 
 export const clearSpotifyTokens = async (userId: string): Promise<void> => {

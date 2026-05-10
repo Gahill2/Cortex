@@ -3,14 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
 }
 
 model Organization {
@@ -54,7 +48,7 @@ model OAuthToken {
   id        String   @id @default(cuid())
   userId    String
   provider  String   // "spotify" | "google"
-  tokens    Json
+  tokens    String   // JSON serialized
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -65,7 +59,7 @@ model Task {
   id             String     @id @default(cuid())
   title          String
   description    String?
-  status         TaskStatus @default(TODO)
+  status         String     @default("TODO")
   organizationId String
   projectId      String
   assigneeId     String?
