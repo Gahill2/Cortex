@@ -18,7 +18,13 @@ export const getSpotifyTokens = async (userId: string): Promise<SpotifyTokens | 
   const row = await prisma.oAuthToken.findUnique({
     where: { userId_provider: { userId, provider: "spotify" } },
   });
-  return row ? (row.tokens as SpotifyTokens) : null;
+  if (!row) return null;
+  const t = row.tokens as Record<string, unknown>;
+  return {
+    access_token: t["access_token"] as string,
+    refresh_token: t["refresh_token"] as string,
+    expires_at: t["expires_at"] as number,
+  };
 };
 
 export const clearSpotifyTokens = async (userId: string): Promise<void> => {
