@@ -143,6 +143,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false, // required: ESM preload needs sandbox disabled
     },
     show: true,
   });
