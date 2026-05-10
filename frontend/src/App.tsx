@@ -24,6 +24,14 @@ export default function App() {
     }
   }, [token]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("spotify_connected")) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setTab("settings");
+    }
+  }, []);
+
   if (!token) {
     return <LoginPage onLogin={setToken} />;
   }
