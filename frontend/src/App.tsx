@@ -5,10 +5,12 @@ import { TasksPage } from "./pages/TasksPage";
 import { AIPage } from "./pages/AIPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { GmailPage } from "./pages/GmailPage";
+import { MailPage } from "./pages/MailPage";
+import { SpotifyPage } from "./pages/SpotifyPage";
 import { Sidebar } from "./components/Sidebar";
 import { api, setAuthToken } from "./api/client";
 
-export type Tab = "home" | "tasks" | "ai" | "settings" | "gmail";
+export type Tab = "home" | "tasks" | "ai" | "settings" | "gmail" | "spotify" | "mail";
 const TOKEN_KEY = "cortex_token";
 
 type ElectronWindow = Window & {
@@ -69,7 +71,7 @@ export default function App() {
       }
       try {
         if (params.connected) {
-          // Server-side exchange already done (Gmail flow) — just notify UI
+          // Server-side exchange already done (Gmail/mail flow) — just notify UI
         } else if (!params.code || !params.state) {
           console.error("[oauth] missing code/state", params);
           return;
@@ -79,7 +81,12 @@ export default function App() {
           await api.post("/gmail/oauth/exchange", { code: params.code, state: params.state });
         }
         window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider } }));
-        setTab("settings");
+        // Navigate to mail hub after adding a new mail account, settings otherwise
+        if (provider === "mail") {
+          setTab("mail");
+        } else {
+          setTab("settings");
+        }
       } catch (e) {
         console.error("[oauth] exchange failed:", e);
       }
@@ -89,7 +96,10 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has("spotify_connected") || params.has("gmail_connected")) {
+    if (params.has("mail_connected")) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setTab("mail");
+    } else if (params.has("spotify_connected") || params.has("gmail_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
       setTab("settings");
     }
@@ -112,6 +122,8 @@ export default function App() {
         {tab === "ai"       && <AIPage />}
         {tab === "settings" && <SettingsPage onLogout={() => { setToken(null); setTab("home"); }} />}
         {tab === "gmail"    && <GmailPage />}
+        {tab === "mail"     && <MailPage />}
+        {tab === "spotify"  && <SpotifyPage />}
       </main>
     </div>
   );

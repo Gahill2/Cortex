@@ -13,7 +13,9 @@ const SCOPES = [
   "user-modify-playback-state",
   "user-read-currently-playing",
   "user-read-private",
-  "user-read-email"
+  "user-read-email",
+  "playlist-modify-public",
+  "playlist-modify-private"
 ].join(" ");
 
 export function isSpotifyConfigured(): boolean {
@@ -104,7 +106,7 @@ async function refreshAccessToken(tokens: SpotifyTokens): Promise<SpotifyTokens>
 }
 
 /** Get a valid access token, refreshing if expired (with 60s buffer). */
-async function getValidToken(userId: string): Promise<string> {
+export async function getValidSpotifyToken(userId: string): Promise<string> {
   let tokens = await getSpotifyTokens(userId);
   if (!tokens) throw new Error("Not connected to Spotify");
 
@@ -138,7 +140,7 @@ export interface NowPlayingResult {
 }
 
 export async function getNowPlaying(userId: string): Promise<NowPlayingResult> {
-  const token = await getValidToken(userId);
+  const token = await getValidSpotifyToken(userId);
 
   const res = await fetch(`${SPOTIFY_API}/me/player`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -197,7 +199,7 @@ export async function playbackControl(
   userId: string,
   action: "play" | "pause" | "next" | "previous"
 ): Promise<void> {
-  const token = await getValidToken(userId);
+  const token = await getValidSpotifyToken(userId);
 
   const actionMap: Record<string, { method: string; path: string }> = {
     play:     { method: "PUT",  path: "/me/player/play" },
@@ -219,7 +221,7 @@ export async function playbackControl(
 }
 
 export async function setVolume(userId: string, volumePercent: number): Promise<void> {
-  const token = await getValidToken(userId);
+  const token = await getValidSpotifyToken(userId);
   const res = await fetch(
     `${SPOTIFY_API}/me/player/volume?volume_percent=${Math.round(volumePercent)}`,
     { method: "PUT", headers: { Authorization: `Bearer ${token}` } }

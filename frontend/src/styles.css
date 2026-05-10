@@ -1071,3 +1071,488 @@ img { display: block; max-width: 100%; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+
+/* ── Spotify full page ───────────────────────────────────── */
+.spotify-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* Now Playing */
+.spotify-now-playing {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spotify-now-playing--active {
+  background: linear-gradient(135deg, var(--bg-3) 0%, rgba(91,141,255,0.08) 100%);
+  border-color: var(--border-2);
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.spotify-now-playing--loading { min-height: 80px; }
+
+.spotify-np-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.spotify-np-icon { font-size: 32px; opacity: 0.3; }
+.spotify-np-empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.spotify-np-empty-sub { font-size: 12px; color: var(--text-3); }
+.spotify-np-refresh { margin-top: 8px; }
+
+.spotify-np-inner {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  align-items: flex-start;
+}
+.spotify-np-art {
+  width: 100px;
+  height: 100px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-3);
+}
+.spotify-np-art img { width: 100%; height: 100%; object-fit: cover; }
+.spotify-np-art-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--text-3);
+}
+.spotify-np-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.spotify-np-meta { display: flex; flex-direction: column; gap: 3px; }
+.spotify-np-track { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-np-artist { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-np-album { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-np-device { font-size: 11px; color: var(--text-3); }
+.spotify-np-vol { color: var(--text-3); }
+
+.spotify-np-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.spotify-np-progress-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.spotify-np-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+.spotify-np-time { font-size: 11px; color: var(--text-3); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+.spotify-np-controls { display: flex; align-items: center; gap: 8px; }
+.spotify-ctrl-btn {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 100ms, border-color 100ms;
+}
+.spotify-ctrl-btn:hover { background: var(--bg-3); border-color: var(--border-2); }
+.spotify-ctrl-btn--play {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+  font-size: 16px;
+  padding: 7px 14px;
+}
+.spotify-ctrl-btn--play:hover { filter: brightness(1.1); }
+.spotify-ctrl-btn--refresh { color: var(--text-3); }
+
+/* AI DJ */
+.spotify-ai-dj {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.spotify-ai-header { display: flex; flex-direction: column; gap: 4px; }
+.spotify-ai-title { font-size: 17px; font-weight: 700; }
+.spotify-ai-subtitle { font-size: 12px; color: var(--text-3); }
+
+.spotify-ai-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 24px 0;
+}
+.spotify-ai-empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); }
+.spotify-ai-empty-sub { font-size: 12px; color: var(--text-3); }
+
+.spotify-ai-form {
+  display: flex;
+  gap: 10px;
+}
+.spotify-ai-input {
+  flex: 1;
+  padding: 9px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  transition: border-color 120ms;
+}
+.spotify-ai-input:focus { border-color: var(--border-2); outline: none; }
+.spotify-ai-input--sm { flex: none; width: 220px; }
+
+.spotify-ai-error { color: var(--red); font-size: 13px; }
+
+.spotify-ai-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.spotify-ai-loading-dots { display: flex; gap: 6px; }
+.spotify-ai-loading-dots span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+.spotify-ai-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.spotify-ai-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.spotify-ai-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.spotify-ai-playlist-name { font-size: 15px; font-weight: 700; }
+.spotify-ai-track-count { font-size: 12px; color: var(--text-3); }
+.spotify-ai-results-actions { display: flex; gap: 8px; }
+
+.spotify-ai-tracklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.spotify-ai-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: background 100ms, border-color 100ms;
+}
+.spotify-ai-track:hover { background: var(--bg-3); }
+.spotify-ai-track--selected { border-color: var(--accent-dim); background: var(--accent-dim); }
+.spotify-ai-track--selected:hover { background: rgba(91,141,255,0.2); }
+
+.spotify-ai-track-check {
+  font-size: 10px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  transition: color 100ms;
+}
+.spotify-ai-track--selected .spotify-ai-track-check { color: var(--accent); }
+
+.spotify-ai-track-art {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-3);
+}
+.spotify-ai-track-art img { width: 100%; height: 100%; object-fit: cover; }
+.spotify-ai-art-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-3);
+}
+.spotify-ai-track-info { flex: 1; min-width: 0; }
+.spotify-ai-track-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-ai-track-artist { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spotify-ai-track-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.spotify-ai-label { font-size: 12px; color: var(--text-3); margin-bottom: 4px; display: block; }
+.spotify-ai-playlist-name-field { display: flex; flex-direction: column; }
+
+.spotify-ai-save-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.spotify-ai-save-success {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--green);
+}
+.spotify-ai-save-success strong { color: var(--text); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Mail Hub (MailPage)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mail-page { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+.mail-layout {
+  display: grid;
+  grid-template-columns: 200px 320px 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Sidebar ── */
+.mail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.mail-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+}
+.mail-sidebar-item:hover { background: var(--bg-3); color: var(--text); }
+.mail-sidebar-item.active { background: var(--accent-subtle); color: var(--accent); }
+
+.mail-sidebar-icon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
+.mail-sidebar-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-sidebar-label--truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-sidebar-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.mail-sidebar-account-row { display: flex; align-items: center; gap: 2px; }
+.mail-sidebar-item--account { flex: 1; min-width: 0; }
+.mail-sidebar-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.mail-sidebar-account-row:hover .mail-sidebar-remove { opacity: 1; }
+.mail-sidebar-remove:hover { color: var(--red, #e55); }
+
+.mail-sidebar-divider { height: 1px; background: var(--border); margin: 6px 4px; }
+
+.mail-sidebar-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.mail-sidebar-add:hover { background: var(--bg-3); color: var(--text-2); }
+
+/* ── Message list pane ── */
+.mail-list-pane {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+/* ── Empty state ── */
+.mail-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-2);
+}
+.mail-empty-icon { font-size: 48px; opacity: 0.3; }
+.mail-empty-state h2 { font-size: 18px; color: var(--text); margin: 0; }
+.mail-empty-state p { font-size: 13px; margin: 0; }
+.mail-empty-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+/* ── Row meta (account badge) ── */
+.mail-row-meta { display: flex; align-items: center; gap: 6px; }
+.mail-row-account {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--text-3);
+}
+
+/* ── Preview pane ── */
+.mail-preview-body { overflow: auto; flex: 1; }
+.mail-preview-to { font-size: 12px; color: var(--text-3); margin: 2px 0 0; }
+.mail-preview-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border: none;
+  background: #fff;
+  border-radius: 6px;
+}
+.mail-preview-text {
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-2);
+  padding: 4px 0;
+}
+
+/* ── Modal overlay ── */
+.mail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.mail-modal {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 480px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.mail-modal--compose { width: 600px; }
+
+.mail-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.mail-modal-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0; }
+.mail-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.mail-modal-close:hover { color: var(--text); }
+
+.mail-form { display: flex; flex-direction: column; gap: 14px; }
+.mail-form-error {
+  background: rgba(220, 60, 60, 0.15);
+  border: 1px solid rgba(220, 60, 60, 0.4);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #e55;
+}
+
+.mail-form-row { display: flex; flex-direction: column; gap: 5px; }
+.mail-form-row label { font-size: 12px; color: var(--text-3); }
+.mail-form-row--body { flex: 1; }
+
+.mail-form-2col { display: grid; grid-template-columns: 1fr 100px; gap: 10px; }
+
+.mail-input {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.mail-input:focus { border-color: var(--accent); }
+.mail-input option { background: var(--bg-2); }
+
+.mail-textarea { resize: vertical; min-height: 160px; font-family: inherit; }
+
+.mail-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}

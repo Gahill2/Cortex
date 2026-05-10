@@ -34,8 +34,8 @@ const DEFAULT_ORDER: WidgetId[] = ["clock", "spotify", "tasks", "ai", "gmail", "
 const STORAGE_KEY = "cortex_widget_order";
 
 interface NowPlaying {
-  isPlaying: boolean;
-  track?: { name: string; artists: string; albumArt?: string };
+  playing: boolean;
+  track?: { name: string; artists: string[]; albumArt?: string };
   device?: { name: string; volumePercent: number };
 }
 interface Task { id: string; title: string; status: "TODO" | "IN_PROGRESS" | "DONE"; project: { name: string } }
@@ -123,7 +123,7 @@ function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   };
 
   return (
-    <div className={`widget widget--spotify ${connected && np?.isPlaying ? "widget--spotify-active" : ""}`}>
+    <div className={`widget widget--spotify ${connected && np?.playing ? "widget--spotify-active" : ""}`}>
       <div className="widget-label">♫ Spotify</div>
       {loading ? <p className="widget-empty">Checking…</p>
         : !connected ? (
@@ -131,7 +131,7 @@ function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
             <p className="widget-cta-text">Not connected</p>
             <button className="widget-cta-btn" onClick={() => onNavigate("settings")}>Connect in Settings →</button>
           </div>
-        ) : !np?.isPlaying ? (
+        ) : !np?.playing ? (
           <p className="widget-empty">Nothing playing — open Spotify to start</p>
         ) : (
           <>
@@ -141,14 +141,14 @@ function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
               </div>
               <div className="spotify-widget-info">
                 <p className="spotify-widget-track">{np.track?.name}</p>
-                <p className="spotify-widget-artist">{np.track?.artists}</p>
+                <p className="spotify-widget-artist">{np.track?.artists?.join(", ")}</p>
                 {np.device && <p className="spotify-widget-device">▸ {np.device.name}</p>}
               </div>
             </div>
             <div className="spotify-widget-controls">
               <button onClick={() => void ctrl("previous")}>⏮</button>
-              <button className="spotify-pp" onClick={() => void ctrl(np.isPlaying ? "pause" : "play")}>
-                {np.isPlaying ? "⏸" : "▶"}
+              <button className="spotify-pp" onClick={() => void ctrl(np.playing ? "pause" : "play")}>
+                {np.playing ? "⏸" : "▶"}
               </button>
               <button onClick={() => void ctrl("next")}>⏭</button>
               <button className="spotify-refresh" onClick={load}>↻</button>

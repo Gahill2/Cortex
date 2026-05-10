@@ -5,6 +5,8 @@ const NAV: Array<{ id: Tab; label: string; icon: string }> = [
   { id: "tasks",    label: "Tasks",    icon: "✓" },
   { id: "ai",       label: "AI",       icon: "◈" },
   { id: "gmail",    label: "Gmail",    icon: "✉" },
+  { id: "mail",     label: "Mail",     icon: "✦" },
+  { id: "spotify",  label: "Spotify",  icon: "♫" },
   { id: "settings", label: "Settings", icon: "⚙" },
 ];
 

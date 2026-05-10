@@ -56,6 +56,13 @@ function handleDeepLink(url: string) {
       mainWindow?.webContents.executeJavaScript(
         `window.__handleOAuth && window.__handleOAuth("spotify", ${JSON.stringify({ code, state, error })})`
       );
+    } else if (parsed.pathname.includes("mail")) {
+      // Multi-account Mail: backend already exchanged the code server-side
+      const connected = parsed.searchParams.get("connected");
+      const email = parsed.searchParams.get("email");
+      mainWindow?.webContents.executeJavaScript(
+        `window.__handleOAuth && window.__handleOAuth("mail", ${JSON.stringify({ connected, email, error })})`
+      );
     } else if (parsed.pathname.includes("google") || parsed.pathname.includes("gmail")) {
       const connected = parsed.searchParams.get("connected");
       if (connected) {

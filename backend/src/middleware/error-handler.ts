@@ -53,5 +53,6 @@ export const errorHandler = (error: unknown, req: Request, res: Response, _next:
     return;
   }
 
+  console.error("[error]", req.method, req.path, error);
   sendError(res, 500, "INTERNAL_SERVER_ERROR", "Unexpected server error", req.path);
 };

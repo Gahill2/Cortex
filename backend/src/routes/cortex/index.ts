@@ -8,6 +8,7 @@ import { cortexGmailRouter } from "./gmail.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
+import { cortexMailRouter } from "./mail.routes.js";
 import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
 
 export const cortexRouter = Router();
@@ -37,3 +38,4 @@ cortexRouter.use("/gmail", cortexGmailRouter);
 cortexRouter.use("/spotify", cortexSpotifyRouter);
 cortexRouter.use("/tasks", cortexTasksRouter);
 cortexRouter.use("/projects", cortexProjectsRouter);
+cortexRouter.use("/mail", cortexMailRouter);

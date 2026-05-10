@@ -55,6 +55,23 @@ model OAuthToken {
   @@unique([userId, provider])
 }
 
+model MailAccount {
+  id          String   @id @default(cuid())
+  userId      String
+  provider    String   // "gmail" | "imap"
+  label       String   // display name e.g. "Work Gmail", "Personal"
+  email       String
+  imapHost    String?
+  imapPort    Int?
+  smtpHost    String?
+  smtpPort    Int?
+  username    String?
+  passwordEnc String?  // base64-obfuscated for IMAP
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, email])
+}
+
 model Task {
   id             String     @id @default(cuid())
   title          String
