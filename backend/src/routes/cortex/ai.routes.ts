@@ -4,6 +4,7 @@ import { z } from "zod";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
+import { HttpError } from "../../utils/http-error.js";
 
 const chatSchema = z.object({
   message: z.string().min(1).max(4_000),
@@ -83,8 +84,7 @@ cortexAiRouter.post("/command", routeRateLimit(30, 60_000), (req, res) => {
 
 cortexAiRouter.post("/tasks/enrich", routeRateLimit(5, 60_000), async (req, res) => {
   if (!process.env.ANTHROPIC_API_KEY) {
-    res.status(503).json({ error: "AI enrichment not configured" });
-    return;
+    throw new HttpError(503, "AI enrichment not configured");
   }
   const { title } = enrichSchema.parse(req.body);
   const client = new Anthropic();

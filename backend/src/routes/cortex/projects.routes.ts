@@ -44,5 +44,6 @@ cortexProjectsRouter.post("/", routeRateLimit(10, 60_000), async (req, res) => {
     }
   });
 
-  res.status(201).json({ ok: true, data: project });
+  res.status(201);
+  sendSuccess(res, project);
 });

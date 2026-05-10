@@ -7,7 +7,7 @@ const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email"
 ];
 
-const getRedirectUri = () => env.GOOGLE_REDIRECT_URI || env.GOOGLE_REDIRECT_URL || "";
+const getRedirectUri = () => env.GOOGLE_REDIRECT_URI || "";
 
 export const isGmailConfigured = (): boolean => {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env;

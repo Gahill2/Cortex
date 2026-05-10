@@ -9,7 +9,7 @@
     "dev": "concurrently -k -n backend,frontend,electron -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:electron": "wait-on http://localhost:5173 http://localhost:4000/api/health && electron .",
+    "dev:electron": "wait-on http://localhost:5173 http://localhost:4000/api/health && tsc -p electron/tsconfig.json && electron .",
     "build": "npm run build:backend && npm run build:frontend && npm run build:electron",
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",

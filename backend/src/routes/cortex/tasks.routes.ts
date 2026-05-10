@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { sendSuccess } from "../../utils/api-response.js";
+import { HttpError } from "../../utils/http-error.js";
 import { getOrCreateCortexUser } from "../../features/auth/cortex-db-user.js";
 type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
 
@@ -57,10 +58,7 @@ cortexTasksRouter.post("/", routeRateLimit(30, 60_000), async (req, res) => {
   const project = await prisma.project.findFirst({
     where: { id: input.projectId, organizationId: org.id }
   });
-  if (!project) {
-    res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Project not found" } });
-    return;
-  }
+  if (!project) throw new HttpError(404, "Project not found");
 
   const task = await prisma.task.create({
     data: {
@@ -78,7 +76,8 @@ cortexTasksRouter.post("/", routeRateLimit(30, 60_000), async (req, res) => {
     }
   });
 
-  res.status(201).json({ ok: true, data: task });
+  res.status(201);
+  sendSuccess(res, task);
 });
 
 // PATCH /api/tasks/:id
@@ -90,10 +89,7 @@ cortexTasksRouter.patch("/:id", routeRateLimit(60, 60_000), async (req, res) => 
   const task = await prisma.task.findFirst({
     where: { id: String(req.params["id"]), organizationId: org.id }
   });
-  if (!task) {
-    res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Task not found" } });
-    return;
-  }
+  if (!task) throw new HttpError(404, "Task not found");
 
   const updated = await prisma.task.update({
     where: { id: task.id },
@@ -119,10 +115,7 @@ cortexTasksRouter.delete("/:id", routeRateLimit(30, 60_000), async (req, res) =>
   const task = await prisma.task.findFirst({
     where: { id: String(req.params["id"]), organizationId: org.id }
   });
-  if (!task) {
-    res.status(404).json({ ok: false, error: { code: "NOT_FOUND", message: "Task not found" } });
-    return;
-  }
+  if (!task) throw new HttpError(404, "Task not found");
 
   await prisma.task.delete({ where: { id: task.id } });
   sendSuccess(res, { deleted: true });

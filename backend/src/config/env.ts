@@ -3,8 +3,10 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { z } from "zod";
 
-// Resolve .env relative to this file so it works regardless of CWD
-config({ path: join(dirname(fileURLToPath(import.meta.url)), "../../.env"), override: true });
+// Load base .env (backend/.env), then .env.local from repo root (takes priority in dev).
+// process.env injected by Electron at spawn time wins over both (override: false default).
+config({ path: join(dirname(fileURLToPath(import.meta.url)), "../../.env") });
+config({ path: join(dirname(fileURLToPath(import.meta.url)), "../../../.env.local") });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -17,7 +19,6 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_REDIRECT_URI: z.string().optional().default(""),
-  GOOGLE_REDIRECT_URL: z.string().optional().default(""),
   CORTEX_FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from "electron";
+import { app, BrowserWindow, shell, ipcMain, protocol } from "electron";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -10,10 +10,74 @@ const isDev = !app.isPackaged;
 let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 
+// ── Custom protocol — register before app is ready ────────────────────────────
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("cortex", process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+  }
+} else {
+  app.setAsDefaultProtocolClient("cortex");
+}
+
+// Enforce single instance so OAuth deep-links route to the running window
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+}
+
+// Windows: deep-link arrives as a command-line arg in a second instance
+app.on("second-instance", (_event, argv) => {
+  const url = argv.find((a) => a.startsWith("cortex://"));
+  if (url) handleDeepLink(url);
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+// macOS: deep-link arrives via open-url event
+app.on("open-url", (_event, url) => handleDeepLink(url));
+
+// ── Deep-link handler ─────────────────────────────────────────────────────────
+
+function handleDeepLink(url: string) {
+  console.log("[electron] deep-link:", url);
+  // cortex://oauth/callback?code=...&state=...
+  try {
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get("code");
+    const state = parsed.searchParams.get("state");
+    const error = parsed.searchParams.get("error");
+
+    if (parsed.pathname.includes("spotify")) {
+      // Spotify: custom-scheme redirect carries code — frontend exchanges it
+      mainWindow?.webContents.executeJavaScript(
+        `window.__handleOAuth && window.__handleOAuth("spotify", ${JSON.stringify({ code, state, error })})`
+      );
+    } else if (parsed.pathname.includes("google") || parsed.pathname.includes("gmail")) {
+      const connected = parsed.searchParams.get("connected");
+      if (connected) {
+        // Gmail: backend already exchanged the code server-side; this is just a notification
+        mainWindow?.webContents.executeJavaScript(
+          `window.__handleOAuth && window.__handleOAuth("google", ${JSON.stringify({ connected: "1" })})`
+        );
+      } else {
+        // Fallback: code in URL (not currently used for Google but handled for completeness)
+        mainWindow?.webContents.executeJavaScript(
+          `window.__handleOAuth && window.__handleOAuth("google", ${JSON.stringify({ code, state, error })})`
+        );
+      }
+    }
+  } catch (e) {
+    console.error("[electron] deep-link parse error:", e);
+  }
+}
+
 // ── Backend ───────────────────────────────────────────────────────────────────
 
 function getEnvPath(): string {
-  // In dev: repo root .env.local, in prod: next to the exe
   return isDev
     ? path.join(__dirname, "../../.env.local")
     : path.join(path.dirname(app.getPath("exe")), ".env.local");
@@ -25,15 +89,15 @@ function startBackend() {
     ? path.join(__dirname, "../../backend/dist/src/server.js")
     : path.join(process.resourcesPath!, "backend/dist/src/server.js");
 
-  // Load .env.local if it exists
-  const envFile = getEnvPath();
   const extraEnv: Record<string, string> = {};
+  const envFile = getEnvPath();
   if (fs.existsSync(envFile)) {
-    const lines = fs.readFileSync(envFile, "utf8").split("\n");
-    for (const line of lines) {
-      const [k, ...rest] = line.split("=");
-      if (k && rest.length) {
-        extraEnv[k.trim()] = rest.join("=").trim().replace(/^["']|["']$/g, "");
+    for (const line of fs.readFileSync(envFile, "utf8").split("\n")) {
+      const eq = line.indexOf("=");
+      if (eq > 0) {
+        const k = line.slice(0, eq).trim();
+        const v = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+        extraEnv[k] = v;
       }
     }
   }
@@ -45,6 +109,8 @@ function startBackend() {
       DATABASE_URL: `file:${dbPath}`,
       NODE_ENV: "production",
       PORT: "4000",
+      SPOTIFY_REDIRECT_URI: "cortex://oauth/spotify",
+      GOOGLE_REDIRECT_URI: "cortex://oauth/google",
       CORTEX_FRONTEND_URL: "cortex://app",
     },
     stdio: "pipe",
@@ -55,9 +121,6 @@ function startBackend() {
   );
   backendProcess.stderr?.on("data", (d: Buffer) =>
     console.error("[backend]", d.toString().trim())
-  );
-  backendProcess.on("exit", (code) =>
-    console.log("[backend] exited with code", code)
   );
 }
 
@@ -81,20 +144,17 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    show: false,
+    show: true,
   });
 
-  // Open external links in the browser, not Electron
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: "deny" };
   });
 
-  mainWindow.once("ready-to-show", () => mainWindow?.show());
-
   if (isDev) {
-    void mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools({ mode: "detach" });
+    void mainWindow.loadURL("http://localhost:5173");
   } else {
     void mainWindow.loadFile(
       path.join(__dirname, "../../frontend/dist/index.html")
@@ -102,21 +162,16 @@ function createWindow() {
   }
 }
 
-// ── OAuth deep-link handling ──────────────────────────────────────────────────
-// Spotify/Gmail OAuth redirects go to localhost:4000, which redirects back
-// to the frontend. No custom protocol needed.
-
 // ── IPC ───────────────────────────────────────────────────────────────────────
 
 ipcMain.handle("get-version", () => app.getVersion());
+ipcMain.handle("open-external", (_e, url: string) => shell.openExternal(url));
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
-  startBackend();
-  // Give backend 1.5s to start before loading frontend
-  setTimeout(createWindow, 1500);
-
+  if (!isDev) startBackend(); // dev:backend script handles it in dev mode
+  setTimeout(createWindow, isDev ? 0 : 1500);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

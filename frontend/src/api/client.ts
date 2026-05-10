@@ -22,6 +22,11 @@ export const setAuthToken = (token: string | null): void => {
   }
 };
 
+// Initialize auth header synchronously from localStorage so widgets don't
+// fire their first requests without a token after a page reload.
+const _stored = typeof localStorage !== "undefined" ? localStorage.getItem("cortex_token") : null;
+if (_stored) setAuthToken(_stored);
+
 export const enrichTask = async (title: string): Promise<string> => {
   const res = await api.post<{ data: { description: string } }>("/cortex/ai/tasks/enrich", { title });
   return res.data.data.description;

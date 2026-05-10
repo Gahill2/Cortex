@@ -48,6 +48,21 @@ cortexSpotifyRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (
   sendSuccess(res, { url });
 });
 
+// ── Desktop OAuth exchange (Electron deep-link flow) ─────────────────────────
+// The browser redirects to cortex://oauth/spotify?code=X&state=Y
+// Electron catches it and POSTs here to exchange the code.
+cortexSpotifyRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  const { code, state } = z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+  }).parse(req.body);
+  const { userId } = verifySpotifyOAuthState(state);
+  if (userId !== req.auth!.userId) throw new HttpError(403, "State userId mismatch");
+  const tokens = await exchangeSpotifyCode(code);
+  await saveSpotifyTokens(userId, tokens);
+  sendSuccess(res, { connected: true });
+});
+
 cortexSpotifyRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
   const frontend = env.CORTEX_FRONTEND_URL || "http://localhost:5173";
   try {
