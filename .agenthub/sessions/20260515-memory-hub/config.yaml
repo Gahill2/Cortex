@@ -1,0 +1,9 @@
+session_id: 20260515-memory-hub
+task: "Complete Cortex agentmemory + Obsidian integration for cross-system memory (all machines): unify search, sync config, AI/MCP/desktop hooks"
+agent_count: 4
+base_branch: feat/firebase-dashboard-integrations
+created: 2026-05-15T12:00:00Z
+eval_cmd: "cd backend && npm run typecheck && cd ../frontend && npm run build"
+metric: exit_code
+direction: lower
+goal_ref: docs/agentmemory-setup.md

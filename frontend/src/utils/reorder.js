@@ -1,0 +1,12 @@
+export const reorderList = (items, fromIndex, toIndex) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0)
+        return items;
+    if (fromIndex >= items.length || toIndex >= items.length)
+        return items;
+    const next = [...items];
+    const [moved] = next.splice(fromIndex, 1);
+    if (moved === undefined)
+        return items;
+    next.splice(toIndex, 0, moved);
+    return next;
+};

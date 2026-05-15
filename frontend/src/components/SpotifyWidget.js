@@ -10,8 +10,8 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }) => {
     if (!connected) {
         return (_jsxs("div", { className: "widget-card spotify-widget", children: [_jsxs("div", { className: "widget-header", children: [_jsx("h2", { className: "widget-title", children: "\u266B Spotify" }), _jsx("a", { className: "btn-primary btn-sm", href: `${import.meta.env.VITE_API_BASE_URL ?? "/api"}/spotify/oauth/url`, children: "Connect" })] }), _jsx("p", { className: "widget-empty", children: "Not connected" })] }));
     }
-    if (!nowPlaying?.isPlaying) {
-        return (_jsxs("div", { className: "widget-card spotify-widget", children: [_jsxs("div", { className: "widget-header", children: [_jsx("h2", { className: "widget-title", children: "\u266B Spotify" }), _jsx("button", { className: "btn-ghost btn-sm", onClick: onRefresh, children: "Refresh" })] }), _jsx("p", { className: "widget-empty", children: "Nothing playing" })] }));
+    if (!nowPlaying?.track) {
+        return (_jsxs("div", { className: "widget-card spotify-widget", children: [_jsxs("div", { className: "widget-header", children: [_jsx("h2", { className: "widget-title", children: "\u266B Spotify" }), _jsx("button", { className: "btn-ghost btn-sm", onClick: onRefresh, children: "Refresh" })] }), _jsx("p", { className: "widget-empty", children: "Nothing playing \u2014 start Spotify, then refresh" })] }));
     }
     const { track, device } = nowPlaying;
     return (_jsxs("div", { className: "widget-card spotify-widget spotify-widget--active", children: [_jsxs("div", { className: "widget-header", children: [_jsx("h2", { className: "widget-title", children: "\u266B Now Playing" }), _jsx("button", { className: "btn-ghost btn-sm", onClick: onRefresh, children: "\u21BB" })] }), _jsxs("div", { className: "spotify-body", children: [_jsx("div", { className: "spotify-art", children: track?.albumArt

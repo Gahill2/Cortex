@@ -137,60 +137,87 @@ export interface NowPlayingResult {
   };
 }
 
+type SpotifyTrackItem = {
+  id: string;
+  name: string;
+  duration_ms: number;
+  artists: { name: string }[];
+  album: {
+    name: string;
+    images: { url: string; width: number }[];
+  };
+};
+
+function mapTrackItem(
+  item: SpotifyTrackItem,
+  progressMs: number,
+  isPlaying: boolean
+): Pick<NowPlayingResult, "playing" | "track"> {
+  return {
+    playing: isPlaying,
+    track: {
+      id: item.id,
+      name: item.name,
+      artists: item.artists.map((a) => a.name),
+      album: item.album.name,
+      albumArt: item.album.images[0]?.url ?? null,
+      durationMs: item.duration_ms,
+      progressMs
+    }
+  };
+}
+
 export async function getNowPlaying(userId: string): Promise<NowPlayingResult> {
   const token = await getValidToken(userId);
+  const headers = { Authorization: `Bearer ${token}` };
 
-  const res = await fetch(`${SPOTIFY_API}/me/player`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await fetch(`${SPOTIFY_API}/me/player`, { headers });
 
-  // 204 = nothing playing
-  if (res.status === 204) return { connected: true, playing: false };
+  if (res.ok) {
+    const data = (await res.json()) as {
+      is_playing: boolean;
+      progress_ms: number;
+      item?: SpotifyTrackItem;
+      device?: { name: string; type: string; volume_percent: number };
+    };
+
+    const item = data.item;
+    return {
+      connected: true,
+      playing: data.is_playing,
+      ...(item ? mapTrackItem(item, data.progress_ms, data.is_playing) : {}),
+      device: data.device
+        ? {
+            name: data.device.name,
+            type: data.device.type,
+            volumePercent: data.device.volume_percent
+          }
+        : undefined
+    };
+  }
+
+  // 204 = no active device on /me/player — try currently-playing (e.g. phone speaker)
+  if (res.status === 204) {
+    const current = await fetch(`${SPOTIFY_API}/me/player/currently-playing`, { headers });
+    if (current.status === 204) return { connected: true, playing: false };
+    if (!current.ok) throw new Error(`Spotify API error: ${current.status}`);
+
+    const data = (await current.json()) as {
+      is_playing: boolean;
+      progress_ms: number;
+      item?: SpotifyTrackItem;
+    };
+    if (!data.item) return { connected: true, playing: false };
+
+    return {
+      connected: true,
+      ...mapTrackItem(data.item, data.progress_ms, data.is_playing)
+    };
+  }
+
   if (!res.ok) throw new Error(`Spotify API error: ${res.status}`);
 
-  const data = (await res.json()) as {
-    is_playing: boolean;
-    progress_ms: number;
-    item?: {
-      id: string;
-      name: string;
-      duration_ms: number;
-      artists: { name: string }[];
-      album: {
-        name: string;
-        images: { url: string; width: number }[];
-      };
-    };
-    device?: {
-      name: string;
-      type: string;
-      volume_percent: number;
-    };
-  };
-
-  const item = data.item;
-  return {
-    connected: true,
-    playing: data.is_playing,
-    track: item
-      ? {
-          id: item.id,
-          name: item.name,
-          artists: item.artists.map((a) => a.name),
-          album: item.album.name,
-          albumArt: item.album.images[0]?.url ?? null,
-          durationMs: item.duration_ms,
-          progressMs: data.progress_ms
-        }
-      : undefined,
-    device: data.device
-      ? {
-          name: data.device.name,
-          type: data.device.type,
-          volumePercent: data.device.volume_percent
-        }
-      : undefined
-  };
+  return { connected: true, playing: false };
 }
 
 export async function playbackControl(

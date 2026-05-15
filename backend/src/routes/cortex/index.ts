@@ -5,25 +5,49 @@ import { cortexFilesRouter } from "./files.routes.js";
 import { cortexAiRouter } from "./ai.routes.js";
 import { cortexWikiRouter } from "./wiki.routes.js";
 import { cortexGmailRouter } from "./gmail.routes.js";
+import { cortexMailRouter } from "./mail.routes.js";
+import { cortexBillingRouter } from "./billing.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
+import { cortexFirebaseRouter } from "./firebase.routes.js";
+import { cortexN8nRouter } from "./n8n.routes.js";
+import { cortexIntegrationsRouter } from "./integrations.routes.js";
+import { cortexNotionRouter } from "./notion.routes.js";
+import { cortexMemoryRouter } from "./memory.routes.js";
+import { pingAgentmemory } from "../../features/agentmemory/client.js";
+import { getObsidianVaultPaths } from "../../features/obsidian/vault-index.js";
+import { isN8nConfigured } from "../../features/n8n/n8n-client.js";
 import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
+import { isNotionConfigured } from "../../features/notion/notion-service.js";
+import { isSpotifyConfigured } from "../../features/spotify/spotify-service.js";
+import { env } from "../../config/env.js";
+import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 
 export const cortexRouter = Router();
 
-cortexRouter.get("/health", (_req, res) => {
+cortexRouter.get("/health", async (_req, res) => {
+  const agentmemory = await pingAgentmemory();
+  const obsidianVaults = getObsidianVaultPaths(env);
   res.json({
     status: "ok",
     service: "cortex-api",
     phase: "phase-1-foundation",
+    anthropic_configured: Boolean(env.ANTHROPIC_API_KEY),
+    firebase_configured: getFirebaseAdminStatus().configured,
+    n8n_configured: isN8nConfigured(),
+    spotify_configured: isSpotifyConfigured(),
+    notion_configured: isNotionConfigured(),
+    agentmemory_configured: agentmemory.ok,
+    agentmemory_url: env.AGENTMEMORY_URL,
+    obsidian_vaults: obsidianVaults.length,
     gmail_configured: {
       is_configured: isGmailConfigured(),
-      has_client_id: Boolean(process.env.GOOGLE_CLIENT_ID),
-      has_client_secret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
-      has_redirect_uri: Boolean(process.env.GOOGLE_REDIRECT_URI),
-      has_redirect_url: Boolean(process.env.GOOGLE_REDIRECT_URL),
-      redirect_uri_value: process.env.GOOGLE_REDIRECT_URI?.slice(0, 30) + "…",
+      has_client_id: Boolean(env.GOOGLE_CLIENT_ID),
+      has_client_secret: Boolean(env.GOOGLE_CLIENT_SECRET),
+      has_redirect_uri: Boolean(env.GOOGLE_REDIRECT_URI),
+      has_redirect_url: Boolean(env.GOOGLE_REDIRECT_URL),
+      redirect_uri_value: env.GOOGLE_REDIRECT_URI?.slice(0, 30) + "…",
     }
   });
 });
@@ -34,6 +58,13 @@ cortexRouter.use("/files", cortexFilesRouter);
 cortexRouter.use("/ai", cortexAiRouter);
 cortexRouter.use("/wiki", cortexWikiRouter);
 cortexRouter.use("/gmail", cortexGmailRouter);
+cortexRouter.use("/mail", cortexMailRouter);
+cortexRouter.use("/billing", cortexBillingRouter);
 cortexRouter.use("/spotify", cortexSpotifyRouter);
 cortexRouter.use("/tasks", cortexTasksRouter);
 cortexRouter.use("/projects", cortexProjectsRouter);
+cortexRouter.use("/firebase", cortexFirebaseRouter);
+cortexRouter.use("/n8n", cortexN8nRouter);
+cortexRouter.use("/integrations", cortexIntegrationsRouter);
+cortexRouter.use("/notion", cortexNotionRouter);
+cortexRouter.use("/memory", cortexMemoryRouter);

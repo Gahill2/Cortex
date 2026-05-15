@@ -1,15 +1,5 @@
-interface NowPlaying {
-    isPlaying: boolean;
-    track?: {
-        name: string;
-        artists: string;
-        albumArt?: string;
-    };
-    device?: {
-        name: string;
-        volumePercent: number;
-    };
-}
+import type { SpotifyNowPlaying } from "../lib/spotify";
+type NowPlaying = SpotifyNowPlaying;
 interface Props {
     connected: boolean;
     nowPlaying: NowPlaying | null;

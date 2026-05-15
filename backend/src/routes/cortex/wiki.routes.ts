@@ -3,7 +3,10 @@ import { z } from "zod";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
-import { createWikiSearchService, createMockWikiSearchProvider } from "../../services/wiki-search.service.js";
+import {
+  createDefaultWikiSearchService,
+  createMockWikiSearchProvider
+} from "../../services/wiki-search.service.js";
 import type { WikiSearchResult } from "../../lib/wiki-search.js";
 
 const wikiSearchQuerySchema = z.object({
@@ -29,7 +32,7 @@ const FALLBACK_RESULTS: WikiSearchResult[] = [
 ];
 
 export const cortexWikiRouter = Router();
-const wikiSearchService = createWikiSearchService();
+const wikiSearchService = createDefaultWikiSearchService();
 
 function toEnvelopeSource(results: WikiSearchResult[]): "live" | "mock" {
   return results.some((result) => result.source !== "mock") ? "live" : "mock";

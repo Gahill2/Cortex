@@ -9,11 +9,14 @@ import { signGmailOAuthState, verifyGmailOAuthState } from "../../features/gmail
 import {
   buildGmailAuthUrl,
   exchangeAuthorizationCode,
+  fetchGoogleAccountEmail,
   isGmailConfigured,
   listInbox,
   modifyMessageLabels
 } from "../../features/gmail/gmail-service.js";
 import { saveGoogleCredentials, getGoogleCredentials, clearGoogleCredentials } from "../../features/gmail/google-token-store.js";
+import { upsertGmailAccount } from "../../features/mail/mail-account-store.js";
+import { oauthCallbackQuerySchema } from "../../schemas/query-schemas.js";
 
 const inboxQuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(50).optional().default(20),
@@ -54,20 +57,22 @@ cortexGmailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (re
 cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
   const frontend = env.CORTEX_FRONTEND_URL || "http://localhost:5173";
   try {
-    if (typeof req.query.error === "string") {
-      res.redirect(`${frontend}/?gmail_error=${encodeURIComponent(req.query.error)}`);
+    const query = oauthCallbackQuerySchema.parse(req.query);
+    if (query.error) {
+      res.redirect(`${frontend}/?gmail_error=${encodeURIComponent(query.error)}`);
       return;
     }
-    const code = req.query.code;
-    const state = req.query.state;
-    if (typeof code !== "string" || typeof state !== "string") {
+    const { code, state } = query;
+    if (!code || !state) {
       res.redirect(`${frontend}/?gmail_error=missing_code`);
       return;
     }
     const { userId } = verifyGmailOAuthState(state);
     const tokens = await exchangeAuthorizationCode(code);
     await saveGoogleCredentials(userId, tokens);
-    res.redirect(`${frontend}/?gmail_connected=1`);
+    const email = (await fetchGoogleAccountEmail(tokens)) ?? `${userId}@gmail.linked`;
+    await upsertGmailAccount(userId, email, tokens, { label: "Gmail" });
+    res.redirect(`${frontend}/?mail_connected=1`);
   } catch {
     res.redirect(`${frontend}/?gmail_error=oauth_failed`);
   }

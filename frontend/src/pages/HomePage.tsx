@@ -16,28 +16,29 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api/client";
+import { getServerIntegrationConfig } from "../api/server-config";
+import { normalizeSpotifyNowPlaying, type SpotifyNowPlaying } from "../lib/spotify";
+import { IntegrationsPanel } from "../components/IntegrationsPanel";
+import { ConnectOAuthButton } from "../components/ConnectOAuthButton";
 import type { Tab } from "../App";
 
 // ── Types ─────────────────────────────────────────────────
-type WidgetId = "clock" | "spotify" | "tasks" | "ai" | "gmail" | "settings";
+type WidgetId = "clock" | "spotify" | "tasks" | "ai" | "mail" | "notion" | "settings";
 
 const WIDGET_COLS: Record<WidgetId, number> = {
   clock:    1,
   spotify:  2,
   tasks:    1,
   ai:       2,
-  gmail:    2,
+  mail:     2,
+  notion:   2,
   settings: 1,
 };
 
-const DEFAULT_ORDER: WidgetId[] = ["clock", "spotify", "tasks", "ai", "gmail", "settings"];
+const DEFAULT_ORDER: WidgetId[] = ["clock", "spotify", "tasks", "ai", "mail", "notion", "settings"];
 const STORAGE_KEY = "cortex_widget_order";
 
-interface NowPlaying {
-  isPlaying: boolean;
-  track?: { name: string; artists: string; albumArt?: string };
-  device?: { name: string; volumePercent: number };
-}
+type NowPlaying = SpotifyNowPlaying;
 interface Task { id: string; title: string; status: "TODO" | "IN_PROGRESS" | "DONE"; project: { name: string } }
 interface GmailMsg { id: string; subject: string; from: string; unread: boolean }
 
@@ -101,22 +102,35 @@ function ClockWidget() {
 function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   const [loading, setLoading]     = useState(true);
   const [connected, setConnected] = useState(false);
+  const [configured, setConfigured] = useState(false);
   const [np, setNp]               = useState<NowPlaying | null>(null);
 
   const load = async () => {
+    const server = await getServerIntegrationConfig();
+    setConfigured(server.spotify);
     try {
-      const s = await api.get<{ data?: { connected?: boolean } }>("/spotify/status");
+      const s = await api.get<{ data?: { connected?: boolean; configured?: boolean } }>("/spotify/status");
       const conn = s.data?.data?.connected ?? false;
+      setConfigured(s.data?.data?.configured ?? server.spotify);
       setConnected(conn);
       if (conn) {
         const r = await api.get("/spotify/now-playing");
-        setNp(r.data?.data ?? r.data ?? null);
+        const raw = (r.data?.data ?? r.data) as Parameters<typeof normalizeSpotifyNowPlaying>[0];
+        setNp(normalizeSpotifyNowPlaying(raw));
       }
-    } catch { /* ignore */ }
+    } catch { /* configured from /health */ }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    if (!connected) return;
+    const id = setInterval(() => void load(), 15_000);
+    return () => clearInterval(id);
+  }, [connected]);
 
   const ctrl = async (action: string) => {
     try { await api.post(`/spotify/playback/${action}`); setTimeout(load, 700); } catch { /* ignore */ }
@@ -127,12 +141,16 @@ function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
       <div className="widget-label">♫ Spotify</div>
       {loading ? <p className="widget-empty">Checking…</p>
         : !connected ? (
-          <div className="widget-cta">
-            <p className="widget-cta-text">Not connected</p>
-            <button className="widget-cta-btn" onClick={() => onNavigate("settings")}>Connect in Settings →</button>
+          <div className="widget-cta" onClick={(e) => e.stopPropagation()}>
+            <p className="widget-cta-text">
+              {configured ? "Keys in .env — link your Spotify account once" : "Add Spotify credentials to backend .env"}
+            </p>
+            {configured && (
+              <ConnectOAuthButton service="spotify" label="Connect Spotify" className="widget-cta-btn" />
+            )}
           </div>
-        ) : !np?.isPlaying ? (
-          <p className="widget-empty">Nothing playing — open Spotify to start</p>
+        ) : !np?.track ? (
+          <p className="widget-empty">Nothing playing — start playback in Spotify, then tap ↻</p>
         ) : (
           <>
             <div className="spotify-widget-body">
@@ -233,38 +251,47 @@ function AIWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   );
 }
 
-// ── Gmail ─────────────────────────────────────────────────
-function GmailWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
+// ── Mail ──────────────────────────────────────────────────
+function MailWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   const [connected, setConnected] = useState(false);
+  const [configured, setConfigured] = useState(false);
   const [messages, setMessages]   = useState<GmailMsg[]>([]);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
-    api.get<{ data?: { connected?: boolean } }>("/gmail/status").then(async (s) => {
-      const conn = s.data?.data?.connected ?? false;
-      setConnected(conn);
-      if (conn) {
-        const r = await api.get("/gmail/inbox", { params: { maxResults: 8 } });
-        setMessages(r.data?.data?.messages ?? []);
-      }
-    }).catch(() => { /* ignore */ })
-      .finally(() => setLoading(false));
+    void (async () => {
+      const server = await getServerIntegrationConfig();
+      setConfigured(server.gmail);
+      try {
+        const s = await api.get<{ data?: { connected?: boolean; configured?: boolean } }>("/mail/status");
+        const conn = s.data?.data?.connected ?? false;
+        setConfigured(s.data?.data?.configured ?? server.gmail);
+        setConnected(conn);
+        if (conn) {
+          const r = await api.get("/mail/inbox", { params: { maxResults: 8 } });
+          setMessages(r.data?.data?.messages ?? []);
+        }
+      } catch { /* configured from /health */ }
+      finally { setLoading(false); }
+    })();
   }, []);
 
   const unread = messages.filter((m) => m.unread).length;
 
   return (
-    <div className="widget widget--gmail" onClick={() => onNavigate("gmail")} role="button" tabIndex={0}>
+    <div className="widget widget--gmail" onClick={() => onNavigate("mail")} role="button" tabIndex={0}>
       <div className="widget-label">
-        ✉ Gmail {unread > 0 && <span className="widget-gmail-badge">{unread}</span>}
+        ✉ Mail {unread > 0 && <span className="widget-gmail-badge">{unread}</span>}
       </div>
       {loading ? <p className="widget-empty">Loading…</p>
         : !connected ? (
-          <div className="widget-cta">
-            <p className="widget-cta-text">Not connected</p>
-            <button className="widget-cta-btn" onClick={(e) => { e.stopPropagation(); onNavigate("gmail"); }}>
-              Connect Gmail →
-            </button>
+          <div className="widget-cta" onClick={(e) => e.stopPropagation()}>
+            <p className="widget-cta-text">
+              {configured ? "Keys in .env — link your Google account once" : "Add Google OAuth to backend .env"}
+            </p>
+            {configured && (
+              <ConnectOAuthButton service="mail" label="Connect Mail" className="widget-cta-btn" />
+            )}
           </div>
         ) : (
           <ul className="gmail-widget-list">
@@ -280,7 +307,81 @@ function GmailWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
             {messages.length === 0 && <li className="widget-empty">Inbox empty</li>}
           </ul>
         )}
-      <div className="widget-open-hint">Open Gmail →</div>
+      <div className="widget-open-hint">Open Mail →</div>
+    </div>
+  );
+}
+
+// ── Notion ────────────────────────────────────────────────
+function NotionWidget() {
+  const [pages, setPages] = useState<Array<{ id: string; title: string; url?: string }>>([]);
+  const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [configured, setConfigured] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const server = await getServerIntegrationConfig();
+      setConfigured(server.notion);
+      try {
+        const status = await api.get<{ data?: { connected?: boolean; configured?: boolean; error?: string } }>(
+          "/notion/status"
+        );
+        const ok = status.data?.data?.connected ?? false;
+        setConfigured(status.data?.data?.configured ?? server.notion);
+        setConnected(ok);
+        if (!ok) {
+          setError(
+            status.data?.data?.error ??
+              (server.notion ? "Notion token set — check API access" : null)
+          );
+          return;
+        }
+        const r = await api.get<{ data?: { pages?: Array<{ id: string; title: string; url?: string }>; error?: string } }>(
+          "/notion/pages"
+        );
+        if (r.data?.data?.error) {
+          setError(r.data.data.error);
+          setPages([]);
+        } else {
+          setPages(r.data?.data?.pages ?? []);
+        }
+      } catch {
+        if (server.notion) setError("Could not reach API — is the backend running?");
+      }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  return (
+    <div className="widget widget--notion">
+      <div className="widget-label">N Notion</div>
+      {loading ? (
+        <p className="widget-empty">Loading…</p>
+      ) : !connected ? (
+        <p className="widget-empty">
+          {error ?? (configured ? "Notion token needs attention" : "Add NOTION_PERSONAL_TOKEN to backend .env")}
+        </p>
+      ) : error ? (
+        <p className="widget-empty">{error}</p>
+      ) : (
+        <ul className="notion-widget-list">
+          {pages.slice(0, 5).map((p) => (
+            <li key={p.id} className="notion-widget-row">
+              {p.url ? (
+                <a href={p.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  {p.title}
+                </a>
+              ) : (
+                <span>{p.title}</span>
+              )}
+            </li>
+          ))}
+          {pages.length === 0 && <li className="widget-empty">No pages found</li>}
+        </ul>
+      )}
     </div>
   );
 }
@@ -291,7 +392,7 @@ function SettingsWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
     <div className="widget widget--settings" onClick={() => onNavigate("settings")} role="button" tabIndex={0}>
       <div className="widget-label">⚙ Settings</div>
       <div className="widget-settings-links">
-        {(["Spotify", "Gmail", "Account"] as const).map((item) => (
+        {(["Spotify", "Mail", "Account"] as const).map((item) => (
           <div key={item} className="widget-settings-row">
             <span>{item}</span>
             <span className="widget-settings-arrow">›</span>
@@ -310,7 +411,9 @@ export const HomePage = ({ onNavigate }: Props) => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as WidgetId[];
-        if (parsed.length === DEFAULT_ORDER.length) return parsed;
+        const missing = DEFAULT_ORDER.filter((id) => !parsed.includes(id));
+        if (missing.length === 0 && parsed.length === DEFAULT_ORDER.length) return parsed;
+        if (missing.length > 0) return [...parsed.filter((id) => DEFAULT_ORDER.includes(id)), ...missing];
       }
     } catch { /* ignore */ }
     return DEFAULT_ORDER;
@@ -348,7 +451,8 @@ export const HomePage = ({ onNavigate }: Props) => {
       case "spotify":  return <SpotifyWidget onNavigate={onNavigate} />;
       case "tasks":    return <TasksWidget onNavigate={onNavigate} />;
       case "ai":       return <AIWidget onNavigate={onNavigate} />;
-      case "gmail":    return <GmailWidget onNavigate={onNavigate} />;
+      case "mail":     return <MailWidget onNavigate={onNavigate} />;
+      case "notion":   return <NotionWidget />;
       case "settings": return <SettingsWidget onNavigate={onNavigate} />;
     }
   };
@@ -388,6 +492,8 @@ export const HomePage = ({ onNavigate }: Props) => {
           </AnimatePresence>
         </div>
       </div>
+
+      <IntegrationsPanel compact onNavigateSettings={() => onNavigate("settings")} />
 
       {editMode && (
         <motion.p

@@ -1,10 +1,7 @@
 import { api } from "../api/client";
+import type { SpotifyNowPlaying } from "../lib/spotify";
 
-interface NowPlaying {
-  isPlaying: boolean;
-  track?: { name: string; artists: string; albumArt?: string };
-  device?: { name: string; volumePercent: number };
-}
+type NowPlaying = SpotifyNowPlaying;
 
 interface Props {
   connected: boolean;
@@ -34,14 +31,14 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
     );
   }
 
-  if (!nowPlaying?.isPlaying) {
+  if (!nowPlaying?.track) {
     return (
       <div className="widget-card spotify-widget">
         <div className="widget-header">
           <h2 className="widget-title">♫ Spotify</h2>
           <button className="btn-ghost btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
-        <p className="widget-empty">Nothing playing</p>
+        <p className="widget-empty">Nothing playing — start Spotify, then refresh</p>
       </div>
     );
   }

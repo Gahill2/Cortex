@@ -2,3 +2,11 @@ node_modules/
 dist/
 .env
 *.env.local
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+# SQLite (never commit local DB)
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+.cortex/

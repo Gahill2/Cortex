@@ -1,0 +1,12 @@
+{
+  "session_id": "20260515-memory-hub",
+  "state": "merged",
+  "created": "2026-05-15T12:00:00Z",
+  "updated": "2026-05-15T12:00:00Z",
+  "agents": {
+    "1": { "branch": "hub/20260515-memory-hub/agent-1/attempt-1", "status": "completed", "rank": 1, "commit": "332e695" },
+    "2": { "branch": "hub/20260515-memory-hub/agent-2/attempt-1", "status": "completed", "rank": 2, "commit": "f2533fb", "note": "detached HEAD — tag branch before merge" },
+    "3": { "branch": "hub/20260515-memory-hub/agent-3/attempt-1", "status": "completed", "rank": 3, "commit": "2d62d36" },
+    "4": { "branch": "hub/20260515-memory-hub/agent-4/attempt-1", "status": "completed", "rank": 4, "commit": "451099f" }
+  }
+}

@@ -1,3 +1,4 @@
+import type { Credentials } from "google-auth-library";
 import { google } from "googleapis";
 import { env } from "../../config/env.js";
 import { getGoogleCredentials } from "./google-token-store.js";
@@ -41,15 +42,31 @@ export const exchangeAuthorizationCode = async (code: string) => {
   return tokens;
 };
 
-const gmailForUser = async (userId: string) => {
-  const creds = await getGoogleCredentials(userId);
-  if (!creds?.access_token && !creds?.refresh_token) {
-    return null;
-  }
+const gmailClientForCredentials = (creds: Credentials) => {
   const auth = createOAuth2Client();
   auth.setCredentials(creds);
   return google.gmail({ version: "v1", auth });
 };
+
+const gmailForUser = async (userId: string, credsOverride?: Credentials) => {
+  const creds = credsOverride ?? (await getGoogleCredentials(userId));
+  if (!creds?.access_token && !creds?.refresh_token) {
+    return null;
+  }
+  return gmailClientForCredentials(creds);
+};
+
+export async function fetchGoogleAccountEmail(tokens: Credentials): Promise<string | null> {
+  try {
+    const auth = createOAuth2Client();
+    auth.setCredentials(tokens);
+    const oauth2 = google.oauth2({ version: "v2", auth });
+    const { data } = await oauth2.userinfo.get();
+    return data.email ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const headerVal = (headers: Array<{ name?: string | null; value?: string | null }> | undefined, key: string) =>
   headers?.find((h) => (h.name ?? "").toLowerCase() === key.toLowerCase())?.value ?? "";
@@ -68,9 +85,10 @@ export type InboxRow = {
 export const listInbox = async (
   userId: string,
   maxResults: number,
-  query: string
+  query: string,
+  credsOverride?: Credentials
 ): Promise<{ connected: boolean; messages: InboxRow[] }> => {
-  const gmail = await gmailForUser(userId);
+  const gmail = await gmailForUser(userId, credsOverride);
   if (!gmail) {
     return { connected: false, messages: [] };
   }
@@ -115,9 +133,10 @@ export const listInbox = async (
 export const modifyMessageLabels = async (
   userId: string,
   messageId: string,
-  opts: { addLabelIds?: string[]; removeLabelIds?: string[] }
+  opts: { addLabelIds?: string[]; removeLabelIds?: string[] },
+  credsOverride?: Credentials
 ): Promise<void> => {
-  const gmail = await gmailForUser(userId);
+  const gmail = await gmailForUser(userId, credsOverride);
   if (!gmail) {
     throw new Error("Gmail not connected");
   }

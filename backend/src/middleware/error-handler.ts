@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { HttpError } from "../utils/http-error.js";
+import { logger } from "../utils/logger.js";
 
 type ErrorBody = {
   ok: false;
@@ -49,9 +50,23 @@ export const errorHandler = (error: unknown, req: Request, res: Response, _next:
   }
 
   if (error instanceof HttpError) {
+    if (error.statusCode >= 500) {
+      logger.error("HTTP error", {
+        status: error.statusCode,
+        message: error.message,
+        path: req.path,
+        method: req.method
+      });
+    }
     sendError(res, error.statusCode, "HTTP_ERROR", error.message, req.path);
     return;
   }
 
+  logger.error("Unhandled server error", {
+    path: req.path,
+    method: req.method,
+    error: error instanceof Error ? error.message : String(error),
+    ...(error instanceof Error && error.stack ? { stack: error.stack } : {})
+  });
   sendError(res, 500, "INTERNAL_SERVER_ERROR", "Unexpected server error", req.path);
 };

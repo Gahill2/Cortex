@@ -1,5 +1,26 @@
-version: "3.9"
 services:
+  # Self-hosted n8n — automation layer for Cortex (Spotify/Gmail/Notion/Firestore flows)
+  # UI: http://localhost:5678  |  docs: docs/n8n-setup.md
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: cortex-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      # Set to your Tailscale IP or public URL so Webhook nodes get reachable URLs, e.g.:
+      # WEBHOOK_URL=http://100.x.x.x:5678/
+      - GENERIC_TIMEZONE=America/Chicago
+      - TZ=America/Chicago
+    volumes:
+      - cortex_n8n_data:/home/node/.n8n
+    extra_hosts:
+      # Lets n8n HTTP Request nodes call Cortex API on the Windows/Mac host
+      - "host.docker.internal:host-gateway"
+
   postgres:
     image: postgres:16
     container_name: launchpad-postgres
@@ -15,3 +36,4 @@ services:
 
 volumes:
   launchpad_pg_data:
+  cortex_n8n_data:

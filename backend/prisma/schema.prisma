@@ -55,6 +55,35 @@ model OAuthToken {
   @@unique([userId, provider])
 }
 
+/// Connected mail inboxes (Gmail today; Outlook/IMAP later).
+model MailAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String   // "gmail"
+  email          String
+  label          String?
+  isPrimary      Boolean  @default(false)
+  tokens         String   // JSON OAuth credentials
+  autoOrganize   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, provider, email])
+  @@index([userId])
+}
+
+/// Per-session user profile (JWT userId) — billing & preferences.
+model CortexProfile {
+  userId                 String    @id
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  subscriptionStatus     String    @default("free")
+  stripeCurrentPeriodEnd DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
 model Task {
   id             String     @id @default(cuid())
   title          String

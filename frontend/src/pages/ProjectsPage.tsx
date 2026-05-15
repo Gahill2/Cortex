@@ -4,10 +4,19 @@ import type { Project } from "../types";
 
 export const ProjectsPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const load = () => api.get("/projects").then((r) => setProjects(r.data));
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get("/projects");
+      setProjects(r.data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -29,6 +38,9 @@ export const ProjectsPage = () => {
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
         <button type="submit">Add Project</button>
       </form>
+      {loading ? (
+        <p className="widget-empty">Loading projects…</p>
+      ) : (
       <ul className="list">
         {projects.map((project) => (
           <li key={project.id}>
@@ -37,6 +49,7 @@ export const ProjectsPage = () => {
           </li>
         ))}
       </ul>
+      )}
     </section>
   );
 };

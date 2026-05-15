@@ -12,7 +12,9 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "sync:env:pull": "tsx scripts/sync-env-firestore.ts pull",
+    "sync:env:push": "tsx scripts/sync-env-firestore.ts push"
   },
   "keywords": [
     "launchpad",
@@ -30,11 +32,13 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "firebase-admin": "^13.10.0",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "nodemailer": "^8.0.7",
+    "stripe": "^17.7.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

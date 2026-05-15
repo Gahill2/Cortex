@@ -1,4 +1,9 @@
 import path from "node:path";
+import { env } from "../config/env.js";
+import {
+  getObsidianVaultPaths,
+  getVaultIndexRegistry
+} from "../features/obsidian/vault-index.js";
 import {
   type WikiSearchProvider,
   type WikiSearchQuery,
@@ -95,4 +100,32 @@ export function createWikiSearchService(options: WikiSearchServiceOptions = {}):
       return results.flat();
     }
   };
+}
+
+/** Live scan of configured Obsidian vault folders on disk. */
+export function createObsidianVaultWikiSearchProvider(vaultPaths: string[]): WikiSearchProvider {
+  const registry = getVaultIndexRegistry(vaultPaths);
+  void registry.ensureInitialized();
+  return {
+    providerName: "obsidian-vault-scan",
+    async search(query: WikiSearchQuery): Promise<WikiSearchResult[]> {
+      const hits = registry.search(query.term, query.limit ?? 20);
+      return hits.map((h) => ({
+        id: h.id,
+        title: h.title,
+        snippet: h.snippet,
+        path: h.path,
+        source: "obsidian-local"
+      }));
+    }
+  };
+}
+
+export function createDefaultWikiSearchService(): WikiSearchService {
+  const vaults = getObsidianVaultPaths(env);
+  const providers =
+    vaults.length > 0
+      ? [createObsidianVaultWikiSearchProvider(vaults)]
+      : [createMockWikiSearchProvider()];
+  return createWikiSearchService({ providers });
 }

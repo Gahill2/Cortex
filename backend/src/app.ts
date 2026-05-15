@@ -3,13 +3,51 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import { env } from "./config/env.js";
 import { cortexRouter } from "./routes/cortex/index.js";
+import { cortexBillingWebhookRouter } from "./routes/cortex/billing.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+const corsOrigins = env.CORS_ORIGINS
+  ? env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+  : defaultOrigins;
+
 export const app = express();
+// CSRF: API uses Bearer JWT in Authorization (not cookies). Browsers do not attach
+// Authorization on cross-site requests by default, so classic CSRF does not apply.
+// If cookie-based auth is added later, enable CSRF middleware on state-changing routes.
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (corsOrigins.includes(origin)) return callback(null, true);
+      // Vite may use 5174+ when 5173 is taken; allow localhost dev ports
+      if (
+        env.NODE_ENV !== "production" &&
+        /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      callback(new Error(`CORS blocked: ${origin}`));
+    },
+    credentials: true
+  })
+);
 app.use(morgan("dev"));
+
+app.use(
+  "/api/billing/webhook",
+  express.raw({ type: "application/json" }),
+  cortexBillingWebhookRouter
+);
+
 app.use(express.json());
 
 app.use("/api", cortexRouter);

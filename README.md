@@ -45,8 +45,10 @@ Launchpad is a lightweight team project/task tracker SaaS MVP with org-scoped au
 ## Setup
 1. Start PostgreSQL:
    - `docker compose up -d`
-2. Configure backend env:
-   - Copy `backend/.env.example` to `backend/.env`
+2. Configure environment (one file for the whole repo):
+   - Copy `backend/.env.example` to **`.env` in the repository root** (same values the backend and Electron-spawned API will load).
+   - If you already keep secrets in **`backend/.env` only**, that still works. When **both** a root **`.env`** and **`backend/.env`** exist, **the root file wins** for the API.
+   - Prisma’s CLI still looks for **`backend/.env`** by default. Easiest fix with a single root `.env`: create a **symlink** `backend/.env` → `../.env` (macOS/Linux), or on Windows (elevated CMD) `mklink backend\.env ..\.env`, or duplicate only the `DATABASE_URL` line into `backend/.env`.
 3. Install dependencies:
    - `npm install --prefix backend`
    - `npm install --prefix frontend`
@@ -77,7 +79,7 @@ Frontend:
   - Run `npm install --prefix apps/desktop` to install desktop dev dependencies.
 - Backend errors on startup with DB connection/Prisma issues:
   - Ensure PostgreSQL is running: `docker compose up -d`
-  - Ensure `backend/.env` exists and has a valid `DATABASE_URL`
+  - Ensure a valid `DATABASE_URL` is in **`backend/.env`** or in **root `.env`** with a symlink/copy as in Setup step 2.
   - Re-run backend Prisma setup commands in Setup step 4.
 - Frontend cannot reach API:
   - Confirm backend is running and listening on expected host/port.

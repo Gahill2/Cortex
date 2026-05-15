@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cortex — Logo Gallery</title>
+  <style>
+    :root {
+      --bg: #0e0e10;
+      --surface: #1e1e26;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f5;
+      --text-2: rgba(240,240,245,0.55);
+      --accent: #5b8dff;
+      --green: #3be8ad;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 24px 48px;
+    }
+    header { max-width: 1100px; margin: 0 auto 28px; }
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { margin-top: 8px; font-size: 14px; color: var(--text-2); line-height: 1.5; }
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 120ms;
+    }
+    .card:hover { border-color: rgba(91,141,255,0.35); }
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .preview {
+      background: #fff;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .preview img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .meta { padding: 16px 18px 18px; }
+    .meta h2 { font-size: 15px; font-weight: 600; }
+    .meta p { margin-top: 6px; font-size: 13px; color: var(--text-2); line-height: 1.45; }
+    .tag {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--green);
+      opacity: 0;
+    }
+    .card.selected .tag { opacity: 1; }
+    footer {
+      max-width: 1100px;
+      margin: 28px auto 0;
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-2);
+    }
+    footer strong { color: var(--text); }
+    code {
+      font-size: 12px;
+      background: rgba(255,255,255,0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Cortex logo options</h1>
+    <p class="sub">Click a card to select your primary mark. Reply in chat with the filename to lock it in.</p>
+  </header>
+
+  <div class="grid" id="grid">
+    <article class="card" data-id="abstract" data-file="cortex-logo-abstract.png">
+      <div class="preview"><img src="cortex-logo-abstract.png" alt="Abstract brain circuit mark" /></div>
+      <div class="meta">
+        <h2>Abstract mark</h2>
+        <p>Brain-circuit icon + blue Cortex wordmark. Matches accent blue and teal nodes.</p>
+        <span class="tag">Selected</span>
+      </div>
+    </article>
+
+    <article class="card" data-id="lettermark" data-file="cortex-logo-lettermark.png">
+      <div class="preview"><img src="cortex-logo-lettermark.png" alt="C monogram network icon" /></div>
+      <div class="meta">
+        <h2>Lettermark</h2>
+        <p>C network graph icon only. Strong for favicon and compact sidebar.</p>
+        <span class="tag">Selected</span>
+      </div>
+    </article>
+
+    <article class="card" data-id="combination" data-file="cortex-logo-combination.png">
+      <div class="preview"><img src="cortex-logo-combination.png" alt="Wave icon with wordmark" /></div>
+      <div class="meta">
+        <h2>Combination lockup</h2>
+        <p>Horizontal icon + dark wordmark. Clean for headers and marketing.</p>
+        <span class="tag">Selected</span>
+      </div>
+    </article>
+  </div>
+
+  <footer id="status">
+    <strong>No selection yet.</strong> Click a logo above, then reply in chat with the filename.
+  </footer>
+
+  <script>
+    const cards = document.querySelectorAll('.card');
+    const status = document.getElementById('status');
+    const KEY = 'cortex-logo-choice';
+
+    function select(card) {
+      cards.forEach(function (c) { c.classList.remove('selected'); });
+      card.classList.add('selected');
+      const file = card.dataset.file;
+      localStorage.setItem(KEY, card.dataset.id);
+      status.innerHTML = '<strong>Selected:</strong> <code>' + file + '</code> — reply in Cursor chat to confirm and integrate into the app.';
+    }
+
+    cards.forEach(function (card) {
+      card.addEventListener('click', function () { select(card); });
+    });
+
+    const saved = localStorage.getItem(KEY);
+    if (saved) {
+      const match = document.querySelector('[data-id="' + saved + '"]');
+      if (match) select(match);
+    }
+  </script>
+</body>
+</html>

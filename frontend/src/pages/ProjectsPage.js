@@ -3,9 +3,19 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 export const ProjectsPage = () => {
     const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const load = () => api.get("/projects").then((r) => setProjects(r.data));
+    const load = async () => {
+        setLoading(true);
+        try {
+            const r = await api.get("/projects");
+            setProjects(r.data);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
     useEffect(() => {
         void load();
     }, []);
@@ -16,5 +26,5 @@ export const ProjectsPage = () => {
         setDescription("");
         await load();
     };
-    return (_jsxs("section", { children: [_jsx("h1", { children: "Projects" }), _jsxs("form", { className: "inline-form", onSubmit: onSubmit, children: [_jsx("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Project name", required: true }), _jsx("input", { value: description, onChange: (e) => setDescription(e.target.value), placeholder: "Description" }), _jsx("button", { type: "submit", children: "Add Project" })] }), _jsx("ul", { className: "list", children: projects.map((project) => (_jsxs("li", { children: [_jsx("strong", { children: project.name }), _jsx("span", { children: project.description })] }, project.id))) })] }));
+    return (_jsxs("section", { children: [_jsx("h1", { children: "Projects" }), _jsxs("form", { className: "inline-form", onSubmit: onSubmit, children: [_jsx("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "Project name", required: true }), _jsx("input", { value: description, onChange: (e) => setDescription(e.target.value), placeholder: "Description" }), _jsx("button", { type: "submit", children: "Add Project" })] }), loading ? (_jsx("p", { className: "widget-empty", children: "Loading projects\u2026" })) : (_jsx("ul", { className: "list", children: projects.map((project) => (_jsxs("li", { children: [_jsx("strong", { children: project.name }), _jsx("span", { children: project.description })] }, project.id))) }))] }));
 };

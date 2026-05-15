@@ -1,0 +1,4 @@
+{
+  "channels": ["dispatch", "progress", "results"],
+  "counters": { "dispatch": 4, "progress": 0, "results": 0 }
+}

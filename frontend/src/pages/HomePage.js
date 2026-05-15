@@ -5,15 +5,20 @@ import { SortableContext, arrayMove, rectSortingStrategy, useSortable, } from "@
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api/client";
+import { getServerIntegrationConfig } from "../api/server-config";
+import { normalizeSpotifyNowPlaying } from "../lib/spotify";
+import { IntegrationsPanel } from "../components/IntegrationsPanel";
+import { ConnectOAuthButton } from "../components/ConnectOAuthButton";
 const WIDGET_COLS = {
     clock: 1,
     spotify: 2,
     tasks: 1,
     ai: 2,
-    gmail: 2,
+    mail: 2,
+    notion: 2,
     settings: 1,
 };
-const DEFAULT_ORDER = ["clock", "spotify", "tasks", "ai", "gmail", "settings"];
+const DEFAULT_ORDER = ["clock", "spotify", "tasks", "ai", "mail", "notion", "settings"];
 const STORAGE_KEY = "cortex_widget_order";
 // ── Sortable wrapper ──────────────────────────────────────
 function SortableWidget({ id, editMode, colSpan, children, }) {
@@ -42,23 +47,36 @@ function ClockWidget() {
 function SpotifyWidget({ onNavigate }) {
     const [loading, setLoading] = useState(true);
     const [connected, setConnected] = useState(false);
+    const [configured, setConfigured] = useState(false);
     const [np, setNp] = useState(null);
     const load = async () => {
+        const server = await getServerIntegrationConfig();
+        setConfigured(server.spotify);
         try {
             const s = await api.get("/spotify/status");
             const conn = s.data?.data?.connected ?? false;
+            setConfigured(s.data?.data?.configured ?? server.spotify);
             setConnected(conn);
             if (conn) {
                 const r = await api.get("/spotify/now-playing");
-                setNp(r.data?.data ?? r.data ?? null);
+                const raw = (r.data?.data ?? r.data);
+                setNp(normalizeSpotifyNowPlaying(raw));
             }
         }
-        catch { /* ignore */ }
+        catch { /* configured from /health */ }
         finally {
             setLoading(false);
         }
     };
-    useEffect(() => { void load(); }, []);
+    useEffect(() => {
+        void load();
+    }, []);
+    useEffect(() => {
+        if (!connected)
+            return;
+        const id = setInterval(() => void load(), 15_000);
+        return () => clearInterval(id);
+    }, [connected]);
     const ctrl = async (action) => {
         try {
             await api.post(`/spotify/playback/${action}`);
@@ -67,7 +85,7 @@ function SpotifyWidget({ onNavigate }) {
         catch { /* ignore */ }
     };
     return (_jsxs("div", { className: `widget widget--spotify ${connected && np?.isPlaying ? "widget--spotify-active" : ""}`, children: [_jsx("div", { className: "widget-label", children: "\u266B Spotify" }), loading ? _jsx("p", { className: "widget-empty", children: "Checking\u2026" })
-                : !connected ? (_jsxs("div", { className: "widget-cta", children: [_jsx("p", { className: "widget-cta-text", children: "Not connected" }), _jsx("button", { className: "widget-cta-btn", onClick: () => onNavigate("settings"), children: "Connect in Settings \u2192" })] })) : !np?.isPlaying ? (_jsx("p", { className: "widget-empty", children: "Nothing playing \u2014 open Spotify to start" })) : (_jsxs(_Fragment, { children: [_jsxs("div", { className: "spotify-widget-body", children: [_jsx("div", { className: "spotify-widget-art", children: np.track?.albumArt ? _jsx("img", { src: np.track.albumArt, alt: "" }) : _jsx("div", { className: "spotify-art-fallback", children: "\u266B" }) }), _jsxs("div", { className: "spotify-widget-info", children: [_jsx("p", { className: "spotify-widget-track", children: np.track?.name }), _jsx("p", { className: "spotify-widget-artist", children: np.track?.artists }), np.device && _jsxs("p", { className: "spotify-widget-device", children: ["\u25B8 ", np.device.name] })] })] }), _jsxs("div", { className: "spotify-widget-controls", children: [_jsx("button", { onClick: () => void ctrl("previous"), children: "\u23EE" }), _jsx("button", { className: "spotify-pp", onClick: () => void ctrl(np.isPlaying ? "pause" : "play"), children: np.isPlaying ? "⏸" : "▶" }), _jsx("button", { onClick: () => void ctrl("next"), children: "\u23ED" }), _jsx("button", { className: "spotify-refresh", onClick: load, children: "\u21BB" })] })] }))] }));
+                : !connected ? (_jsxs("div", { className: "widget-cta", onClick: (e) => e.stopPropagation(), children: [_jsx("p", { className: "widget-cta-text", children: configured ? "Keys in .env — link your Spotify account once" : "Add Spotify credentials to backend .env" }), configured && (_jsx(ConnectOAuthButton, { service: "spotify", label: "Connect Spotify", className: "widget-cta-btn" }))] })) : !np?.track ? (_jsx("p", { className: "widget-empty", children: "Nothing playing \u2014 start playback in Spotify, then tap \u21BB" })) : (_jsxs(_Fragment, { children: [_jsxs("div", { className: "spotify-widget-body", children: [_jsx("div", { className: "spotify-widget-art", children: np.track?.albumArt ? _jsx("img", { src: np.track.albumArt, alt: "" }) : _jsx("div", { className: "spotify-art-fallback", children: "\u266B" }) }), _jsxs("div", { className: "spotify-widget-info", children: [_jsx("p", { className: "spotify-widget-track", children: np.track?.name }), _jsx("p", { className: "spotify-widget-artist", children: np.track?.artists }), np.device && _jsxs("p", { className: "spotify-widget-device", children: ["\u25B8 ", np.device.name] })] })] }), _jsxs("div", { className: "spotify-widget-controls", children: [_jsx("button", { onClick: () => void ctrl("previous"), children: "\u23EE" }), _jsx("button", { className: "spotify-pp", onClick: () => void ctrl(np.isPlaying ? "pause" : "play"), children: np.isPlaying ? "⏸" : "▶" }), _jsx("button", { onClick: () => void ctrl("next"), children: "\u23ED" }), _jsx("button", { className: "spotify-refresh", onClick: load, children: "\u21BB" })] })] }))] }));
 }
 // ── Tasks ─────────────────────────────────────────────────
 function TasksWidget({ onNavigate }) {
@@ -112,29 +130,80 @@ function AIWidget({ onNavigate }) {
                 ? _jsxs("div", { className: "widget-ai-reply", children: [_jsx("p", { children: reply }), _jsx("button", { onClick: () => setReply(null), children: "\u00D7" })] })
                 : _jsx("p", { className: "widget-ai-idle", children: "Ask anything or open full chat below" }), _jsxs("form", { className: "widget-ai-form", onSubmit: send, onClick: (e) => e.stopPropagation(), children: [_jsx("input", { className: "widget-ai-input", value: prompt, onChange: (e) => setPrompt(e.target.value), placeholder: "Quick question\u2026", disabled: loading }), _jsx("button", { type: "submit", className: "widget-ai-send", disabled: loading || !prompt.trim(), children: loading ? "…" : "→" })] }), _jsx("button", { className: "widget-open-hint", onClick: () => onNavigate("ai"), children: "Open full chat \u2192" })] }));
 }
-// ── Gmail ─────────────────────────────────────────────────
-function GmailWidget({ onNavigate }) {
+// ── Mail ──────────────────────────────────────────────────
+function MailWidget({ onNavigate }) {
     const [connected, setConnected] = useState(false);
+    const [configured, setConfigured] = useState(false);
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        api.get("/gmail/status").then(async (s) => {
-            const conn = s.data?.data?.connected ?? false;
-            setConnected(conn);
-            if (conn) {
-                const r = await api.get("/gmail/inbox", { params: { maxResults: 8 } });
-                setMessages(r.data?.data?.messages ?? []);
+        void (async () => {
+            const server = await getServerIntegrationConfig();
+            setConfigured(server.gmail);
+            try {
+                const s = await api.get("/mail/status");
+                const conn = s.data?.data?.connected ?? false;
+                setConfigured(s.data?.data?.configured ?? server.gmail);
+                setConnected(conn);
+                if (conn) {
+                    const r = await api.get("/mail/inbox", { params: { maxResults: 8 } });
+                    setMessages(r.data?.data?.messages ?? []);
+                }
             }
-        }).catch(() => { })
-            .finally(() => setLoading(false));
+            catch { /* configured from /health */ }
+            finally {
+                setLoading(false);
+            }
+        })();
     }, []);
     const unread = messages.filter((m) => m.unread).length;
-    return (_jsxs("div", { className: "widget widget--gmail", onClick: () => onNavigate("gmail"), role: "button", tabIndex: 0, children: [_jsxs("div", { className: "widget-label", children: ["\u2709 Gmail ", unread > 0 && _jsx("span", { className: "widget-gmail-badge", children: unread })] }), loading ? _jsx("p", { className: "widget-empty", children: "Loading\u2026" })
-                : !connected ? (_jsxs("div", { className: "widget-cta", children: [_jsx("p", { className: "widget-cta-text", children: "Not connected" }), _jsx("button", { className: "widget-cta-btn", onClick: (e) => { e.stopPropagation(); onNavigate("gmail"); }, children: "Connect Gmail \u2192" })] })) : (_jsxs("ul", { className: "gmail-widget-list", children: [messages.slice(0, 6).map((m) => (_jsxs("li", { className: `gmail-widget-row ${m.unread ? "unread" : ""}`, children: [_jsx("span", { className: "gmail-widget-dot", children: m.unread ? "●" : "○" }), _jsxs("div", { className: "gmail-widget-body", children: [_jsx("span", { className: "gmail-widget-from", children: m.from.split("<")[0].trim().slice(0, 20) }), _jsx("span", { className: "gmail-widget-subject", children: m.subject || "(no subject)" })] })] }, m.id))), messages.length === 0 && _jsx("li", { className: "widget-empty", children: "Inbox empty" })] })), _jsx("div", { className: "widget-open-hint", children: "Open Gmail \u2192" })] }));
+    return (_jsxs("div", { className: "widget widget--gmail", onClick: () => onNavigate("mail"), role: "button", tabIndex: 0, children: [_jsxs("div", { className: "widget-label", children: ["\u2709 Mail ", unread > 0 && _jsx("span", { className: "widget-gmail-badge", children: unread })] }), loading ? _jsx("p", { className: "widget-empty", children: "Loading\u2026" })
+                : !connected ? (_jsxs("div", { className: "widget-cta", onClick: (e) => e.stopPropagation(), children: [_jsx("p", { className: "widget-cta-text", children: configured ? "Keys in .env — link your Google account once" : "Add Google OAuth to backend .env" }), configured && (_jsx(ConnectOAuthButton, { service: "mail", label: "Connect Mail", className: "widget-cta-btn" }))] })) : (_jsxs("ul", { className: "gmail-widget-list", children: [messages.slice(0, 6).map((m) => (_jsxs("li", { className: `gmail-widget-row ${m.unread ? "unread" : ""}`, children: [_jsx("span", { className: "gmail-widget-dot", children: m.unread ? "●" : "○" }), _jsxs("div", { className: "gmail-widget-body", children: [_jsx("span", { className: "gmail-widget-from", children: m.from.split("<")[0].trim().slice(0, 20) }), _jsx("span", { className: "gmail-widget-subject", children: m.subject || "(no subject)" })] })] }, m.id))), messages.length === 0 && _jsx("li", { className: "widget-empty", children: "Inbox empty" })] })), _jsx("div", { className: "widget-open-hint", children: "Open Mail \u2192" })] }));
+}
+// ── Notion ────────────────────────────────────────────────
+function NotionWidget() {
+    const [pages, setPages] = useState([]);
+    const [connected, setConnected] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [configured, setConfigured] = useState(false);
+    useEffect(() => {
+        void (async () => {
+            const server = await getServerIntegrationConfig();
+            setConfigured(server.notion);
+            try {
+                const status = await api.get("/notion/status");
+                const ok = status.data?.data?.connected ?? false;
+                setConfigured(status.data?.data?.configured ?? server.notion);
+                setConnected(ok);
+                if (!ok) {
+                    setError(status.data?.data?.error ??
+                        (server.notion ? "Notion token set — check API access" : null));
+                    return;
+                }
+                const r = await api.get("/notion/pages");
+                if (r.data?.data?.error) {
+                    setError(r.data.data.error);
+                    setPages([]);
+                }
+                else {
+                    setPages(r.data?.data?.pages ?? []);
+                }
+            }
+            catch {
+                if (server.notion)
+                    setError("Could not reach API — is the backend running?");
+            }
+            finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+    return (_jsxs("div", { className: "widget widget--notion", children: [_jsx("div", { className: "widget-label", children: "N Notion" }), loading ? (_jsx("p", { className: "widget-empty", children: "Loading\u2026" })) : !connected ? (_jsx("p", { className: "widget-empty", children: error ?? (configured ? "Notion token needs attention" : "Add NOTION_PERSONAL_TOKEN to backend .env") })) : error ? (_jsx("p", { className: "widget-empty", children: error })) : (_jsxs("ul", { className: "notion-widget-list", children: [pages.slice(0, 5).map((p) => (_jsx("li", { className: "notion-widget-row", children: p.url ? (_jsx("a", { href: p.url, target: "_blank", rel: "noreferrer", onClick: (e) => e.stopPropagation(), children: p.title })) : (_jsx("span", { children: p.title })) }, p.id))), pages.length === 0 && _jsx("li", { className: "widget-empty", children: "No pages found" })] }))] }));
 }
 // ── Settings ──────────────────────────────────────────────
 function SettingsWidget({ onNavigate }) {
-    return (_jsxs("div", { className: "widget widget--settings", onClick: () => onNavigate("settings"), role: "button", tabIndex: 0, children: [_jsx("div", { className: "widget-label", children: "\u2699 Settings" }), _jsx("div", { className: "widget-settings-links", children: ["Spotify", "Gmail", "Account"].map((item) => (_jsxs("div", { className: "widget-settings-row", children: [_jsx("span", { children: item }), _jsx("span", { className: "widget-settings-arrow", children: "\u203A" })] }, item))) }), _jsx("div", { className: "widget-open-hint", children: "Open Settings \u2192" })] }));
+    return (_jsxs("div", { className: "widget widget--settings", onClick: () => onNavigate("settings"), role: "button", tabIndex: 0, children: [_jsx("div", { className: "widget-label", children: "\u2699 Settings" }), _jsx("div", { className: "widget-settings-links", children: ["Spotify", "Mail", "Account"].map((item) => (_jsxs("div", { className: "widget-settings-row", children: [_jsx("span", { children: item }), _jsx("span", { className: "widget-settings-arrow", children: "\u203A" })] }, item))) }), _jsx("div", { className: "widget-open-hint", children: "Open Settings \u2192" })] }));
 }
 // ── Home page ─────────────────────────────────────────────
 export const HomePage = ({ onNavigate }) => {
@@ -143,8 +212,11 @@ export const HomePage = ({ onNavigate }) => {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (parsed.length === DEFAULT_ORDER.length)
+                const missing = DEFAULT_ORDER.filter((id) => !parsed.includes(id));
+                if (missing.length === 0 && parsed.length === DEFAULT_ORDER.length)
                     return parsed;
+                if (missing.length > 0)
+                    return [...parsed.filter((id) => DEFAULT_ORDER.includes(id)), ...missing];
             }
         }
         catch { /* ignore */ }
@@ -179,9 +251,10 @@ export const HomePage = ({ onNavigate }) => {
             case "spotify": return _jsx(SpotifyWidget, { onNavigate: onNavigate });
             case "tasks": return _jsx(TasksWidget, { onNavigate: onNavigate });
             case "ai": return _jsx(AIWidget, { onNavigate: onNavigate });
-            case "gmail": return _jsx(GmailWidget, { onNavigate: onNavigate });
+            case "mail": return _jsx(MailWidget, { onNavigate: onNavigate });
+            case "notion": return _jsx(NotionWidget, {});
             case "settings": return _jsx(SettingsWidget, { onNavigate: onNavigate });
         }
     };
-    return (_jsxs("div", { className: "page home-page", children: [_jsxs("div", { className: "page-titlebar", children: [_jsxs("div", { children: [_jsx("p", { className: "page-eyebrow", children: greeting() }), _jsx("h1", { className: "page-title", children: "Home" })] }), _jsx("div", { className: "page-actions", children: _jsx(AnimatePresence, { mode: "wait", children: editMode ? (_jsx(motion.button, { className: "btn-primary btn-sm", onClick: () => setEditMode(false), initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.9 }, children: "Done" }, "done")) : (_jsx(motion.button, { className: "btn-ghost btn-sm", onClick: () => setEditMode(true), initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, children: "\u2726 Edit widgets" }, "edit")) }) })] }), editMode && (_jsx(motion.p, { className: "edit-mode-hint", initial: { opacity: 0, y: -8 }, animate: { opacity: 1, y: 0 }, children: "Drag widgets to rearrange \u2022 Click Done when finished" })), _jsx(DndContext, { sensors: sensors, collisionDetection: closestCenter, onDragEnd: handleDragEnd, children: _jsx(SortableContext, { items: widgetOrder, strategy: rectSortingStrategy, children: _jsx("div", { className: "widget-grid", children: widgetOrder.map((id) => (_jsx(SortableWidget, { id: id, editMode: editMode, colSpan: WIDGET_COLS[id], children: _jsx("div", { className: `widget-shell ${editMode ? "widget-shell--edit" : ""}`, onMouseDown: editMode ? undefined : undefined, children: renderWidget(id) }) }, id))) }) }) })] }));
+    return (_jsxs("div", { className: "page home-page", children: [_jsxs("div", { className: "page-titlebar", children: [_jsxs("div", { children: [_jsx("p", { className: "page-eyebrow", children: greeting() }), _jsx("h1", { className: "page-title", children: "Home" })] }), _jsx("div", { className: "page-actions", children: _jsx(AnimatePresence, { mode: "wait", children: editMode ? (_jsx(motion.button, { className: "btn-primary btn-sm", onClick: () => setEditMode(false), initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.9 }, children: "Done" }, "done")) : (_jsx(motion.button, { className: "btn-ghost btn-sm", onClick: () => setEditMode(true), initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, children: "\u2726 Edit widgets" }, "edit")) }) })] }), _jsx(IntegrationsPanel, { compact: true, onNavigateSettings: () => onNavigate("settings") }), editMode && (_jsx(motion.p, { className: "edit-mode-hint", initial: { opacity: 0, y: -8 }, animate: { opacity: 1, y: 0 }, children: "Drag widgets to rearrange \u2022 Click Done when finished" })), _jsx(DndContext, { sensors: sensors, collisionDetection: closestCenter, onDragEnd: handleDragEnd, children: _jsx(SortableContext, { items: widgetOrder, strategy: rectSortingStrategy, children: _jsx("div", { className: "widget-grid", children: widgetOrder.map((id) => (_jsx(SortableWidget, { id: id, editMode: editMode, colSpan: WIDGET_COLS[id], children: _jsx("div", { className: `widget-shell ${editMode ? "widget-shell--edit" : ""}`, onMouseDown: editMode ? undefined : undefined, children: renderWidget(id) }) }, id))) }) }) })] }));
 };

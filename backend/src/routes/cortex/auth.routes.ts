@@ -9,6 +9,7 @@ import { demoUserStore } from "../../features/auth/demo-user-store.js";
 import { sessionLockStore } from "../../features/auth/session-lock-store.js";
 import { otpStore } from "../../features/auth/otp-store.js";
 import { sendOtpEmail } from "../../features/auth/email-service.js";
+import { demoAuthEnabled, env } from "../../config/env.js";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -39,6 +40,9 @@ const verifyOtpSchema = z.object({
 export const cortexAuthRouter = Router();
 
 cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
+  if (!demoAuthEnabled) {
+    throw new HttpError(403, "Password login is disabled in production. Use email OTP.");
+  }
   const input = loginSchema.parse(req.body);
   const demoUser = await demoUserStore.getDemoUser();
   const validEmail = input.email.toLowerCase() === demoUser.email.toLowerCase();
@@ -63,6 +67,9 @@ cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
 });
 
 cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res) => {
+  if (!demoAuthEnabled) {
+    throw new HttpError(403, "PIN verification is disabled in production.");
+  }
   const { pin } = verifyPinSchema.parse(req.body);
   const authHeader = req.header("authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
@@ -125,6 +132,15 @@ cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) =>
   if (host !== "localhost" && host !== "127.0.0.1") {
     throw new HttpError(403, "Desktop token only available from localhost");
   }
+  const secret = env.CORTEX_DESKTOP_SECRET?.trim();
+  if (secret) {
+    const provided = req.header("x-cortex-desktop-secret");
+    if (provided !== secret) {
+      throw new HttpError(403, "Invalid desktop client secret");
+    }
+  } else if (env.NODE_ENV === "production") {
+    throw new HttpError(503, "Set CORTEX_DESKTOP_SECRET for desktop login");
+  }
   const token = signAccessToken({ userId: "local-user", email: "local@cortex.app" });
   res.json({ token, user: { id: "local-user", email: "local@cortex.app" } });
 });
@@ -136,12 +152,29 @@ cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) =>
  * Generate a 6-digit OTP and email it to the given address.
  * Rate-limited to 3 requests per minute per IP.
  */
-cortexAuthRouter.post("/send-otp", routeRateLimit(3, 60_000), async (req, res) => {
+const OTP_SEND_LIMIT = env.NODE_ENV === "development" ? 30 : 3;
+
+cortexAuthRouter.post("/send-otp", routeRateLimit(OTP_SEND_LIMIT, 60_000), async (req, res) => {
   const { email } = sendOtpSchema.parse(req.body);
   const code = await otpStore.create(email);
-  await sendOtpEmail(email, code);
-  // Never confirm whether the address exists — always return 200
-  res.json({ ok: true, message: "If that address is recognized, a code has been sent." });
+  const emailed = await sendOtpEmail(email, code);
+  const body: {
+    ok: true;
+    message: string;
+    devOtpCode?: string;
+    devHint?: string;
+  } = {
+    ok: true,
+    message: emailed
+      ? "If that address is recognized, a code has been sent."
+      : "Verification code could not be emailed (check server logs)."
+  };
+  // Local dev: no SMTP (or send failure) — surface code in UI so login works without inbox access
+  if (env.NODE_ENV === "development" && !emailed) {
+    body.devOtpCode = code;
+    body.devHint = "Development only: email was not sent. Use the code below; configure SMTP_USER/SMTP_PASS to receive real mail.";
+  }
+  res.json(body);
 });
 
 /**
