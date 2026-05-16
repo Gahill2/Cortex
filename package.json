@@ -8,14 +8,16 @@
   "scripts": {
     "dev": "concurrently -k -n backend,frontend,electron -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:backend": "npm --prefix backend run dev",
+    "dev:mcp": "npm --prefix backend run mcp:dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:electron": "wait-on http://localhost:5173 http://localhost:4000/api/health && tsc -p electron/tsconfig.json && electron .",
+    "dev:electron": "node scripts/wait-cortex-dev.mjs",
     "build": "npm run build:backend && npm run build:frontend && npm run build:electron",
-    "build:backend": "npm --prefix backend run build",
+    "build:backend": "npm install --prefix backend --include=dev && npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "build:electron": "tsc -p electron/tsconfig.json",
     "dist": "npm run build && electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "canva": "npx -y @canva/cli@latest"
   },
   "build": {
     "appId": "com.cortex.app",

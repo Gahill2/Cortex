@@ -4,15 +4,17 @@
   "description": "Launchpad API server",
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "prisma db push --skip-generate && tsx watch src/server.ts",
-    "build": "prisma generate && tsc -p tsconfig.json",
-    "start": "prisma db push --skip-generate && node dist/src/server.js",
+    "dev": "npx prisma db push --skip-generate && tsx watch src/server.ts",
+    "build": "npx prisma generate && tsc -p tsconfig.json",
+    "start": "npx prisma db push --skip-generate && node dist/src/server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "mcp:dev": "tsx watch src/mcp/runMcp.ts",
+    "mcp:start": "node dist/src/mcp/runMcp.js"
   },
   "keywords": [
     "launchpad",
@@ -24,6 +26,8 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@notionhq/client": "^2.3.0",
     "@prisma/client": "^5.22.0",
     "@types/nodemailer": "^8.0.0",
     "bcrypt": "^6.0.0",
