@@ -25,6 +25,10 @@ const BASELINE_MIGRATION = '20260517200000_postgres_init';
 const P3005_MARKERS = ['P3005', 'schema is not empty'];
 
 function resolvePrismaInvocation() {
+  const cliJs = join(backendRoot, 'node_modules', 'prisma', 'build', 'index.js');
+  if (existsSync(cliJs)) {
+    return { command: process.execPath, argsPrefix: [cliJs] };
+  }
   const localBin = join(backendRoot, 'node_modules', '.bin', 'prisma');
   if (existsSync(localBin)) {
     return { command: localBin, argsPrefix: [] };

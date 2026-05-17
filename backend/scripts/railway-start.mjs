@@ -1,32 +1,15 @@
 /**
- * Production entry: validate Railway env, migrate, then start API.
- * Logs clear errors to Deploy Logs when configuration is incomplete.
+ * Production entry: validate Railway env, then start API (migrations run after listen).
  */
-import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const backendRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function fail(message) {
   console.error(`[railway-start] ${message}`);
   process.exit(1);
-}
-
-function runNode(scriptRelativePath) {
-  const scriptPath = join(backendRoot, scriptRelativePath);
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptPath], {
-      cwd: backendRoot,
-      stdio: 'inherit',
-      env: process.env,
-    });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${scriptRelativePath} exited with code ${code ?? 1}`));
-    });
-  });
 }
 
 const jwt = process.env.JWT_SECRET?.trim();
@@ -48,7 +31,12 @@ if (
   );
 }
 
-console.log('[railway-start] starting', {
+const serverEntry = join(backendRoot, 'dist/src/server.js');
+if (!existsSync(serverEntry)) {
+  fail(`Server build missing at ${serverEntry} — check Docker build step.`);
+}
+
+console.log('[railway-start] starting API', {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: process.env.PORT ?? '(default 4000)',
   host: process.env.HOST ?? '0.0.0.0',
@@ -56,9 +44,8 @@ console.log('[railway-start] starting', {
 });
 
 try {
-  await runNode('scripts/prisma-deploy.mjs');
-  await runNode('dist/src/server.js');
+  await import(pathToFileURL(serverEntry).href);
 } catch (error) {
-  console.error('[railway-start] startup failed:', error);
+  console.error('[railway-start] server failed to start:', error);
   process.exit(1);
 }
