@@ -72,7 +72,7 @@ model MailAccount {
   passwordEnc  String?  // base64-obfuscated for IMAP
   autoOrganize Boolean  @default(true)
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@unique([userId, provider, email])
   @@index([userId])
@@ -87,7 +87,7 @@ model CortexProfile {
   subscriptionStatus     String    @default("free")
   stripeCurrentPeriodEnd DateTime?
   createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  updatedAt              DateTime  @default(now()) @updatedAt
 }
 
 model Task {

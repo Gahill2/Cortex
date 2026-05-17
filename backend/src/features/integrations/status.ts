@@ -71,7 +71,7 @@ export async function getIntegrationsStatus(userId?: string): Promise<Integratio
       configured: Boolean(env.CORTEX_MCP_MODE),
       connected: Boolean(env.CORTEX_MCP_MODE),
       detail: env.CORTEX_MCP_MODE
-        ? `${env.CORTEX_MCP_MODE} @ ${env.CORTEX_MCP_HOST}:${env.CORTEX_MCPPORT}`
+        ? `${env.CORTEX_MCP_MODE} @ ${env.CORTEX_MCP_HOST}:${env.CORTEX_MCP_PORT}`
         : "Set CORTEX_MCP_* in env"
     },
     await buildGmailStatus(userId),
