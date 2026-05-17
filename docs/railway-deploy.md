@@ -6,7 +6,7 @@ Deploy the **backend** service only from the `backend/` directory (set **Root Di
 
 1. In the Railway project → **New** → **Database** → **PostgreSQL** (or add Postgres to the project).
 2. On the **backend** API service → **Variables** → add a reference to the Postgres service’s **`DATABASE_URL`** (the **private** URL on the Railway internal network).
-3. Do **not** use `DATABASE_PUBLIC_URL` for the API — use the private `DATABASE_URL` so traffic stays on Railway’s network.
+3. Do **not** use `DATABASE_PUBLIC_URL` for the API — use the private `DATABASE_URL` so traffic stays on Railway’s network. Logs may show a public host such as `turntable.proxy.rlwy.net`; that is the proxy endpoint — prefer the **private** `DATABASE_URL` reference in service variables.
 
 Example (variable reference in Railway):
 
@@ -14,7 +14,17 @@ Example (variable reference in Railway):
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 ```
 
-On first deploy to an **empty** database, `npm run start` runs `prisma migrate deploy`, which applies `backend/prisma/migrations/20260517200000_postgres_init` and creates all tables. No manual SQL required.
+On first deploy to an **empty** database, `npm run start` runs `node scripts/prisma-deploy.mjs`, which applies `backend/prisma/migrations/20260517200000_postgres_init` and creates all tables. No manual SQL required.
+
+### P3005 — “database schema is not empty”
+
+If Postgres already has tables from an earlier `prisma db push` or a partial deploy but **no** `_prisma_migrations` table, plain `migrate deploy` fails with **P3005**. The start script handles this automatically:
+
+1. `prisma migrate deploy` (fails with P3005)
+2. `prisma migrate resolve --applied 20260517200000_postgres_init` (baseline)
+3. `prisma migrate deploy` again
+
+Use this only when the live schema already matches `20260517200000_postgres_init`. If baselining still fails or the schema is wrong, wipe the Postgres volume in Railway (service → **Settings** → remove/reset volume) and redeploy for a clean database.
 
 **Migrating from an old SQLite volume deploy:** data does not transfer automatically. Export/import manually if needed, or treat Railway Postgres as a fresh database.
 
@@ -39,7 +49,7 @@ Unset demo auth in production (`CORTEX_DEMO_USER_*`) unless you intentionally wa
 ## 3. Build & start
 
 - **Build:** Nixpacks runs `npm install` + `npm run build` (see `backend/package.json`).
-- **Start:** `npm run start` → `prisma migrate deploy` then `node dist/src/server.js`.
+- **Start:** `npm run start` → `scripts/prisma-deploy.mjs` (migrate + P3005 baseline) then `node dist/src/server.js`.
 - **Health check:** path `/api/health` (configured in `backend/railway.json`).
 
 Local development: point `DATABASE_URL` at a local Postgres instance (see `backend/.env.example`), then `npx prisma migrate deploy` or `npm run dev`.
