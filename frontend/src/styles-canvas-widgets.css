@@ -1,0 +1,216 @@
+/* ── Pomodoro Widget ─────────────────────────────────────────────────────── */
+
+.pomodoro-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  height: 100%;
+  justify-content: center;
+}
+
+.pomodoro-ring {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(
+    var(--accent) calc(var(--progress, 0) * 360deg),
+    rgba(255, 255, 255, 0.06) calc(var(--progress, 0) * 360deg)
+  );
+  padding: 6px;
+}
+
+.pomodoro-ring::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--bg-2);
+}
+
+.pomodoro-time {
+  position: relative;
+  z-index: 1;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pomodoro-phase {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pomodoro-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.pomodoro-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.pomodoro-preset-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.pomodoro-preset-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.pomodoro-preset-btn.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pomodoro-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pomodoro-sound-select {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 11px;
+  padding: 3px 8px;
+  outline: none;
+}
+
+.pomodoro-sessions {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── World Clock Widget ──────────────────────────────────────────────────── */
+
+.worldclock-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  height: 100%;
+}
+
+.worldclock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.worldclock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s;
+}
+
+.worldclock-row:hover {
+  background: var(--surface);
+}
+
+.worldclock-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.worldclock-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.worldclock-date {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.worldclock-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.worldclock-remove {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.worldclock-row:hover .worldclock-remove {
+  opacity: 1;
+}
+
+.worldclock-remove:hover {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.worldclock-add {
+  display: flex;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.worldclock-input {
+  flex: 1;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+  min-width: 0;
+}
+
+.worldclock-input:focus {
+  border-color: var(--accent);
+}
+
+.worldclock-input::placeholder {
+  color: var(--text-3);
+}

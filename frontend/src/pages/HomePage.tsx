@@ -10,6 +10,8 @@ import {
   TasksWidget,
   WeatherWidget,
 } from "../components/home/widgets";
+import { PomodoroWidget } from "../components/canvas/widgets/PomodoroWidget";
+import { WorldClockWidget } from "../components/canvas/widgets/WorldClockWidget";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -45,6 +47,8 @@ export const HomePage = ({ onNavigate }: Props) => {
     mail: <MailWidget onNavigate={onNavigate} compact />,
     spotify: <SpotifyWidget onNavigate={onNavigate} />,
     ai: <AIWidget onNavigate={onNavigate} />,
+    pomodoro: <PomodoroWidget />,
+    clock: <WorldClockWidget />,
   };
 
   return <CanvasDashboard onNavigate={onNavigate} widgets={widgets} />;

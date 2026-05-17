@@ -19,6 +19,7 @@ import "./styles-notes.css";
 import "./styles-notion-app.css";
 import "./styles-home-prod.css";
 import "./styles-canvas.css";
+import "./styles-canvas-widgets.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
