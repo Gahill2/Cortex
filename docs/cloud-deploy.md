@@ -154,6 +154,20 @@ With GitHub connected to **Railway** (backend) and **Vercel** (frontend), every 
 - **GitHub Actions** (`.github/workflows/cloud-deploy.yml`): validates backend/frontend builds on each push; twice daily (08:00 and 20:00 UTC) an empty commit on `main` retriggers deploys if you want periodic refreshes without local commits.
 - **Local auto-push** (optional): run `scripts/cloud-sync-push.ps1` on a schedule (Windows Task Scheduler) to commit and push any saved changes.
 
+## 7. Cursor Cloud Agent (UI + bug fixes while away)
+
+Runs a remote agent on `github.com/Gahill2/Cortex` and opens a PR when done.
+
+1. Create an API key at [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents).
+2. From repo root (PowerShell):
+
+```powershell
+$env:CURSOR_API_KEY = "cursor_..."
+npm run cloud:agent
+```
+
+The launcher is `scripts/cloud-agent/run.mjs` (deploy verification, Vercel build, `HomeProduction` polish).
+
 ## Quick checklist
 
 - [ ] Railway: Postgres, `DATABASE_URL`, `JWT_SECRET`, health green on `/api/health/live`

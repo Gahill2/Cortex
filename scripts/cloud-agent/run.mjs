@@ -12,12 +12,9 @@ const BRANCH = "main";
 
 const PROMPT = `You are working on the Cortex monorepo (${REPO}, branch ${BRANCH}).
 
-## Priority 1 — Ship cloud deploy fixes
-1. Railway API healthcheck fails: container must listen on PORT before long migrations block startup.
-   - Ensure server listens immediately; run prisma migrate in background after listen (see local WIP on server.ts / railway-start.mjs if not on main).
-   - Health path: /api/health/live (instant 200).
-   - Dockerfile prod stage must include prisma CLI + engines from builder.
-2. Verify backend/railway.json healthcheckPath is /api/health/live.
+## Priority 1 — Verify cloud deploy (main has listen-before-migrate)
+1. Confirm Railway passes healthcheck on /api/health/live after deploy (server listens first; prisma migrate runs in background).
+2. If health still fails, fix startup/migrate/Dockerfile without blocking PORT bind.
 
 ## Priority 2 — Vercel frontend
 1. frontend/vercel.json: root directory frontend, Vite build, SPA rewrites.
