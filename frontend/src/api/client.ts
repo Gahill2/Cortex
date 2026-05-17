@@ -1,8 +1,36 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 
-/** Must match `App.tsx` localStorage key so the client can attach auth before the first React effects run. */
+/** Must match `App.tsx` / `AuthContext` so the client can attach auth before the first React effects run. */
 export const AUTH_STORAGE_KEY = "cortex_token";
+export const AUTH_USER_STORAGE_KEY = "cortex_user";
+
+const LEGACY_AUTH_TOKEN_KEY = "launchpad_token";
+const LEGACY_AUTH_USER_KEY = "launchpad_user";
+
 export const AUTH_LOGOUT_EVENT = "cortex:auth-logout";
+
+/** Copy legacy Launchpad keys into Cortex keys once; remove legacy after copy. */
+export function migrateLegacyAuthStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!localStorage.getItem(AUTH_STORAGE_KEY)) {
+      const legacyToken = localStorage.getItem(LEGACY_AUTH_TOKEN_KEY);
+      if (legacyToken) {
+        localStorage.setItem(AUTH_STORAGE_KEY, legacyToken);
+        localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+      }
+    }
+    if (!localStorage.getItem(AUTH_USER_STORAGE_KEY)) {
+      const legacyUser = localStorage.getItem(LEGACY_AUTH_USER_KEY);
+      if (legacyUser) {
+        localStorage.setItem(AUTH_USER_STORAGE_KEY, legacyUser);
+        localStorage.removeItem(LEGACY_AUTH_USER_KEY);
+      }
+    }
+  } catch {
+    /* private mode / SSR */
+  }
+}
 
 const isElectron = typeof window !== "undefined" &&
   !!(window as { electron?: { isElectron?: boolean } }).electron?.isElectron;
@@ -19,7 +47,13 @@ export function resolveCortexApiBaseURL(): string {
   if (fromEnv) return fromEnv;
 
   if (import.meta.env.PROD) {
-    return "https://cortex-production-0212.up.railway.app/api";
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}/api`;
+    }
+    console.warn(
+      "[cortex] Set VITE_API_BASE_URL at build time for split API/UI deploys (see frontend/.env.example)."
+    );
+    return "/api";
   }
 
   if (typeof window !== "undefined") {
@@ -60,6 +94,7 @@ export const setAuthToken = (token: string | null): void => {
 
 // Hydrate Authorization before any child useEffects run.
 if (typeof window !== "undefined") {
+  migrateLegacyAuthStorage();
   try {
     const persisted = localStorage.getItem(AUTH_STORAGE_KEY);
     if (persisted) {
@@ -90,7 +125,13 @@ api.interceptors.response.use(
     const h = cfg.headers;
     const auth = (typeof h?.get === "function" ? h.get("Authorization") : (h as Record<string, unknown>)?.Authorization) as string | undefined;
     const bearer = typeof auth === "string" && auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (bearer === stored) {
+    // Wrong PIN / login attempt returns 401 with the same bearer — do not wipe the session.
+    const url = String(cfg.url ?? "");
+    const isAuthCredentialAttempt =
+      url.includes("/auth/verify-pin") ||
+      url.includes("/auth/login") ||
+      url.includes("/auth/verify-otp");
+    if (bearer === stored && !isAuthCredentialAttempt) {
       setAuthToken(null);
       window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
       return Promise.reject(error);

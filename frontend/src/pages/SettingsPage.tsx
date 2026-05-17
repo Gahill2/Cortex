@@ -5,6 +5,14 @@ import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
 import { clearCortexUiPreferences } from "../lib/cortexUiStorageKeys";
+import { SettingsShell } from "../components/settings/SettingsShell";
+import { MemoryPage } from "./MemoryPage";
+import { McpLinkPage } from "./McpLinkPage";
+import {
+  readSettingsSection,
+  writeSettingsSection,
+  type SettingsSectionId,
+} from "../settingsNavigation";
 
 interface Props {
   onLogout: () => void;
@@ -22,6 +30,14 @@ const APPEARANCE_OPTIONS: { id: AppearanceMode; label: string }[] = [
 ];
 
 export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
+  const [section, setSection] = useState<SettingsSectionId>(
+    () => readSettingsSection() ?? "appearance"
+  );
+  const onSectionChange = (id: SettingsSectionId) => {
+    setSection(id);
+    writeSettingsSection(id);
+  };
+
   const { appearance, setAppearance } = useAppearance();
   const { wallpaper, setWallpaper } = useWallpaper();
   const { theme, saveTheme } = useTheme();
@@ -128,10 +144,9 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     const target = sessionStorage.getItem("cortex_settings_scroll_to");
     if (!target) return;
     sessionStorage.removeItem("cortex_settings_scroll_to");
-    const id = window.setTimeout(() => {
-      document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 120);
-    return () => clearTimeout(id);
+    if (target === "settings-integrations") {
+      onSectionChange("integrations");
+    }
   }, []);
 
   useEffect(() => {
@@ -261,7 +276,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   };
 
   return (
-    <div className="page">
+    <div className="page settings-page settings-page--shell">
       {import.meta.env.DEV && (
         <div className="settings-dev-banner" role="status">
           <strong>Dev</strong>
@@ -291,14 +306,12 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
           after you sign in with the same email. The desktop Electron app is separate from this browser tab.
         </div>
       )}
-      <div className="page-titlebar">
-        <h1 className="page-title">Settings</h1>
-      </div>
+      <SettingsShell active={section} onChange={onSectionChange}>
+        <div className="settings-layout">
+          <div className="settings-col">
 
-      <div className="settings-layout">
-        <div className="settings-col">
-
-          {/* ── User card ── */}
+          {section === "account" && (
+          <>
           <section className="settings-section settings-user-card">
             <div className="settings-user-avatar">C</div>
             <div className="settings-user-info">
@@ -306,8 +319,11 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               <p className="settings-user-email">greyhill999@gmail.com</p>
             </div>
           </section>
+          </>
+          )}
 
-          {/* ── Appearance ── */}
+          {section === "appearance" && (
+          <>
           <section className="settings-section">
             <h2 className="settings-section-title">Appearance</h2>
             <p className="settings-section-desc">
@@ -434,7 +450,11 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               Reset Cortex UI preferences
             </button>
           </section>
+          </>
+          )}
 
+          {section === "integrations" && (
+          <>
           <IntegrationsPanel compact={false} />
 
           <section className="settings-section" id="settings-integrations">
@@ -629,8 +649,10 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               </div>
             </div>
           </section>
+          </>
+          )}
 
-          {/* ── Keyboard Shortcuts ── */}
+          {section === "shortcuts" && (
           <section className="settings-section">
             <h2 className="settings-section-title">Keyboard Shortcuts</h2>
             {[
@@ -644,7 +666,9 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               </div>
             ))}
           </section>
+          )}
 
+          {section === "account" && (
           <section className="settings-section">
             <h2 className="settings-section-title">Session</h2>
             <div className="settings-item">
@@ -671,14 +695,19 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               </div>
             </div>
           </section>
-          {/* ── Footer ── */}
+          )}
+
+          {section === "memory" && <MemoryPage embedded />}
+          {section === "cortex-link" && <McpLinkPage embedded />}
+
           <div className="settings-footer">
             <p>Cortex v1.0.0</p>
-            <p>Built with ♥ — {new Date().getFullYear()}</p>
+            <p>Built with love — {new Date().getFullYear()}</p>
           </div>
 
+          </div>
         </div>
-      </div>
+      </SettingsShell>
     </div>
   );
 };

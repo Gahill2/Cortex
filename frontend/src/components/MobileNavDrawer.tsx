@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import type { Tab } from "../App";
-import { CORTEX_MAIN_NAV } from "../navigation";
+import { CORTEX_MOBILE_DRAWER_NAV } from "../navigation";
+import { NavIcon } from "./NavIcon";
+import { CortexBrand } from "./brand/CortexBrand";
 
 interface Props {
   open: boolean;
@@ -45,20 +47,20 @@ export const MobileNavDrawer = ({ open, onClose, active, onSelect }: Props) => {
         aria-label="Navigation"
       >
         <div className="mobile-drawer-header">
-          <span className="mobile-drawer-brand">Cortex</span>
+          <CortexBrand variant="appbar" />
           <button type="button" className="mobile-drawer-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
         <nav className="mobile-drawer-nav" aria-label="Main">
-          {CORTEX_MAIN_NAV.map((item) => (
+          {CORTEX_MOBILE_DRAWER_NAV.map((item) => (
             <button
               key={item.id}
               type="button"
               className={`mobile-drawer-item ${active === item.id ? "is-active" : ""}`}
               onClick={() => onSelect(item.id)}
             >
-              <span className="mobile-drawer-item__emoji" aria-hidden>{item.emoji}</span>
+              <NavIcon name={item.icon} size={22} className="mobile-drawer-item__icon" />
               <span className="mobile-drawer-item__label">{item.label}</span>
               <span className="mobile-drawer-item__chev" aria-hidden>›</span>
             </button>

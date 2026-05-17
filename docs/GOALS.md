@@ -1,7 +1,7 @@
 # Cortex Development Roadmap
 
 > Last updated: 2026-05-16  
-> Status: 58 of 142 goals complete  
+> Status: 57 of 142 goals complete  
 > **North star:** Unify `main` + `feat/firebase-dashboard-integrations`, put **all durable data online** (Firestore), ship via **public link** (hosted web + downloadable desktop) — App Store optional later.
 
 ## Legend
@@ -57,7 +57,7 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [x] [S] AGENTS.md documents skill routing and OpenClaw-as-host guidance (no OpenClaw wiring in tracked app source)
 - [x] [M] SPA lock / PIN unlock flow calling `/auth/verify-pin` after sign-in (`SessionPinGate` in `App.tsx`)
 - [x] [S] Idle timer in renderer posting `/auth/lock` (15m inactivity in `App.tsx`)
-- [x] [S] CI/Vercel build installs backend devDeps before `prisma generate` (root `package.json` `build:backend`)
+- [x] [S] CI build installs backend devDeps before `prisma generate` (root `package.json` `build:backend`)
 - [ ] [L] Tauri shell beyond staging hooks — overlay + idle behind env flags (`apps/desktop/src-tauri/`)
 - [ ] [M] Deprecate parallel Supabase-as-runtime path once Firestore cutover is done (migrations remain reference)
 
@@ -67,7 +67,8 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 
 > Vite/React UI, home board, command surface, app discovery
 
-- [x] [L] Home widget grid (clock, weather, briefing, Spotify, tasks, AI, mail, settings, photo) with `@dnd-kit` drag, resize, persisted layout (`frontend/src/pages/HomePage.tsx`)
+- [x] [L] Production fixed bento home (`HomeProduction.tsx`) — primary dashboard on `main`: glance row, KPIs, Today bento (tasks, mail, Spotify, AI), connections strip
+- [x] [L] Legacy draggable home widget grid (`HomePage.tsx`, `@dnd-kit`) — **superseded on `main`** by `HomeProduction`; drag/resize code retained for experiments, not the default shell path
 - [x] [M] Home top rail: personal goals list, task stats, due-soon, quick links (`frontend/src/components/home/HomeDashboardTop.tsx`)
 - [x] [M] Notion-style home hero (cover, emoji, link cards, customize modal) (`HomeNotionHero.tsx`, `homeHeroConfig.ts`)
 - [x] [M] Command palette via `cmdk` + Radix dialog (`frontend/src/components/shell/CommandPalette.tsx`)
@@ -220,8 +221,8 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 > **Primary path:** hosted web app URL + signed desktop installer download link. Stores are optional.
 
 - [x] [M] Electron Builder config — NSIS (Win), DMG (mac), AppImage (Linux) (`package.json` `build` + `npm run dist`)
-- [x] [S] Vercel frontend deploy config (`frontend/vercel.json`)
-- [ ] [M] Production API on stable HTTPS origin (Railway/Fly/Render) — single `CORTEX_API_URL` for all clients
+- [ ] [M] Hosted SPA build + static deploy (any CDN or object storage) — separate from API origin
+- [ ] [M] Production API on stable HTTPS origin (Railway/Fly/Render/Cloud Run) — single `CORTEX_API_URL` for all clients
 - [ ] [M] Public **download page**: latest installer + web app link + version notes (GitHub Releases or static site)
 - [ ] [M] Environment matrix doc: dev (local), staging, prod (Firestore + API URLs)
 - [ ] [L] Code signing — Windows Authenticode + Apple notarization (reduces Smart Gate warnings)
@@ -272,11 +273,11 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 | 9 | Settings | 4 | 9 | 44% |
 | 10 | Performance | 1 | 8 | 13% |
 | 11 | Teams | 0 | 5 | 0% |
-| 12 | Link-first ship | 2 | 10 | 20% |
+| 12 | Link-first ship | 1 | 11 | 9% |
 | 13 | M365 + Calendar | 4 | 6 | 67% |
 | 14 | Canva + MCP | 5 | 7 | 71% |
 
-**Totals:** 58 done, 84 remaining (**142** checklist lines; ≈ **41%** complete).
+**Totals:** 57 done, 85 remaining (**142** checklist lines; ≈ **40%** complete).
 
 **Runway (rough):** At one checkbox per day, **~87 days** — Phase 0 + 12 are the critical path for “same data everywhere” and “share a link to install.”
 

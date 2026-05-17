@@ -43,7 +43,40 @@ export const HERO_TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: "ai", label: "AI" },
   { value: "spotify", label: "Spotify" },
   { value: "settings", label: "Settings" },
-  { value: "link", label: "MCP link" },
+];
+
+/** Curated Unsplash covers (https URLs only). Pick in Customize → Cover photos. */
+export const COVER_IMAGE_PRESETS: { id: string; label: string; url: string }[] = [
+  {
+    id: "greenhouse",
+    label: "Greenhouse",
+    url: "https://images.unsplash.com/photo-1502086223711-7ea6edc9d1ed?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "plants",
+    label: "Indoor garden",
+    url: "https://images.unsplash.com/photo-1466695243647-34ecfa4c65bb?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "mountains",
+    label: "Mountains",
+    url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    url: "https://images.unsplash.com/photo-1505142468610-359e7d316be0?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "desk",
+    label: "Workspace",
+    url: "https://images.unsplash.com/photo-1497215842964-222b430dc094?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "night",
+    label: "Night sky",
+    url: "https://images.unsplash.com/photo-1419242902214-272c403dfcc9?auto=format&fit=crop&w=1600&q=80",
+  },
 ];
 
 export const COVER_PRESETS: { id: string; label: string; css: string }[] = [
@@ -64,11 +97,11 @@ function newId() {
 export function defaultHomeHeroConfig(): HomeHeroConfig {
   return {
     version: 1,
-    coverPreset: "mist",
-    coverImageUrl: "",
-    pageIcon: "🏠",
+    coverPreset: "forest",
+    coverImageUrl: COVER_IMAGE_PRESETS[0].url,
+    pageIcon: "🌳",
     pageTitle: "Personal Home",
-    quote: "Small steps every day compound into outsized outcomes.",
+    quote: "A minute a day keeps life's worries at bay.",
     linkGroups: [
       {
         id: newId(),

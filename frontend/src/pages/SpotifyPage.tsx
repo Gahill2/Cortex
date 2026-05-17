@@ -260,7 +260,8 @@ function AIDJSection() {
       setPlaylistName(result.playlistName);
       setSelected(new Set(result.tracks.map((t) => t.uri)));
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
+      const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = ax.response?.data?.error?.message ?? ax.message ?? "Request failed";
       setError(`Failed to generate playlist: ${msg}`);
     } finally {
       setLoading(false);
@@ -299,8 +300,9 @@ function AIDJSection() {
       );
       const result = r.data?.data;
       if (result) setSaveResult({ name: playlistName, url: result.playlistUrl });
-    } catch {
-      setError("Failed to save playlist. Make sure your Spotify account has playlist permissions.");
+    } catch (e: unknown) {
+      const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(ax.response?.data?.error?.message ?? "Failed to save playlist. Check Spotify playlist permissions.");
     } finally {
       setSaving(false);
     }

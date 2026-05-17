@@ -17,6 +17,7 @@ import "./styles-mcp-link.css";
 import "./styles-lazyweb.css";
 import "./styles-notes.css";
 import "./styles-notion-app.css";
+import "./styles-home-prod.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

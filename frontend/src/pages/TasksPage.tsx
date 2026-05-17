@@ -369,7 +369,7 @@ export const TasksPage = () => {
   const overdueCount = tasks.filter(isOverdue).length;
 
   return (
-    <div className="page">
+    <div className="page tasks-page">
       <div className="page-titlebar">
         <div>
           <h1 className="page-title">

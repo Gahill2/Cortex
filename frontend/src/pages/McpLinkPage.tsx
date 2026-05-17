@@ -21,7 +21,7 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-export const McpLinkPage = () => {
+export const McpLinkPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [tailscaleIp, setTailscaleIp] = useState("");
   const [port, setPort] = useState("3001");
   const [label, setLabel] = useState("");
@@ -88,23 +88,42 @@ export const McpLinkPage = () => {
   }, [probeTs]);
 
   return (
-    <div className="page mcp-link-page">
-      <div className="page-titlebar">
-        <div>
-          <p className="page-eyebrow">Automation</p>
-          <h1 className="page-title">Cortex Link (MCP)</h1>
-        </div>
-        <div className="page-actions">
-          <button type="button" className="btn-ghost btn-sm" onClick={() => void probeLocal()}>
-            Ping local MCP
-          </button>
-          {tsBase && (
-            <button type="button" className="btn-ghost btn-sm" onClick={() => void probeTs()}>
-              Ping Tailscale MCP
+    <div className={`mcp-link-page${embedded ? " mcp-link-page--embedded" : " page"}`}>
+      {!embedded && (
+        <div className="page-titlebar">
+          <div>
+            <p className="page-eyebrow">Automation</p>
+            <h1 className="page-title">Cortex Link (MCP)</h1>
+          </div>
+          <div className="page-actions">
+            <button type="button" className="btn-ghost btn-sm" onClick={() => void probeLocal()}>
+              Ping local MCP
             </button>
-          )}
+            {tsBase && (
+              <button type="button" className="btn-ghost btn-sm" onClick={() => void probeTs()}>
+                Ping Tailscale MCP
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+      {embedded && (
+        <div className="settings-embedded-actions">
+          <p className="settings-section-desc">
+            MCP runs separately from the main API. Use Tailscale only — no public port forwarding.
+          </p>
+          <div className="d-flex flex-wrap gap-2">
+            <button type="button" className="btn-ghost btn-sm" onClick={() => void probeLocal()}>
+              Ping local MCP
+            </button>
+            {tsBase && (
+              <button type="button" className="btn-ghost btn-sm" onClick={() => void probeTs()}>
+                Ping Tailscale MCP
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mcp-link-grid">
         <section className="mcp-link-card">

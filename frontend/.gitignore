@@ -4,8 +4,6 @@ dist/
 *.env.local
 *.log
 
-.vercel
-
 # Compiled artifacts — never commit tsc output from src/
 src/**/*.js
 src/**/*.d.ts

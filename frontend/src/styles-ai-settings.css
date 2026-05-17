@@ -60,6 +60,40 @@
   background: var(--accent-dim); border-color: var(--accent); color: var(--accent);
 }
 
+/* ── Provider picker ────────────────────────────────────────────────── */
+.ai-provider-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-provider-select-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ai-provider-select {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 28px 6px 10px;
+  min-width: 10rem;
+  cursor: pointer;
+}
+.ai-provider-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.ai-provider-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
 /* ── Provider badge ─────────────────────────────────────────────────── */
 .ai-provider-badge {
   font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
@@ -67,6 +101,7 @@
 }
 .ai-provider-badge--ollama     { background: rgba(34,197,94,0.15);  color: #22c55e; }
 .ai-provider-badge--anthropic  { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.ai-provider-badge--openai     { background: rgba(16,163,127,0.15); color: #10a37f; }
 .ai-provider-badge--none       { background: rgba(239,68,68,0.15);  color: #ef4444; }
 
 /* ── Composer glow ──────────────────────────────────────────────────── */

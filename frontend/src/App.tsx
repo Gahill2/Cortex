@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, lazy, Suspense } from "react";
+import type { AxiosError } from "axios";
 import { LoginPage } from "./pages/LoginPage";
 import { SessionPinGate } from "./components/SessionPinGate";
 import { Sidebar } from "./components/Sidebar";
 import { MobileAppBar } from "./components/MobileAppBar";
 import { MobileNavDrawer } from "./components/MobileNavDrawer";
+import { MobileTabBar } from "./components/MobileTabBar";
 import { OAuthBootstrap } from "./components/OAuthBootstrap";
 import { PageLoading } from "./components/PageLoading";
 import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/client";
@@ -24,9 +26,6 @@ const SettingsPage = lazy(() =>
 const MailPage = lazy(() =>
   import("./pages/MailPage").then((m) => ({ default: m.MailPage }))
 );
-const MemoryPage = lazy(() =>
-  import("./pages/MemoryPage").then((m) => ({ default: m.MemoryPage }))
-);
 const SpotifyPage = lazy(() =>
   import("./pages/SpotifyPage").then((m) => ({ default: m.SpotifyPage }))
 );
@@ -36,21 +35,15 @@ const CalendarPage = lazy(() =>
 const NotesPage = lazy(() =>
   import("./pages/NotesPage").then((m) => ({ default: m.NotesPage }))
 );
-const McpLinkPage = lazy(() =>
-  import("./pages/McpLinkPage").then((m) => ({ default: m.McpLinkPage }))
-);
-
 export type Tab =
   | "home"
   | "tasks"
   | "ai"
   | "notes"
-  | "memory"
   | "settings"
   | "spotify"
   | "mail"
-  | "calendar"
-  | "link";
+  | "calendar";
 
 /** Renderer idle lock — must match server expectations for `/auth/lock` */
 const IDLE_LOCK_MS = 15 * 60 * 1000;
@@ -78,6 +71,7 @@ export default function App() {
     isElectronEnv ? null : localStorage.getItem(AUTH_STORAGE_KEY)
   );
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
+  const [sessionProbeDone, setSessionProbeDone] = useState(false);
   const [pinGateReason, setPinGateReason] = useState<"sign-in" | "idle" | "manual">("sign-in");
   const prevTokenRef = useRef<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
@@ -107,15 +101,50 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (token && prevTokenRef.current !== token) {
-      prevTokenRef.current = token;
-      setPinGateReason("sign-in");
-      setSessionUnlocked(false);
-    }
     if (!token) {
       prevTokenRef.current = null;
       setSessionUnlocked(false);
+      setSessionProbeDone(true);
+      return;
     }
+
+    const isNewToken = prevTokenRef.current !== token;
+    prevTokenRef.current = token;
+    if (isNewToken) {
+      setPinGateReason("sign-in");
+    }
+
+    setSessionProbeDone(false);
+    let cancelled = false;
+    void (async () => {
+      try {
+        await api.get("/auth/session");
+        if (!cancelled) setSessionUnlocked(true);
+      } catch (err) {
+        if (cancelled) return;
+        const ax = err as AxiosError<{ error?: { message?: string } }>;
+        const status = ax.response?.status;
+        if (status === 423) {
+          setSessionUnlocked(false);
+          return;
+        }
+        if (status === 401) {
+          setAuthToken(null);
+          setToken(null);
+          try {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
+        }
+      } finally {
+        if (!cancelled) setSessionProbeDone(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   useEffect(() => {
@@ -219,7 +248,10 @@ export default function App() {
       sessionStorage.removeItem("cortex_oauth_auto_gmail");
       window.history.replaceState({}, "", window.location.pathname);
       if (params.has("gmail_connected")) setTab("mail");
-      else setTab("settings");
+      else {
+        sessionStorage.setItem("cortex_settings_section", "integrations");
+        setTab("settings");
+      }
     } else if (params.has("notion_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
       setTab("notes");
@@ -231,11 +263,31 @@ export default function App() {
   }
 
   if (!token) {
-    return <LoginPage onLogin={setToken} />;
+    return (
+      <LoginPage
+        onLogin={(next) => {
+          setAuthToken(next);
+          setToken(next);
+        }}
+      />
+    );
+  }
+
+  if (token && !sessionProbeDone) {
+    return <div style={{ background: "#0e0e10", height: "100vh" }} aria-busy="true" />;
   }
 
   if (!sessionUnlocked) {
-    return <SessionPinGate reason={pinGateReason} onUnlocked={() => setSessionUnlocked(true)} />;
+    return (
+      <SessionPinGate
+        reason={pinGateReason}
+        onUnlocked={() => setSessionUnlocked(true)}
+        onSessionExpired={() => {
+          setAuthToken(null);
+          setToken(null);
+        }}
+      />
+    );
   }
 
   const goTab = (next: Tab) => {
@@ -256,10 +308,7 @@ export default function App() {
           <Sidebar active={tab} onChange={goTab} />
         )}
         {isMobileLayout && (
-          <MobileAppBar
-            title={TAB_SCREEN_TITLES[tab]}
-            onOpenMenu={() => setNavDrawerOpen(true)}
-          />
+          <MobileAppBar onOpenMenu={() => setNavDrawerOpen(true)} />
         )}
         {isMobileLayout && (
           <MobileNavDrawer
@@ -282,7 +331,6 @@ export default function App() {
               {tab === "tasks" && <TasksPage />}
               {tab === "ai" && <AIPage />}
               {tab === "notes" && <NotesPage />}
-              {tab === "memory" && <MemoryPage />}
               {tab === "settings" && (
                 <SettingsPage
                   onLogout={() => {
@@ -304,10 +352,10 @@ export default function App() {
               {tab === "mail" && <MailPage />}
               {tab === "spotify" && <SpotifyPage />}
               {tab === "calendar" && <CalendarPage />}
-              {tab === "link" && <McpLinkPage />}
             </Suspense>
           </div>
         </main>
+        {isMobileLayout && <MobileTabBar active={tab} onChange={goTab} />}
       </div>
     </>
   );

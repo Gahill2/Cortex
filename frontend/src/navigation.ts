@@ -1,17 +1,44 @@
 import type { Tab } from "./App";
 
-/** Single source for primary nav (sidebar + mobile drawer). */
-export const CORTEX_MAIN_NAV: Array<{ id: Tab; label: string; emoji: string }> = [
-  { id: "home", label: "Home", emoji: "🏠" },
-  { id: "tasks", label: "Tasks", emoji: "✅" },
-  { id: "calendar", label: "Calendar", emoji: "📅" },
-  { id: "ai", label: "AI", emoji: "🤖" },
-  { id: "notes", label: "Notes", emoji: "📓" },
-  { id: "memory", label: "Memory", emoji: "◎" },
-  { id: "mail", label: "Mail", emoji: "📧" },
-  { id: "spotify", label: "Music", emoji: "🎵" },
-  { id: "link", label: "Cortex Link", emoji: "🔗" },
-  { id: "settings", label: "Settings", emoji: "⚙️" },
+/** Lucide icon keys used by NavIcon (20px stroke in nav). */
+export type NavIconName =
+  | "home"
+  | "check-square"
+  | "calendar"
+  | "bot"
+  | "file-text"
+  | "mail"
+  | "music"
+  | "settings";
+
+export type NavItem = { id: Tab; label: string; icon: NavIconName };
+
+/** Desktop sidebar + full nav reference. */
+export const CORTEX_MAIN_NAV: NavItem[] = [
+  { id: "home", label: "Home", icon: "home" },
+  { id: "tasks", label: "Tasks", icon: "check-square" },
+  { id: "calendar", label: "Calendar", icon: "calendar" },
+  { id: "ai", label: "AI", icon: "bot" },
+  { id: "notes", label: "Notes", icon: "file-text" },
+  { id: "mail", label: "Mail", icon: "mail" },
+  { id: "spotify", label: "Music", icon: "music" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
+
+/** Mobile bottom tab bar (design D2). */
+export const CORTEX_MOBILE_TAB_NAV: NavItem[] = [
+  { id: "home", label: "Home", icon: "home" },
+  { id: "tasks", label: "Tasks", icon: "check-square" },
+  { id: "mail", label: "Mail", icon: "mail" },
+  { id: "ai", label: "AI", icon: "bot" },
+];
+
+/** Mobile drawer — secondary destinations (design D2). */
+export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
+  { id: "calendar", label: "Calendar", icon: "calendar" },
+  { id: "notes", label: "Notes", icon: "file-text" },
+  { id: "spotify", label: "Music", icon: "music" },
+  { id: "settings", label: "Settings", icon: "settings" },
 ];
 
 /** App bar / screen titles (Material-style single-line headers). */
@@ -21,9 +48,7 @@ export const TAB_SCREEN_TITLES: Record<Tab, string> = {
   calendar: "Calendar",
   ai: "AI",
   notes: "Notes",
-  memory: "Memory",
   mail: "Mail",
   spotify: "Music",
-  link: "Cortex Link",
   settings: "Settings",
 };

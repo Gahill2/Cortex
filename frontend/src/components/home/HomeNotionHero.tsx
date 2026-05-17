@@ -3,6 +3,7 @@ import type { Tab } from "../../App";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import {
   CORTEX_HOME_HERO_STORAGE_KEY,
+  COVER_IMAGE_PRESETS,
   COVER_PRESETS,
   HERO_TAB_OPTIONS,
   MAX_COVER_IMAGE_URL_LEN,
@@ -17,6 +18,7 @@ import {
   type HomeHeroConfig,
   type HomeHeroLink,
 } from "./homeHeroConfig";
+import { writeSettingsSection } from "../../settingsNavigation";
 
 type Props = { onNavigate: (t: Tab) => void };
 
@@ -34,7 +36,14 @@ function openHeroLink(link: HomeHeroLink, onNavigate: (t: Tab) => void) {
     window.open(href, "_blank", "noopener,noreferrer");
     return;
   }
-  if (link.tab) onNavigate(link.tab);
+  if (!link.tab) return;
+  const legacy = link.tab as string;
+  if (legacy === "link" || legacy === "memory") {
+    writeSettingsSection(legacy === "link" ? "cortex-link" : "memory");
+    onNavigate("settings");
+    return;
+  }
+  onNavigate(link.tab);
 }
 
 function clampStr(s: string, max: number) {
@@ -329,6 +338,32 @@ export function HomeNotionHero({ onNavigate }: Props) {
                   ))}
                 </select>
               </label>
+              <div className="home-hero-field">
+                <span>Cover photos</span>
+                <div className="home-hero-cover-grid" role="list">
+                  <button
+                    type="button"
+                    role="listitem"
+                    className={`home-hero-cover-thumb home-hero-cover-thumb--none${!draft.coverImageUrl ? " is-active" : ""}`}
+                    onClick={() => setDraft((d) => ({ ...d, coverImageUrl: "" }))}
+                  >
+                    <span className="home-hero-cover-thumb-label">Gradient only</span>
+                  </button>
+                  {COVER_IMAGE_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="listitem"
+                      className={`home-hero-cover-thumb${draft.coverImageUrl === p.url ? " is-active" : ""}`}
+                      style={{ backgroundImage: `url(${p.url.replace(/w=1600/, "w=400")})` }}
+                      title={p.label}
+                      onClick={() => setDraft((d) => ({ ...d, coverImageUrl: p.url }))}
+                    >
+                      <span className="home-hero-cover-thumb-label">{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <label className="home-hero-field">
                 <span>Custom cover image URL (https only recommended)</span>
                 <input
@@ -338,7 +373,9 @@ export function HomeNotionHero({ onNavigate }: Props) {
                   value={draft.coverImageUrl}
                   onChange={(e) => setDraft((d) => ({ ...d, coverImageUrl: e.target.value }))}
                 />
-                <span className="home-hero-hint">Leave empty to use the gradient. Only http(s) URLs are kept when saved.</span>
+                <span className="home-hero-hint">
+                  Pick a photo above, paste any https image link, or leave empty to use the gradient only.
+                </span>
               </label>
               <label className="home-hero-field">
                 <span>Page icon (emoji)</span>

@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { CortexBrand } from "./brand/CortexBrand";
 import { useAuth } from "../context/AuthContext";
 
 export const Layout = () => {
@@ -8,7 +9,7 @@ export const Layout = () => {
     <div className="container">
       <header className="header">
         <Link to="/" className="brand">
-          Launchpad
+          <CortexBrand variant="sidebar" />
         </Link>
         <nav>
           <NavLink to="/">Dashboard</NavLink>

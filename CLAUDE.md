@@ -3,7 +3,7 @@
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
 
-**Vendored library:** 260+ skills from [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) live under `vendor/claude-skills/`. Sync to Cursor with `.\scripts\sync-claude-skills.ps1` (see `docs/claude-skills.md`). Examples: `@senior-architect`, `@senior-frontend`, `@content-creator`, `@product-manager-toolkit`, `@skill-security-auditor`.
+**Vendored libraries:** 260+ skills from [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) (`vendor/claude-skills/`, `.\scripts\sync-claude-skills.ps1`, see `docs/claude-skills.md`). Official Anthropic skills from [anthropics/skills](https://github.com/anthropics/skills) (`vendor/anthropic-skills/`, `npm run sync:anthropic-skills`, see `docs/anthropic-skills.md`) — e.g. `@anthropic-pdf`, `@anthropic-frontend-design`, `@anthropic-mcp-builder`. Claude-skills examples: `@senior-architect`, `@senior-frontend`, `@content-creator`, `@product-manager-toolkit`.
 
 Key routing rules:
 - Product ideas/brainstorming → invoke /office-hours

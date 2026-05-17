@@ -1,6 +1,7 @@
 import type { Tab } from "../App";
 import { CORTEX_MAIN_NAV } from "../navigation";
-import cortexLogo from "../assets/cortex-logo.png";
+import { NavIcon } from "./NavIcon";
+import { CortexBrand } from "./brand/CortexBrand";
 
 interface Props {
   active: Tab;
@@ -12,7 +13,7 @@ interface Props {
 export const Sidebar = ({ active, onChange, mobileOpen, onClose }: Props) => (
   <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
     <div className="sidebar-logo">
-      <img src={cortexLogo} alt="Cortex" className="cortex-logo-img sidebar-logo-img" />
+      <CortexBrand variant="sidebar" />
       {onClose && (
         <button type="button" className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
           ×
@@ -30,7 +31,7 @@ export const Sidebar = ({ active, onChange, mobileOpen, onClose }: Props) => (
           onClick={() => onChange(item.id)}
           data-badge=""
         >
-          <span className="sidebar-nav-icon">{item.emoji}</span>
+          <NavIcon name={item.icon} className="sidebar-nav-icon" />
           <span className="sidebar-nav-label">{item.label}</span>
         </button>
       ))}

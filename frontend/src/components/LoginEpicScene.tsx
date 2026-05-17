@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import cortexLogo from "../assets/cortex-logo.png";
-import cortexIcon from "../assets/cortex-favicon.png";
+import { cortexIconSrc } from "./brand/assets";
+import { CortexLogo } from "./brand/CortexLogo";
 
 const COMPANIONS = [
   { id: "c1", top: "12%", left: "8%", size: "clamp(28px, 4vw, 52px)", delay: 0 },
@@ -56,7 +56,7 @@ export const LoginEpicScene = () => {
           COMPANIONS.map((c) => (
             <motion.img
               key={c.id}
-              src={cortexIcon}
+              src={cortexIconSrc}
               alt=""
               className="login-epic-node"
               style={{
@@ -85,10 +85,8 @@ export const LoginEpicScene = () => {
 
       {showHero && (
         <div className="layer depth-3" data-depth="3">
-          <motion.img
-            src={cortexLogo}
-            alt=""
-            className="login-epic-hero"
+          <motion.div
+            className="login-epic-hero-wrap"
             initial={reduceMotion ? false : { opacity: 0, y: -40, scale: 0.85 }}
             animate={
               reduceMotion
@@ -100,7 +98,9 @@ export const LoginEpicScene = () => {
               y: { duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.3 },
               scale: { duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.3 },
             }}
-          />
+          >
+            <CortexLogo size="epic" className="login-epic-hero" />
+          </motion.div>
         </div>
       )}
 

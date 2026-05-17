@@ -2,7 +2,7 @@ import { CORTEX_HOME_HERO_STORAGE_KEY } from "../components/home/homeHeroConfig"
 
 /**
  * localStorage keys cleared by “Reset Cortex UI preferences”.
- * Intentionally excludes auth (`cortex_token`), MCP link fields, and integration tokens.
+ * Intentionally excludes auth (`cortex_token`, `cortex_user`), MCP link fields, and integration tokens.
  */
 export const CORTEX_UI_PREFERENCE_KEYS = [
   "cortex_appearance",

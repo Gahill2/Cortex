@@ -657,7 +657,7 @@ html.cortex-notion .home-hero {
 }
 
 html.cortex-notion .home-hero-cover {
-  min-height: 200px;
+  min-height: 220px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   box-shadow: var(--widget-shadow);
@@ -665,7 +665,7 @@ html.cortex-notion .home-hero-cover {
 
 @media (min-width: 992px) {
   html.cortex-notion .home-hero-cover {
-    min-height: 240px;
+    min-height: 280px;
   }
 }
 

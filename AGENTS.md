@@ -4,6 +4,8 @@
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
 
 Key routing rules:
+- Long-term memory (remember, recall, forget, past sessions) → use `@agentmemory-remember`, `@agentmemory-recall`, `@agentmemory-forget`, or `@agentmemory-session-history` after `npm run sync:agentmemory-skills` (see `docs/agentmemory-setup.md`)
+- Anthropic official skills (PDF, DOCX, frontend design, MCP builder, etc.) → sync with `npm run sync:anthropic-skills` (see `docs/anthropic-skills.md`); invoke as `@anthropic-<skill-name>` (e.g. `@anthropic-pdf`, `@anthropic-mcp-builder`)
 - Product ideas/brainstorming → invoke /office-hours
 - Strategy/scope → invoke /plan-ceo-review
 - Architecture → invoke /plan-eng-review

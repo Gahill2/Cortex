@@ -22,7 +22,7 @@ function authErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
-import cortexLogo from "../assets/cortex-logo.png";
+import { CortexBrand } from "../components/brand/CortexBrand";
 import { LoginEpicScene } from "../components/LoginEpicScene";
 
 interface Props {
@@ -112,7 +112,7 @@ export const LoginPage = ({ onLogin }: Props) => {
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         >
           <div className="login-logo-wrap login-logo-wrap--card">
-            <img src={cortexLogo} alt="Cortex" className="cortex-logo-img login-logo-img login-logo-img--blend" />
+            <CortexBrand variant="auth" />
           </div>
           <motion.p
             className="login-tagline"

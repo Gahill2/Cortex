@@ -6,8 +6,12 @@
   "main": "electron/dist/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n backend,frontend,electron -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
-    "dev:web": "concurrently -k -n backend,frontend -c magenta,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "node scripts/dev-web.mjs",
+    "dev:web": "npm run dev",
+    "dev:servers": "concurrently -k -n backend,frontend -c magenta,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:desktop": "concurrently -k -n backend,frontend,electron -c magenta,cyan,green \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "sync:agentmemory-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-agentmemory-skills.ps1",
+    "sync:anthropic-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-anthropic-skills.ps1",
     "dev:memory": "npx -y @agentmemory/agentmemory",
     "dev:stack": "concurrently -k -n backend,frontend,memory -c magenta,cyan,yellow \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:memory\"",
     "dev:backend": "npm --prefix backend run dev",
@@ -20,7 +24,8 @@
     "build:electron": "tsc -p electron/tsconfig.json && tsc -p electron/tsconfig.preload.json",
     "dist": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
-    "canva": "npx -y @canva/cli@latest"
+    "canva": "npx -y @canva/cli@latest",
+    "railway:deploy": "node -e \"console.log('Railway checklist: docs/railway-deploy.md\\nTemplate: backend/.env.railway.example')\""
   },
   "build": {
     "appId": "com.cortex.app",

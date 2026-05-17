@@ -27,6 +27,24 @@ npm run dev:memory
 
 3. Open Cortex → **Memory** tab. Search spans agentmemory + vault notes. Use the MCP JSON block for Cursor.
 
+## Cursor skills (remember / recall / forget / session-history)
+
+Upstream ships four plugin skills in [agentmemory](https://github.com/rohitg00/agentmemory) (`plugin/skills/`). Cortex vendors the repo at `vendor/agentmemory` and copies them into `.cursor/skills/`:
+
+```powershell
+git submodule update --init vendor/agentmemory
+.\scripts\sync-agentmemory-skills.ps1
+```
+
+After sync, invoke in chat with `@agentmemory-remember`, `@agentmemory-recall`, `@agentmemory-forget`, or `@agentmemory-session-history`. Update after pulling the submodule:
+
+```powershell
+cd vendor/agentmemory
+git pull origin main
+cd ../..
+.\scripts\sync-agentmemory-skills.ps1
+```
+
 ## Cross-system (laptop, desktop, server)
 
 | Piece | What to align |

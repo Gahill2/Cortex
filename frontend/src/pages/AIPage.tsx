@@ -1,5 +1,13 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import {
+  type AIProviderOption,
+  type ChatAIProviderId,
+  CHAT_AI_PROVIDER_LABELS,
+  pickDefaultProvider,
+  readStoredAIProvider,
+  writeStoredAIProvider,
+} from "../lib/aiProvider";
 
 interface Message {
   id: string;
@@ -13,7 +21,11 @@ interface AIStatus {
   ollama: boolean;
   ollamaModel: string;
   anthropic: boolean;
-  activeProvider: "ollama" | "anthropic" | "none";
+  openai: boolean;
+  openaiModel: string;
+  activeProvider: "ollama" | "anthropic" | "openai" | "none";
+  providers: AIProviderOption[];
+  defaultProvider: ChatAIProviderId | null;
 }
 
 interface ElectronBridge {
@@ -35,28 +47,62 @@ const STARTERS = [
   "Help me write a task description",
 ];
 
+function providerBadgeClass(id: ChatAIProviderId | "none"): string {
+  if (id === "ollama") return "ollama";
+  if (id === "openai") return "openai";
+  if (id === "claude") return "anthropic";
+  return "none";
+}
+
 export const AIPage = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { id: "init", role: "assistant", content: "Hi, I'm Cortex AI. Ask me anything — tasks, ideas, or questions.", timestamp: now() }
+    {
+      id: "init",
+      role: "assistant",
+      content: "Hi, I'm Cortex AI. Pick a model below, then ask me anything.",
+      timestamp: now(),
+    },
   ]);
-  const [input,    setInput]    = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [status,   setStatus]   = useState<AIStatus | null>(null);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<AIStatus | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<ChatAIProviderId>(
+    () => readStoredAIProvider() ?? "claude"
+  );
   const [starting, setStarting] = useState(false);
   const [includeWorkspaceContext, setIncludeWorkspaceContext] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await api.get("/ai/status");
-      setStatus(res.data?.data ?? res.data);
-    } catch { /* ignore */ }
+      const data = (res.data?.data ?? res.data) as AIStatus;
+      setStatus(data);
+      if (data.providers?.length) {
+        setSelectedProvider((prev) =>
+          data.providers.find((p) => p.id === prev)?.available
+            ? prev
+            : pickDefaultProvider(data.providers, data.defaultProvider)
+        );
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  useEffect(() => { void fetchStatus(); }, [fetchStatus]);
+  useEffect(() => {
+    void fetchStatus();
+  }, [fetchStatus]);
+
+  const handleProviderChange = (id: ChatAIProviderId) => {
+    setSelectedProvider(id);
+    writeStoredAIProvider(id);
+  };
 
   const handleStartOllama = async () => {
     if (!win.electron?.startOllama) return;
@@ -66,14 +112,39 @@ export const AIPage = () => {
       if (result.ok) {
         await api.post("/ai/ollama/refresh");
         await fetchStatus();
+        handleProviderChange("ollama");
       } else {
-        alert(`Failed to start Ollama: ${result.error ?? "unknown error"}\n\nMake sure Ollama is installed: https://ollama.com`);
+        alert(
+          `Failed to start Ollama: ${result.error ?? "unknown error"}\n\nMake sure Ollama is installed: https://ollama.com`
+        );
       }
     } catch {
       alert("Could not start Ollama. Make sure it's installed at https://ollama.com");
     } finally {
       setStarting(false);
     }
+  };
+
+  const postChat = async (msg: string) => {
+    const res = await api.post("/ai/chat", {
+      message: msg,
+      provider: selectedProvider,
+      includeWorkspaceContext,
+    });
+    const data = res.data?.data ?? res.data;
+    const reply: string = data?.reply ?? "…";
+    const provider: string = data?.provider;
+    setMessages((p) => [
+      ...p,
+      {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        content: reply,
+        provider,
+        timestamp: now(),
+      },
+    ]);
+    if (provider && provider !== "none") void fetchStatus();
   };
 
   const send = async (e?: FormEvent, overrideMsg?: string) => {
@@ -84,63 +155,84 @@ export const AIPage = () => {
     setInput("");
     setLoading(true);
     try {
-      const res = await api.post("/ai/chat", { message: msg, includeWorkspaceContext });
-      const data = res.data?.data ?? res.data;
-      const reply: string = data?.reply ?? "…";
-      const provider: string = data?.provider;
-      setMessages((p) => [...p, { id: `a-${Date.now()}`, role: "assistant", content: reply, provider, timestamp: now() }]);
-      if (provider && status && provider !== status.activeProvider) void fetchStatus();
+      await postChat(msg);
     } catch {
-      setMessages((p) => [...p, { id: `e-${Date.now()}`, role: "assistant", content: "Could not reach the server.", timestamp: now() }]);
+      setMessages((p) => [
+        ...p,
+        {
+          id: `e-${Date.now()}`,
+          role: "assistant",
+          content: "Could not reach the server.",
+          timestamp: now(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
   const sendStarter = (text: string) => {
-    setInput(text);
-    // small delay so state settles before send reads it
-    setTimeout(() => {
-      setMessages((p) => [...p, { id: `u-${Date.now()}`, role: "user", content: text, timestamp: now() }]);
-      setInput("");
-      setLoading(true);
-      api.post("/ai/chat", { message: text, includeWorkspaceContext })
-        .then((res) => {
-          const data = res.data?.data ?? res.data;
-          const reply: string = data?.reply ?? "…";
-          const provider: string = data?.provider;
-          setMessages((p) => [...p, { id: `a-${Date.now()}`, role: "assistant", content: reply, provider, timestamp: now() }]);
-          if (provider && status && provider !== status.activeProvider) void fetchStatus();
-        })
-        .catch(() => {
-          setMessages((p) => [...p, { id: `e-${Date.now()}`, role: "assistant", content: "Could not reach the server.", timestamp: now() }]);
-        })
-        .finally(() => setLoading(false));
-    }, 0);
+    setMessages((p) => [...p, { id: `u-${Date.now()}`, role: "user", content: text, timestamp: now() }]);
+    setLoading(true);
+    postChat(text)
+      .catch(() => {
+        setMessages((p) => [
+          ...p,
+          {
+            id: `e-${Date.now()}`,
+            role: "assistant",
+            content: "Could not reach the server.",
+            timestamp: now(),
+          },
+        ]);
+      })
+      .finally(() => setLoading(false));
   };
 
-  const activeProvider = status?.activeProvider ?? "none";
-
-  const providerLabel = status
-    ? status.activeProvider === "ollama"
-      ? `Ollama (${status.ollamaModel})`
-      : status.activeProvider === "anthropic"
-      ? "Anthropic"
-      : "No AI"
-    : null;
+  const providers = status?.providers ?? [];
+  const selectedMeta = providers.find((p) => p.id === selectedProvider);
+  const providerLabel = selectedMeta
+    ? `${selectedMeta.label}${selectedMeta.available ? "" : " (unavailable)"}`
+    : CHAT_AI_PROVIDER_LABELS[selectedProvider];
 
   return (
     <div className="page ai-page">
       <div className="page-titlebar flex-wrap gap-2 gap-md-3 align-items-center">
         <h1 className="page-title mb-0">AI Assistant</h1>
         <div className="d-flex flex-wrap align-items-center gap-2 ms-md-auto">
+          <label className="ai-provider-select-wrap">
+            <span className="ai-provider-select-label">Model</span>
+            <select
+              className="ai-provider-select"
+              value={selectedProvider}
+              onChange={(e) => handleProviderChange(e.target.value as ChatAIProviderId)}
+              disabled={loading}
+              aria-label="AI model"
+            >
+              {(["claude", "openai", "ollama"] as const).map((id) => {
+                const p = providers.find((x) => x.id === id);
+                const available = p?.available ?? false;
+                return (
+                  <option key={id} value={id} disabled={!available}>
+                    {CHAT_AI_PROVIDER_LABELS[id]}
+                    {p?.available ? ` · ${p.model}` : " — not configured"}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
           {providerLabel && (
-            <span className={`ai-provider-badge ai-provider-badge--${activeProvider}`}>
+            <span
+              className={`ai-provider-badge ai-provider-badge--${providerBadgeClass(
+                selectedMeta?.available ? selectedProvider : "none"
+              )}`}
+            >
               {providerLabel}
             </span>
           )}
-          {isElectron && status && !status.ollama && (
+          {isElectron && status && !status.ollama && selectedProvider === "ollama" && (
             <button
+              type="button"
               className="btn-ghost"
               style={{ fontSize: "0.8rem" }}
               onClick={() => void handleStartOllama()}
@@ -150,11 +242,21 @@ export const AIPage = () => {
             </button>
           )}
           <button
+            type="button"
             className="btn-primary"
             style={{ fontSize: "0.8rem" }}
-            onClick={() => setMessages([{ id: "init", role: "assistant", content: "New conversation started.", timestamp: now() }])}
+            onClick={() =>
+              setMessages([
+                {
+                  id: "init",
+                  role: "assistant",
+                  content: "New conversation started.",
+                  timestamp: now(),
+                },
+              ])
+            }
           >
-            ✦ New Chat
+            New Chat
           </button>
         </div>
       </div>
@@ -170,19 +272,30 @@ export const AIPage = () => {
             ) : (
               <div key={m.id} className="ai-msg ai-msg--assistant">
                 <div className="ai-msg-inner">
-                  <span className="ai-msg-icon">✦</span>
+                  <span className="ai-msg-icon" aria-hidden>
+                    ✦
+                  </span>
                   <div className="ai-msg-bubble">{m.content}</div>
                 </div>
-                <span className="ai-msg-time">{m.timestamp}</span>
+                <span className="ai-msg-time">
+                  {m.timestamp}
+                  {m.provider && m.provider !== "none" ? ` · ${m.provider}` : ""}
+                </span>
               </div>
             )
           )}
           {loading && (
             <div className="ai-msg ai-msg--assistant">
               <div className="ai-msg-inner">
-                <span className="ai-msg-icon">✦</span>
+                <span className="ai-msg-icon" aria-hidden>
+                  ✦
+                </span>
                 <div className="ai-msg-bubble">
-                  <div className="ai-typing"><span /><span /><span /></div>
+                  <div className="ai-typing">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 </div>
               </div>
             </div>
@@ -193,7 +306,7 @@ export const AIPage = () => {
         {messages.length === 1 && (
           <div className="ai-starters">
             {STARTERS.map((s) => (
-              <button key={s} className="ai-starter-chip" onClick={() => sendStarter(s)}>
+              <button key={s} type="button" className="ai-starter-chip" onClick={() => sendStarter(s)}>
                 {s}
               </button>
             ))}
@@ -215,13 +328,18 @@ export const AIPage = () => {
             className="ai-composer-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-            placeholder="Message Cortex AI… (Enter to send, Shift+Enter for new line)"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder={`Message with ${CHAT_AI_PROVIDER_LABELS[selectedProvider]}… (Enter to send)`}
             rows={3}
             disabled={loading}
           />
           <button type="submit" className="btn-primary ai-send-btn" disabled={loading || !input.trim()}>
-            {loading ? "Thinking…" : "Send ↑"}
+            {loading ? "Thinking…" : "Send"}
           </button>
         </form>
       </div>

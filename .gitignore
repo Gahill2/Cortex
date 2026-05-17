@@ -9,3 +9,7 @@ dist/
 .env.local
 *.log
 **/prisma/dev.db
+.gstack/
+deploy/homelab/data/
+deploy/homelab/.env
+deploy/homelab/env/api.env

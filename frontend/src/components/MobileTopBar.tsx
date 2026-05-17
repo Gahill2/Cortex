@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import type { Tab } from "../App";
 import { TAB_SCREEN_TITLES } from "../navigation";
-import cortexFavicon from "../assets/cortex-favicon.png";
+import { cortexIconSrc } from "./brand/assets";
 
 interface Props {
   active: Tab;
@@ -23,7 +23,7 @@ export const MobileTopBar = ({ active, onMenuOpen }: Props) => (
       {TAB_SCREEN_TITLES[active]}
     </motion.div>
     <motion.img
-      src={cortexFavicon}
+      src={cortexIconSrc}
       alt="Cortex"
       className="cortex-logo-img mobile-topbar-logo"
       whileTap={{ scale: 0.92 }}

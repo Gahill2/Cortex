@@ -238,6 +238,18 @@
 .spotify-cta-icon { font-size: 28px; opacity: 0.5; }
 .spotify-cta-text { font-size: 12px; color: var(--text-3); }
 
+/* Bento card: tighter Spotify when nested in HomeProduction */
+.home-prod-card--spotify .spotify-ctrl-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+.home-prod-card--spotify .spotify-ctrl-btn--pp {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+}
+
 /* Tasks: priority color dot */
 .task-priority-dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -254,24 +266,70 @@
 
 /* Tasks: better empty state */
 .tasks-empty-state {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 12px 0;
-  color: var(--text-3); font-size: 12px; text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px) 0;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
 }
 .tasks-empty-icon { font-size: 24px; opacity: 0.3; }
 
+/* Tasks widget in bento — list clips inside card */
+.widget--tasks .widget-task-list {
+  min-height: 0;
+}
+.widget--tasks .widget-label,
+.widget--tasks .task-progress-bar {
+  flex-shrink: 0;
+}
+
 /* Mail: better row layout */
 .gmail-row-v2 {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border-1, rgba(255,255,255,0.04));
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-1, 4px) 0;
+  border-bottom: 1px solid var(--border-1, rgba(255, 255, 255, 0.04));
 }
 .gmail-row-v2:last-child { border-bottom: none; }
 .gmail-row-content { min-width: 0; flex: 1; }
-.gmail-row-from { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gmail-row-subject { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gmail-row-from {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gmail-row-subject {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gmail-row-v2.unread .gmail-row-from { color: var(--text); }
 .gmail-row-v2.unread .gmail-row-subject { color: var(--text-2); }
+
+/* Mail compact (production bento) */
+.widget--gmail-compact {
+  gap: var(--space-2, 8px);
+}
+.widget--gmail-compact .widget-label {
+  flex-shrink: 0;
+}
+.widget--gmail-compact .gmail-widget-list {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.widget--gmail-compact .widget-cta {
+  flex-shrink: 0;
+  padding: var(--space-1, 4px) 0;
+}
 
 /* Mail: unread count badge */
 .mail-unread-badge {

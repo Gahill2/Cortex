@@ -20,7 +20,7 @@ type SearchHit = {
   vault?: string;
 };
 
-export const MemoryPage = () => {
+export const MemoryPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [status, setStatus] = useState<MemoryStatus | null>(null);
   const [query, setQuery] = useState("");
   const [agentHits, setAgentHits] = useState<SearchHit[]>([]);
@@ -100,7 +100,8 @@ export const MemoryPage = () => {
   };
 
   return (
-    <div className="page memory-page">
+    <div className={`memory-page${embedded ? " memory-page--embedded" : " page"}`}>
+      {!embedded ? (
       <div className="page-titlebar">
         <div>
           <h1 className="page-title">Memory</h1>
@@ -118,6 +119,16 @@ export const MemoryPage = () => {
           </button>
         </div>
       </div>
+      ) : (
+        <div className="settings-embedded-actions">
+          <p className="settings-section-desc">
+            Unified search across agentmemory and Obsidian — use the same project name on every machine.
+          </p>
+          <button type="button" className="btn-ghost btn-sm" disabled={reindexing} onClick={() => void handleReindex()}>
+            {reindexing ? "Reindexing…" : "Reindex vaults"}
+          </button>
+        </div>
+      )}
 
       {loading && <p className="muted">Loading memory services…</p>}
       {error && <p className="error-text">{error}</p>}

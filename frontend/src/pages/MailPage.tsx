@@ -1,6 +1,35 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  Archive,
+  Briefcase,
+  CheckCircle2,
+  CreditCard,
+  Film,
+  Folder,
+  GraduationCap,
+  Inbox,
+  LayoutGrid,
+  Mail,
+  MessageCircle,
+  Newspaper,
+  PenSquare,
+  Plus,
+  RefreshCw,
+  Reply,
+  Search,
+  Server,
+  Sparkles,
+  Star,
+  Trash2,
+  User,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "../api/client";
 import { useToastStore } from "../stores/toastStore";
+
+const MAIL_ICON_SIZE = 18;
+const MAIL_ICON_STROKE = 1.75;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,19 +65,54 @@ interface CategoryMap {
   [cat: string]: { messageId: string; summary: string | null }[];
 }
 
-const CAT_ICONS: Record<MailCat, string> = {
-  important:   "⭐",
-  work:        "💼",
-  school:      "🎓",
-  personal:    "👤",
-  social:      "💬",
-  media:       "🎬",
-  finance:     "💳",
-  newsletters: "📰",
-  other:       "📂",
+interface CleanupSuggestion {
+  messageId: string;
+  accountId: string;
+  from: string;
+  subject: string;
+  snippet: string;
+  date: string;
+  action: "delete" | "archive" | "keep";
+  reason: string;
+  confidence: "high" | "medium" | "low";
+}
+
+function apiErrorMessage(err: unknown): string {
+  const ax = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+  return ax.response?.data?.error?.message ?? ax.message ?? "Request failed";
+}
+
+const cleanupKey = (s: CleanupSuggestion) => `${s.accountId}:${s.messageId}`;
+
+const CAT_ICON_MAP: Record<MailCat, LucideIcon> = {
+  important: Star,
+  work: Briefcase,
+  school: GraduationCap,
+  personal: User,
+  social: MessageCircle,
+  media: Film,
+  finance: CreditCard,
+  newsletters: Newspaper,
+  other: Folder,
 };
 
 const CAT_ORDER: MailCat[] = ["important", "work", "school", "personal", "social", "media", "finance", "newsletters", "other"];
+
+function MailCategoryIcon({ cat, className }: { cat: MailCat; className?: string }) {
+  const Icon = CAT_ICON_MAP[cat];
+  return <Icon size={MAIL_ICON_SIZE} strokeWidth={MAIL_ICON_STROKE} className={className} aria-hidden />;
+}
+
+function MailProviderIcon({ provider }: { provider: MailAccount["provider"] }) {
+  const cls = "mail-sidebar-icon-svg";
+  if (provider === "microsoft") {
+    return <LayoutGrid size={MAIL_ICON_SIZE} strokeWidth={MAIL_ICON_STROKE} className={cls} aria-hidden />;
+  }
+  if (provider === "imap") {
+    return <Server size={MAIL_ICON_SIZE} strokeWidth={MAIL_ICON_STROKE} className={cls} aria-hidden />;
+  }
+  return <Mail size={MAIL_ICON_SIZE} strokeWidth={MAIL_ICON_STROKE} className={cls} aria-hidden />;
+}
 
 type ElectronWindow = Window & {
   electron?: { isElectron?: boolean; openExternal?: (url: string) => Promise<void> };
@@ -56,8 +120,9 @@ type ElectronWindow = Window & {
 
 // ── Avatar helper ─────────────────────────────────────────────────────────────
 
-function senderAvatar(from: string): { initial: string; color: string } {
-  const name = from.split("<")[0].trim() || from;
+function senderAvatar(from?: string): { initial: string; color: string } {
+  const raw = from?.trim() || "Unknown";
+  const name = raw.split("<")[0].trim() || raw;
   const initial = name[0]?.toUpperCase() ?? "?";
   const colors = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899"];
   let h = 0;
@@ -94,10 +159,11 @@ const fmtDateFull = (dateStr: string): string => {
   } catch { return dateStr; }
 };
 
-const senderName = (from: string): string => {
-  const match = from.match(/^([^<]+)</);
+const senderName = (from?: string): string => {
+  const raw = from?.trim() || "Unknown";
+  const match = raw.match(/^([^<]+)</);
   if (match) return match[1].trim();
-  return from.replace(/<[^>]+>/, "").trim() || from;
+  return raw.replace(/<[^>]+>/, "").trim() || raw;
 };
 
 // ── AddImapModal ──────────────────────────────────────────────────────────────
@@ -127,7 +193,9 @@ const AddImapModal = ({ onClose, onAdded }: AddImapModalProps) => {
       <div className="mail-modal" onClick={(e) => e.stopPropagation()}>
         <div className="mail-modal-header">
           <h2 className="mail-modal-title">Add IMAP/SMTP Account</h2>
-          <button className="mail-modal-close" onClick={onClose}>✕</button>
+          <button type="button" className="mail-modal-close" onClick={onClose} aria-label="Close">
+            <X size={18} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+          </button>
         </div>
         <form onSubmit={(e) => void submit(e)} className="mail-form">
           {error && <div className="mail-form-error">{error}</div>}
@@ -187,7 +255,9 @@ const ComposeModal = ({ accounts, defaultAccountId, replyTo, initialBody, onClos
       <div className="mail-modal mail-modal--compose" onClick={(e) => e.stopPropagation()}>
         <div className="mail-modal-header">
           <h2 className="mail-modal-title">{replyTo ? "Reply" : "New Message"}</h2>
-          <button className="mail-modal-close" onClick={onClose}>✕</button>
+          <button type="button" className="mail-modal-close" onClick={onClose} aria-label="Close">
+            <X size={18} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+          </button>
         </div>
         <form onSubmit={(e) => void send(e)} className="mail-form">
           {error && <div className="mail-form-error">{error}</div>}
@@ -236,6 +306,11 @@ export const MailPage = () => {
   const [actionBusy, setActionBusy]         = useState<string | null>(null);
   const [searchQuery, setSearchQuery]       = useState("");
   const [localUnread, setLocalUnread]       = useState<Set<string>>(new Set());
+  const [cleanupOpen, setCleanupOpen]       = useState(false);
+  const [cleanupScanning, setCleanupScanning] = useState(false);
+  const [cleanupApplying, setCleanupApplying] = useState(false);
+  const [cleanupSuggestions, setCleanupSuggestions] = useState<CleanupSuggestion[]>([]);
+  const [cleanupSelected, setCleanupSelected] = useState<Set<string>>(new Set());
 
   // ── Load accounts ──────────────────────────────────────────────────────────
   const loadAccounts = useCallback(async () => {
@@ -294,6 +369,7 @@ export const MailPage = () => {
         try {
           const batch = msgs.slice(0, 50).map((m) => ({
             id: m.id,
+            accountId: m.accountId,
             from: m.from,
             subject: m.subject,
             snippet: m.snippet,
@@ -302,7 +378,7 @@ export const MailPage = () => {
           await loadCategories();
           pushToast({
             title: "Mail folders ready",
-            message: "We grouped visible messages with smart rules. Use ✦ AI Organize for finer sorting.",
+            message: "We grouped visible messages with smart rules. Use AI Organize for finer sorting.",
             tone: "neutral",
           });
         } catch {
@@ -354,25 +430,114 @@ export const MailPage = () => {
     try {
       const batch = allMessages.slice(0, 50).map((m) => ({
         id: m.id,
+        accountId: m.accountId,
         from: m.from,
         subject: m.subject,
         snippet: m.snippet,
       }));
       const r = await api.post<{ data?: { mode?: string } }>("/ai/mail/organize", { messages: batch, rulesOnly: false });
       await loadCategories();
+
+      const apply = await api.post<{ data?: { archived: number; failed?: number } }>("/mail/organize/apply", {
+        accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
+      });
+      const archived = apply.data?.data?.archived ?? 0;
+      const applyFailed = apply.data?.data?.failed ?? 0;
+      await loadInbox(selectedAccountId);
+
       const mode = r.data?.data?.mode;
+      const archiveNote =
+        archived > 0
+          ? ` Archived ${archived} newsletter/social message(s) in your real mailbox.`
+          : " No messages were archived (only newsletters, social, and media folders are auto-archived).";
+      const failNote =
+        applyFailed > 0
+          ? ` ${applyFailed} could not be moved — reconnect the account or use Gmail for personal mail.`
+          : "";
       pushToast({
         title: "Inbox organized",
-        message: mode === "ai+rules"
-          ? "AI categories saved; any gaps used smart rules."
-          : "Sorted with smart rules (configure AI for richer labels).",
-        tone: "success",
+        message:
+          (mode === "ai+rules" ? "Categories saved in Cortex." : "Sorted with smart rules.") +
+          archiveNote +
+          failNote,
+        tone: applyFailed > 0 && archived === 0 ? "neutral" : "success",
       });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Request failed";
-      pushToast({ title: "Could not organize mail", message: msg, tone: "error" });
+      pushToast({ title: "Could not organize mail", message: apiErrorMessage(err), tone: "error" });
     }
     finally { setOrganizing(false); }
+  };
+
+  // ── Backlog cleanup scan ───────────────────────────────────────────────────
+  const scanBacklog = async () => {
+    setCleanupScanning(true);
+    try {
+      const r = await api.post<{
+        data?: { suggestions: CleanupSuggestion[]; scanned: number; mode: string };
+      }>("/mail/cleanup/scan", {
+        accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
+        maxMessages: 300,
+        query: "in:inbox",
+      });
+      const suggestions = (r.data?.data?.suggestions ?? []).filter((s) => s.action !== "keep");
+      setCleanupSuggestions(suggestions);
+      setCleanupSelected(new Set(suggestions.map(cleanupKey)));
+      setCleanupOpen(true);
+      pushToast({
+        title: "Backlog scan complete",
+        message: `Reviewed ${r.data?.data?.scanned ?? 0} messages (${r.data?.data?.mode ?? "rules"} suggestions).`,
+        tone: "neutral",
+      });
+    } catch (err: unknown) {
+      pushToast({ title: "Scan failed", message: apiErrorMessage(err), tone: "error" });
+    } finally {
+      setCleanupScanning(false);
+    }
+  };
+
+  const applyCleanup = async () => {
+    const items = cleanupSuggestions
+      .filter((s) => cleanupSelected.has(cleanupKey(s)) && s.action !== "keep")
+      .map((s) => ({
+        accountId: s.accountId,
+        messageId: s.messageId,
+        action: s.action as "delete" | "archive",
+      }));
+    if (items.length === 0) return;
+    if (!confirm(`Apply cleanup to ${items.length} message(s) in your real mailbox? This cannot be undone for deletions.`)) {
+      return;
+    }
+    setCleanupApplying(true);
+    try {
+      const r = await api.post<{ data?: { deleted: number; archived: number; failed: number; errors?: string[] } }>(
+        "/mail/cleanup/apply",
+        { items }
+      );
+      const { deleted = 0, archived = 0, failed = 0, errors = [] } = r.data?.data ?? {};
+      const applied = new Set(items.map((i) => `${i.accountId}:${i.messageId}`));
+      setCleanupSuggestions((prev) => prev.filter((s) => !applied.has(cleanupKey(s))));
+      setCleanupSelected(new Set());
+      await loadInbox(selectedAccountId);
+      const errHint = errors[0] ? ` ${errors[0]}` : "";
+      pushToast({
+        title: "Cleanup applied",
+        message: `Deleted ${deleted}, archived ${archived}${failed ? `; ${failed} failed.${errHint}` : "."}`,
+        tone: failed ? "neutral" : "success",
+      });
+    } catch (err: unknown) {
+      pushToast({ title: "Cleanup failed", message: apiErrorMessage(err), tone: "error" });
+    } finally {
+      setCleanupApplying(false);
+    }
+  };
+
+  const toggleCleanupSelect = (key: string) => {
+    setCleanupSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   // ── AI Draft Reply ─────────────────────────────────────────────────────────
@@ -455,11 +620,14 @@ export const MailPage = () => {
   };
 
   const filteredMessages = searchQuery.trim()
-    ? messages.filter(m =>
-        m.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.snippet ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? messages.filter((m) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          (m.subject ?? "").toLowerCase().includes(q) ||
+          (m.from ?? "").toLowerCase().includes(q) ||
+          (m.snippet ?? "").toLowerCase().includes(q)
+        );
+      })
     : messages;
 
   const isUnread = (msg: MailMessage) => localUnread.has(msg.id) ? true : localUnread.has(`read:${msg.id}`) ? false : msg.unread;
@@ -476,25 +644,94 @@ export const MailPage = () => {
         </div>
         <div className="page-actions">
           <button
-            className="btn-ghost btn-sm"
+            className="btn-ghost btn-sm mail-toolbar-btn"
+            onClick={() => void scanBacklog()}
+            disabled={cleanupScanning || accounts.length === 0}
+            title="Scan inbox backlog and suggest messages to delete or archive"
+          >
+            <Trash2 size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {cleanupScanning ? "Scanning…" : "Clean backlog"}
+          </button>
+          <button
+            className="btn-ghost btn-sm mail-toolbar-btn"
             onClick={() => void aiOrganize()}
             disabled={organizing || allMessages.length === 0}
-            title="Let AI sort your inbox into folders"
+            title="Classify in Cortex and archive newsletters in Gmail/Outlook"
           >
-            {organizing ? "Organizing…" : "✦ AI Organize"}
+            <Sparkles size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {organizing ? "Organizing…" : "AI Organize"}
           </button>
-          <button className="btn-ghost btn-sm" onClick={() => void loadInbox(selectedAccountId)}>↻ Refresh</button>
-          <button className="btn-primary btn-sm" onClick={() => { setReplyTo(undefined); setComposeInitialBody(undefined); setComposing(true); }}>
-            + Compose
+          <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={() => void loadInbox(selectedAccountId)}>
+            <RefreshCw size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            Refresh
+          </button>
+          <button
+            type="button"
+            className="btn-primary btn-sm mail-toolbar-btn"
+            onClick={() => { setReplyTo(undefined); setComposeInitialBody(undefined); setComposing(true); }}
+          >
+            <PenSquare size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            Compose
           </button>
         </div>
       </div>
+
+      {cleanupOpen && cleanupSuggestions.length > 0 && (
+        <section className="mail-cleanup-panel" aria-label="Backlog cleanup suggestions">
+          <div className="mail-cleanup-header">
+            <div>
+              <h2 className="mail-cleanup-title">Suggested cleanup</h2>
+              <p className="mail-cleanup-sub">
+                These actions apply in Gmail or Outlook — review before confirming.
+              </p>
+            </div>
+            <div className="mail-cleanup-actions">
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setCleanupOpen(false)}>
+                Dismiss
+              </button>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                disabled={cleanupApplying || cleanupSelected.size === 0}
+                onClick={() => void applyCleanup()}
+              >
+                {cleanupApplying ? "Applying…" : `Apply (${cleanupSelected.size})`}
+              </button>
+            </div>
+          </div>
+          <ul className="mail-cleanup-list">
+            {cleanupSuggestions.map((s) => {
+              const key = cleanupKey(s);
+              return (
+                <li key={key} className="mail-cleanup-item">
+                  <label className="mail-cleanup-row">
+                    <input
+                      type="checkbox"
+                      checked={cleanupSelected.has(key)}
+                      onChange={() => toggleCleanupSelect(key)}
+                    />
+                    <span className="mail-cleanup-meta">
+                      <span className="mail-cleanup-subject">{s.subject || "(no subject)"}</span>
+                      <span className="mail-cleanup-from">{s.from}</span>
+                      <span className="mail-cleanup-reason">
+                        {s.action === "delete" ? "Delete" : "Archive"} — {s.reason}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="mail-layout">
         {/* ── Sidebar ── */}
         <aside className="mail-sidebar">
           <button className={`mail-sidebar-item ${!selectedFolder && selectedAccountId === "all" ? "active" : ""}`} onClick={() => { setSelectedAccountId("all"); selectFolder(null); void loadInbox("all"); }}>
-            <span className="mail-sidebar-icon">📥</span>
+            <span className="mail-sidebar-icon" aria-hidden>
+              <Inbox size={MAIL_ICON_SIZE} strokeWidth={MAIL_ICON_STROKE} className="mail-sidebar-icon-svg" />
+            </span>
             <span className="mail-sidebar-label">All Mail</span>
             {unreadTotal > 0 && <span className="mail-sidebar-badge">{unreadTotal}</span>}
           </button>
@@ -511,14 +748,16 @@ export const MailPage = () => {
                   onClick={() => count > 0 ? selectFolder(cat) : undefined}
                   style={count === 0 ? { opacity: 0.38, cursor: "default" } : undefined}
                 >
-                  <span className="mail-sidebar-icon">{CAT_ICONS[cat]}</span>
-                  <span className="mail-sidebar-label" style={{ textTransform: "capitalize" }}>{cat}</span>
+                  <span className="mail-sidebar-icon" aria-hidden>
+                    <MailCategoryIcon cat={cat} className="mail-sidebar-icon-svg" />
+                  </span>
+                  <span className="mail-sidebar-label mail-sidebar-label--cap">{cat}</span>
                   {count > 0 && <span className="mail-sidebar-badge mail-sidebar-badge--muted">{count}</span>}
                 </button>
               );
             })}
             {Object.keys(catCounts).length === 0 && (
-              <p className="mail-folders-hint">Folders fill automatically; use ✦ AI Organize for smarter labels</p>
+              <p className="mail-folders-hint">Folders fill automatically; use AI Organize for smarter labels</p>
             )}
             <div className="mail-sidebar-divider" />
           </>
@@ -530,44 +769,70 @@ export const MailPage = () => {
                 onClick={() => { selectFolder(null); selectAccount(account.id); }}
                 title={account.email}
               >
-                <span className="mail-sidebar-icon">{account.provider === "gmail" ? "G" : account.provider === "microsoft" ? "⊞" : "✉"}</span>
+                <span className="mail-sidebar-icon" aria-hidden>
+                  <MailProviderIcon provider={account.provider} />
+                </span>
                 <span className="mail-sidebar-label mail-sidebar-label--truncate">{account.label}</span>
               </button>
-              <button className="mail-sidebar-remove" onClick={() => void removeAccount(account.id)} title="Remove account">✕</button>
+              <button type="button" className="mail-sidebar-remove" onClick={() => void removeAccount(account.id)} title="Remove account" aria-label="Remove account">
+                <X size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+              </button>
             </div>
           ))}
 
           <div className="mail-sidebar-divider" />
-          <button className="mail-sidebar-add" onClick={() => void addGmailAccount()}>+ Add Gmail</button>
-          <button className="mail-sidebar-add" onClick={() => void addOutlookAccount()}>+ Add Outlook</button>
-          <button className="mail-sidebar-add" onClick={() => setShowImapModal(true)}>+ Add IMAP/SMTP</button>
+          <button type="button" className="mail-sidebar-add" onClick={() => void addGmailAccount()}>
+            <Plus size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            Add Gmail
+          </button>
+          <button type="button" className="mail-sidebar-add" onClick={() => void addOutlookAccount()}>
+            <Plus size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            Add Outlook
+          </button>
+          <p className="mail-sidebar-hint">
+            Outlook personal accounts usually work with one sign-in. Work or school accounts may need IT
+            approval once — or use Gmail, which does not require admin consent.
+          </p>
+          <button type="button" className="mail-sidebar-add" onClick={() => setShowImapModal(true)}>
+            <Plus size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            Add IMAP/SMTP
+          </button>
         </aside>
 
         {/* ── Message list ── */}
         <div className="mail-list-pane">
           <div className="mail-search-bar">
-            <span className="mail-search-icon">⌕</span>
+            <Search size={16} strokeWidth={MAIL_ICON_STROKE} className="mail-search-icon" aria-hidden />
             <input
               className="mail-search-input"
               placeholder="Search mail…"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search mail"
             />
             {searchQuery && (
-              <button className="mail-search-clear" onClick={() => setSearchQuery("")}>✕</button>
+              <button type="button" className="mail-search-clear" onClick={() => setSearchQuery("")} aria-label="Clear search">
+                <X size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+              </button>
             )}
           </div>
           {selectedFolder && (
             <div className="mail-folder-header">
-              <span>{CAT_ICONS[selectedFolder]} {selectedFolder.charAt(0).toUpperCase() + selectedFolder.slice(1)}</span>
-              <button className="btn-ghost btn-sm" onClick={() => selectFolder(null)}>✕ Clear</button>
+              <span className="mail-folder-header-title">
+                <MailCategoryIcon cat={selectedFolder} className="mail-folder-header-icon" />
+                <span className="mail-sidebar-label--cap">{selectedFolder}</span>
+              </span>
+              <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={() => selectFolder(null)}>
+                <X size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                Clear
+              </button>
             </div>
           )}
           {loading ? (
             <p className="page-loading">Loading…</p>
           ) : accounts.length === 0 ? (
             <div className="mail-empty-state">
-              <span className="mail-empty-state-icon">✉</span>
+              <Mail size={48} strokeWidth={1.5} className="mail-empty-state-icon" aria-hidden />
               <h2>No mail accounts</h2>
               <p>Add a Gmail account or connect via IMAP/SMTP to get started.</p>
               <div className="mail-empty-actions">
@@ -578,13 +843,13 @@ export const MailPage = () => {
           ) : filteredMessages.length === 0 ? (
             selectedFolder ? (
               <div className="mail-folder-empty">
-                <span className="mail-folder-empty-icon">{CAT_ICONS[selectedFolder]}</span>
-                <p>{selectedFolder.charAt(0).toUpperCase() + selectedFolder.slice(1)}</p>
+                <MailCategoryIcon cat={selectedFolder} className="mail-folder-empty-icon" />
+                <p className="mail-sidebar-label--cap">{selectedFolder}</p>
                 <p>No messages here yet</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="mail-inbox-empty">
-                <span className="mail-inbox-empty-check">✓</span>
+                <CheckCircle2 size={40} strokeWidth={1.75} className="mail-inbox-empty-check" aria-hidden />
                 <p>Your inbox is empty</p>
               </div>
             ) : (
@@ -606,9 +871,15 @@ export const MailPage = () => {
                     <div className="gmail-row-top">
                       <span className="gmail-row-from">{senderName(msg.from)}</span>
                       <div className="mail-row-meta">
-                        {cat && <span className="mail-cat-badge">{CAT_ICONS[cat]}</span>}
+                        {cat && (
+                          <span className="mail-cat-badge" title={cat}>
+                            <MailCategoryIcon cat={cat} />
+                          </span>
+                        )}
                         {accounts.length > 1 && selectedAccountId === "all" && (
-                          <span className="mail-row-account">{msg.accountEmail.split("@")[0]}</span>
+                          <span className="mail-row-account">
+                            {String(msg.accountEmail ?? "account").split("@")[0]}
+                          </span>
                         )}
                         {msg.date && <span className="gmail-row-date">{fmtDate(msg.date)}</span>}
                       </div>
@@ -617,7 +888,16 @@ export const MailPage = () => {
                     <p className="gmail-row-snippet">{msg.snippet}</p>
                   </div>
                   <div className="gmail-row-actions" onClick={(e) => e.stopPropagation()}>
-                    <button className="gmail-action-btn gmail-action-btn--archive" onClick={() => void archive(msg)} disabled={actionBusy === msg.id} title="Archive">→</button>
+                    <button
+                      type="button"
+                      className="gmail-action-btn gmail-action-btn--archive"
+                      onClick={() => void archive(msg)}
+                      disabled={actionBusy === msg.id}
+                      title="Archive"
+                      aria-label="Archive"
+                    >
+                      <Archive size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                    </button>
                   </div>
                 </div>
               );
@@ -652,16 +932,23 @@ export const MailPage = () => {
                 {fullMessage?.to && <p className="mail-preview-to">To: {fullMessage.to}</p>}
                 <div className="mail-preview-header-divider" />
                 <div className="gmail-preview-actions">
-                  <button className="btn-ghost btn-sm" onClick={() => { setReplyTo(selectedMessage); setComposeInitialBody(undefined); setComposing(true); }}>
-                    ↩ Reply
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm mail-toolbar-btn"
+                    onClick={() => { setReplyTo(selectedMessage); setComposeInitialBody(undefined); setComposing(true); }}
+                  >
+                    <Reply size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                    Reply
                   </button>
                   <button
-                    className="btn-ghost btn-sm"
+                    type="button"
+                    className="btn-ghost btn-sm mail-toolbar-btn"
                     onClick={() => void aiDraftReply()}
                     disabled={draftingReply || msgLoading}
                     title="Let AI draft a reply"
                   >
-                    {draftingReply ? "Drafting…" : "✦ AI Reply"}
+                    <Sparkles size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                    {draftingReply ? "Drafting…" : "AI Reply"}
                   </button>
                   <button
                     className="btn-ghost btn-sm btn-mark-unread"
@@ -682,7 +969,10 @@ export const MailPage = () => {
                   >
                     {isUnread(selectedMessage) ? "Mark read" : "Mark unread"}
                   </button>
-                  <button className="btn-ghost btn-sm" onClick={() => void archive(selectedMessage)}>Archive</button>
+                  <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={() => void archive(selectedMessage)}>
+                    <Archive size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                    Archive
+                  </button>
                 </div>
               </div>
               <div className="gmail-preview-body mail-preview-body">

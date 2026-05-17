@@ -206,7 +206,7 @@ export const CalendarPage = () => {
   };
 
   return (
-    <div className="page">
+    <div className="page calendar-page">
       <div className="page-titlebar flex-wrap gap-3 align-items-center">
         <div className="flex-shrink-0">
           <h1 className="page-title mb-0">Calendar</h1>
