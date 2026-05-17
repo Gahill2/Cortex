@@ -63,11 +63,17 @@ function isP3005(error) {
 }
 
 async function main() {
+  if (!process.env.DATABASE_URL?.trim()) {
+    console.error('[prisma-deploy] DATABASE_URL is not set — cannot run migrations.');
+    process.exit(1);
+  }
+
   try {
     await runPrisma(['migrate', 'deploy']);
     return;
   } catch (error) {
     if (!isP3005(error)) {
+      console.error('[prisma-deploy] migrate deploy failed:', error.stderr ?? error.stdout ?? error);
       process.exit(error.code ?? 1);
     }
   }

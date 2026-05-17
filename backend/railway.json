@@ -12,7 +12,7 @@
     "useLegacyStacker": false,
     "ipv6EgressEnabled": false,
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 120,
+    "healthcheckTimeout": 300,
     "multiRegionConfig": {
       "sfo": {
         "numReplicas": 1

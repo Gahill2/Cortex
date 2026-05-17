@@ -38,6 +38,9 @@ RUN npm ci --omit=dev
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY --from=builder /app/dist ./dist
+# prisma generate runs in builder; prod npm ci does not re-run it — copy generated client.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 EXPOSE 4000
 
