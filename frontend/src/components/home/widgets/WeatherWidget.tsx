@@ -151,7 +151,7 @@ export function WeatherWidget() {
               </span>
               <span className="weather-pill weather-pill--icon">
                 <Wind size={12} strokeWidth={1.75} aria-hidden />
-                {data.current.windSpeed} mph
+                {data.current.windSpeed} {units === "fahrenheit" ? "mph" : "km/h"}
               </span>
             </div>
           </div>

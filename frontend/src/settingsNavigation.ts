@@ -5,6 +5,7 @@ import {
   Keyboard,
   Palette,
   Plug,
+  Shield,
   User,
 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export type SettingsSectionId =
   | "account"
   | "appearance"
   | "integrations"
+  | "security"
   | "shortcuts"
   | "memory"
   | "cortex-link";
@@ -56,6 +58,12 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
         description: "Spotify, Notion, Canva, and vault",
       },
       {
+        id: "security",
+        label: "Security",
+        icon: Shield,
+        description: "PIN, session, and access",
+      },
+      {
         id: "shortcuts",
         label: "Keyboard shortcuts",
         icon: Keyboard,
@@ -85,6 +93,7 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSectionId, string> = {
   account: "My account",
   appearance: "Appearance",
   integrations: "Integrations",
+  security: "Security",
   shortcuts: "Keyboard shortcuts",
   memory: "Memory",
   "cortex-link": "Cortex Link",
