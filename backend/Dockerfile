@@ -9,15 +9,20 @@ WORKDIR /app
 # Platforms often inject NODE_ENV=production during build; devDeps (tsc, prisma) are required here.
 ENV NODE_ENV=development
 
+# Bust stale layer cache when Railway reuses an old npm ci layer without devDependencies.
+ARG RAILWAY_GIT_COMMIT_SHA=local
+RUN echo "builder commit=${RAILWAY_GIT_COMMIT_SHA}"
+
 COPY package*.json ./
-RUN npm ci --include=dev
+RUN npm ci --include=dev && test -x node_modules/.bin/tsc && node_modules/.bin/tsc --version
 
 COPY prisma ./prisma
 COPY src ./src
 COPY tsconfig.json ./
 COPY scripts ./scripts
 
-RUN npm run build
+# Invoke tsc by path — do not rely on npm run build or PATH (Railway may cache old package.json).
+RUN npx prisma generate && node_modules/.bin/tsc -p tsconfig.json
 
 FROM node:22-slim
 
