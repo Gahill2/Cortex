@@ -6,8 +6,11 @@ FROM node:22-slim AS builder
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
+# Platforms often inject NODE_ENV=production during build; devDeps (tsc, prisma) are required here.
+ENV NODE_ENV=development
+
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY prisma ./prisma
 COPY src ./src
