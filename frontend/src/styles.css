@@ -3655,6 +3655,101 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   }
 }
 
+/* ── Spotify Queue ──────────────────────────────────────────────────────── */
+.spotify-section {
+  margin-top: 24px;
+  padding: 0 4px;
+}
+
+.spotify-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.spotify-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.spotify-empty {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.spotify-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spotify-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s;
+}
+
+.spotify-queue-item:hover {
+  background: var(--surface);
+}
+
+.spotify-queue-num {
+  width: 20px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.spotify-queue-art {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.spotify-queue-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spotify-queue-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-queue-artist {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-queue-dur {
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.spotify-queue-toggle {
+  margin-top: 8px;
+}
+
 /* ── Form inputs (settings) ──────────────────────────────────────────────── */
 .form-input {
   background: var(--bg-3);
