@@ -3654,3 +3654,318 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
     flex: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BURGER MENU — Sidebar as drawer overlay (full-width dashboard)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.desktop-shell--burger {
+  flex-direction: column;
+}
+
+.desktop-shell--burger .sidebar:not(.sidebar--drawer) {
+  display: none !important;
+}
+
+/* App bar with burger button */
+.burger-appbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  -webkit-app-region: drag;
+}
+
+.burger-appbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.burger-appbar__btn:hover {
+  background: var(--surface);
+  transform: scale(1.05);
+}
+
+.burger-appbar__btn:active {
+  transform: scale(0.95);
+}
+
+.burger-appbar__icon {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 20px;
+  height: 18px;
+}
+
+.burger-appbar__line {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--text);
+  border-radius: 1px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.burger-appbar__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+/* Drawer overlay */
+.burger-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  animation: burger-root-in 0.05s ease-out;
+}
+
+.burger-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+  animation: burger-backdrop-in 0.25s ease-out forwards;
+}
+
+@keyframes burger-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes burger-root-in {
+  from { visibility: hidden; }
+  to { visibility: visible; }
+}
+
+/* Sidebar as drawer panel */
+.sidebar.sidebar--drawer {
+  position: relative;
+  z-index: 501;
+  width: 280px;
+  max-width: 85vw;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  border-right: 1px solid var(--border-2);
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.5);
+  animation: burger-panel-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  overflow-y: auto;
+}
+
+@keyframes burger-panel-slide-in {
+  from { transform: translateX(-100%); opacity: 0.5; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.sidebar--drawer .sidebar-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 20px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.sidebar--drawer .sidebar-close-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+  transform: rotate(90deg);
+}
+
+/* Staggered nav item entrance */
+.sidebar-nav-item--animated {
+  animation: nav-item-fade-in 0.3s ease-out both;
+}
+
+@keyframes nav-item-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ANIMATIONS — Page transitions & element entrances
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.cortex-animate-in {
+  animation: page-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes page-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Widget card hover lift */
+.cortex-card,
+.home-widget,
+.bento-card,
+[class*="widget-card"],
+[class*="Widget"] > div:first-child {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s ease;
+}
+
+.cortex-card:hover,
+.home-widget:hover,
+.bento-card:hover,
+[class*="widget-card"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Staggered entrance for grid children */
+.cortex-animate-in > * {
+  animation: stagger-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cortex-animate-in > *:nth-child(1) { animation-delay: 0ms; }
+.cortex-animate-in > *:nth-child(2) { animation-delay: 60ms; }
+.cortex-animate-in > *:nth-child(3) { animation-delay: 120ms; }
+.cortex-animate-in > *:nth-child(4) { animation-delay: 180ms; }
+.cortex-animate-in > *:nth-child(5) { animation-delay: 240ms; }
+.cortex-animate-in > *:nth-child(6) { animation-delay: 300ms; }
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PICTURE FRAMES — Decorative ornamental borders on cards/widgets
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.cortex-card,
+.home-widget,
+.bento-card,
+[class*="widget-card"] {
+  position: relative;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Inner frame — double-border ornamental effect */
+.cortex-card::before,
+.home-widget::before,
+.bento-card::before,
+[class*="widget-card"]::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: calc(var(--radius-lg) - 2px);
+  pointer-events: none;
+  z-index: 1;
+  transition: border-color 0.3s ease;
+}
+
+.cortex-card:hover::before,
+.home-widget:hover::before,
+.bento-card:hover::before,
+[class*="widget-card"]:hover::before {
+  border-color: rgba(91, 141, 255, 0.15);
+}
+
+/* Corner ornaments */
+.cortex-card::after,
+.home-widget::after,
+.bento-card::after,
+[class*="widget-card"]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    linear-gradient(135deg, rgba(91, 141, 255, 0.12) 0%, transparent 8%),
+    linear-gradient(225deg, rgba(91, 141, 255, 0.12) 0%, transparent 8%),
+    linear-gradient(315deg, rgba(91, 141, 255, 0.12) 0%, transparent 8%),
+    linear-gradient(45deg, rgba(91, 141, 255, 0.12) 0%, transparent 8%);
+  border-radius: calc(var(--radius-lg) - 4px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cortex-card:hover::after,
+.home-widget:hover::after,
+.bento-card:hover::after,
+[class*="widget-card"]:hover::after {
+  opacity: 1;
+}
+
+/* Accent glow on the frame border on hover */
+.cortex-card:hover,
+.home-widget:hover,
+.bento-card:hover,
+[class*="widget-card"]:hover {
+  border-color: rgba(91, 141, 255, 0.25);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(91, 141, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Picture frame title bar accent */
+.home-widget > :first-child,
+.bento-card > :first-child {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Pulse animation for the status dot in sidebar */
+.sidebar-status-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
