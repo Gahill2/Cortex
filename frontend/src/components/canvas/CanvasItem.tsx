@@ -5,13 +5,14 @@ import type { CanvasNode } from "./CanvasDashboard";
 interface Props {
   node: CanvasNode;
   widgets: Record<string, ReactNode>;
+  isSelected?: boolean;
   onDragStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
   onRemove: () => void;
   onContentChange: (content: string) => void;
 }
 
-export function CanvasItem({ node, widgets, onDragStart, onResizeStart, onRemove, onContentChange }: Props) {
+export function CanvasItem({ node, widgets, isSelected, onDragStart, onResizeStart, onRemove, onContentChange }: Props) {
   const [hovered, setHovered] = useState(false);
 
   const renderContent = () => {
@@ -60,7 +61,7 @@ export function CanvasItem({ node, widgets, onDragStart, onResizeStart, onRemove
 
   return (
     <div
-      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}`}
+      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}`}
       style={{
         left: node.x,
         top: node.y,

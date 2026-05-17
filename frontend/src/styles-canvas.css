@@ -29,15 +29,19 @@
   cursor: move;
 }
 
-/* Grid background */
-.canvas-grid {
-  position: absolute;
-  inset: -10000px;
-  transform-origin: 0 0;
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
+/* Grid dots — rendered as a CSS pattern on the viewport itself */
+.canvas-viewport {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, var(--grid-opacity, 0.12)) 1px,
+    transparent 1px
+  );
+  background-size: var(--grid-size, 24px) var(--grid-size, 24px);
+  background-position: var(--grid-off-x, 0px) var(--grid-off-y, 0px);
+}
+
+.canvas-viewport--selecting {
+  cursor: crosshair;
 }
 
 /* Content layer */
@@ -47,6 +51,16 @@
   left: 0;
   transform-origin: 0 0;
   will-change: transform;
+}
+
+/* Selection box (Figma-style blue rectangle) */
+.canvas-sel-box {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  background: rgba(91, 141, 255, 0.08);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 999;
 }
 
 /* ── Canvas Items ────────────────────────────────────────────────────────── */
@@ -82,6 +96,21 @@
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.35),
     0 0 0 2px rgba(91, 141, 255, 0.1);
+}
+
+.canvas-item--selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(91, 141, 255, 0.3);
+}
+
+.canvas-item--selected .canvas-item__close {
+  opacity: 1;
+}
+
+.canvas-item--selected .canvas-item__resize {
+  opacity: 1;
 }
 
 /* Picture frame effect */
@@ -470,4 +499,59 @@
   border-radius: var(--radius-sm);
   pointer-events: none;
   opacity: 0.7;
+}
+
+/* ── Minimap ─────────────────────────────────────────────────────────────── */
+
+.canvas-minimap {
+  position: absolute;
+  bottom: 36px;
+  right: 12px;
+  z-index: 100;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.canvas-minimap:hover {
+  opacity: 1;
+}
+
+.canvas-minimap__svg {
+  display: block;
+}
+
+.canvas-minimap__node {
+  fill: rgba(255, 255, 255, 0.15);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 0.5;
+}
+
+.canvas-minimap__viewport {
+  fill: rgba(91, 141, 255, 0.1);
+  stroke: var(--accent);
+  stroke-width: 1;
+  rx: 1;
+}
+
+/* ── Hints bar ───────────────────────────────────────────────────────────── */
+
+.canvas-hints {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 4px 10px;
+  font-size: 10px;
+  color: var(--text-3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  opacity: 0.6;
+  letter-spacing: 0.02em;
 }

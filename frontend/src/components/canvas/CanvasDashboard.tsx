@@ -3,6 +3,7 @@ import type { Tab } from "../../App";
 import type { ReactNode } from "react";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasItem } from "./CanvasItem";
+import { CanvasMinimap } from "./CanvasMinimap";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note";
 
@@ -25,11 +26,17 @@ interface Props {
 }
 
 const STORAGE_KEY = "cortex-canvas-state";
-const MIN_ZOOM = 0.2;
-const MAX_ZOOM = 3;
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 4;
+const ZOOM_SENSITIVITY = 0.0015;
+const GRID_SIZE = 24;
 
 function generateId() {
   return `n_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function clampZoom(z: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 }
 
 function loadState(): { nodes: CanvasNode[]; pan: { x: number; y: number }; zoom: number } | null {
@@ -59,14 +66,19 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
   const [isPanning, setIsPanning] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [resizeId, setResizeId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [maxZ, setMaxZ] = useState(() => Math.max(...(saved?.nodes ?? defaultNodes()).map((n) => n.zIndex), 0));
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const dragStart = useRef({ x: 0, y: 0, nodeX: 0, nodeY: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const selStart = useRef({ x: 0, y: 0 });
+  const zoomAnimRef = useRef<number>(0);
 
-  // Persist state
+  // Persist state (debounced)
   useEffect(() => {
     const timeout = setTimeout(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, pan, zoom }));
@@ -74,26 +86,62 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     return () => clearTimeout(timeout);
   }, [nodes, pan, zoom]);
 
-  // Wheel zoom
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = -e.deltaY * 0.002;
-      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
-    } else {
-      setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
-    }
+  // Prevent browser zoom on Ctrl+scroll at the DOM level
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  // Pan start (middle-click or space+click or empty area click)
+  // ── Zoom toward cursor (Figma-style) ─────────────────────────────────────
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom toward the pointer position
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+
+      const factor = 1 - e.deltaY * ZOOM_SENSITIVITY;
+      const newZoom = clampZoom(zoom * factor);
+      const ratio = newZoom / zoom;
+
+      // Adjust pan so the point under cursor stays fixed
+      const newPanX = cx - ratio * (cx - pan.x);
+      const newPanY = cy - ratio * (cy - pan.y);
+
+      setZoom(newZoom);
+      setPan({ x: newPanX, y: newPanY });
+    } else {
+      // Scroll to pan
+      setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+    }
+  }, [zoom, pan]);
+
+  // ── Pan ───────────────────────────────────────────────────────────────────
   const onCanvasPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button === 1 || (e.button === 0 && e.currentTarget === e.target)) {
+    const isCanvas = e.currentTarget === e.target;
+    if (e.button === 1 || (e.button === 0 && isCanvas && !e.shiftKey)) {
+      // Pan
       e.preventDefault();
       setIsPanning(true);
       panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } else if (e.button === 0 && isCanvas && e.shiftKey) {
+      // Box selection
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const wx = (e.clientX - rect.left - pan.x) / zoom;
+      const wy = (e.clientY - rect.top - pan.y) / zoom;
+      selStart.current = { x: wx, y: wy };
+      setSelBox({ x1: wx, y1: wy, x2: wx, y2: wy });
+      if (!e.ctrlKey && !e.metaKey) setSelected(new Set());
     }
-  }, [pan]);
+  }, [pan, zoom]);
 
   const onCanvasPointerMove = useCallback((e: React.PointerEvent) => {
     if (isPanning) {
@@ -123,16 +171,38 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
         )
       );
     }
-  }, [isPanning, dragId, resizeId, zoom]);
+    if (selBox) {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const wx = (e.clientX - rect.left - pan.x) / zoom;
+      const wy = (e.clientY - rect.top - pan.y) / zoom;
+      setSelBox({ x1: selStart.current.x, y1: selStart.current.y, x2: wx, y2: wy });
+    }
+  }, [isPanning, dragId, resizeId, zoom, selBox, pan]);
 
   const onCanvasPointerUp = useCallback((e: React.PointerEvent) => {
     if (isPanning) {
       setIsPanning(false);
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
     if (dragId) setDragId(null);
     if (resizeId) setResizeId(null);
-  }, [isPanning, dragId, resizeId]);
+    if (selBox) {
+      const bx1 = Math.min(selBox.x1, selBox.x2);
+      const by1 = Math.min(selBox.y1, selBox.y2);
+      const bx2 = Math.max(selBox.x1, selBox.x2);
+      const by2 = Math.max(selBox.y1, selBox.y2);
+      const hits = nodes
+        .filter((n) => n.x + n.w > bx1 && n.x < bx2 && n.y + n.h > by1 && n.y < by2)
+        .map((n) => n.id);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const id of hits) next.add(id);
+        return next;
+      });
+      setSelBox(null);
+    }
+  }, [isPanning, dragId, resizeId, selBox, nodes]);
 
   const bringToFront = useCallback((id: string) => {
     const newZ = maxZ + 1;
@@ -147,6 +217,8 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     if (!node) return;
     setDragId(id);
     dragStart.current = { x: e.clientX, y: e.clientY, nodeX: node.x, nodeY: node.y };
+    if (!e.shiftKey) setSelected(new Set([id]));
+    else setSelected((prev) => { const next = new Set(prev); next.add(id); return next; });
   }, [nodes, bringToFront]);
 
   const startResize = useCallback((id: string, e: React.PointerEvent) => {
@@ -160,48 +232,106 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
 
   const removeNode = useCallback((id: string) => {
     setNodes((prev) => prev.filter((n) => n.id !== id));
+    setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
   }, []);
+
+  const viewCenter = useCallback(() => {
+    const cw = containerRef.current?.clientWidth ?? 800;
+    const ch = containerRef.current?.clientHeight ?? 600;
+    return { x: (-pan.x + cw / 2) / zoom, y: (-pan.y + ch / 2) / zoom };
+  }, [pan, zoom]);
 
   const addWidget = useCallback((widgetKey: string) => {
     const newZ = maxZ + 1;
     setMaxZ(newZ);
-    const centerX = (-pan.x + (containerRef.current?.clientWidth ?? 800) / 2) / zoom - 180;
-    const centerY = (-pan.y + (containerRef.current?.clientHeight ?? 600) / 2) / zoom - 120;
+    const c = viewCenter();
     setNodes((prev) => [
       ...prev,
-      { id: generateId(), type: "widget", x: centerX, y: centerY, w: 380, h: 260, widgetKey, zIndex: newZ },
+      { id: generateId(), type: "widget", x: c.x - 190, y: c.y - 130, w: 380, h: 260, widgetKey, zIndex: newZ },
     ]);
-  }, [maxZ, pan, zoom]);
+  }, [maxZ, viewCenter]);
 
   const addImage = useCallback((url: string) => {
     const newZ = maxZ + 1;
     setMaxZ(newZ);
-    const centerX = (-pan.x + (containerRef.current?.clientWidth ?? 800) / 2) / zoom - 150;
-    const centerY = (-pan.y + (containerRef.current?.clientHeight ?? 600) / 2) / zoom - 100;
+    const c = viewCenter();
     setNodes((prev) => [
       ...prev,
-      { id: generateId(), type: "image", x: centerX, y: centerY, w: 320, h: 240, imageUrl: url, zIndex: newZ },
+      { id: generateId(), type: "image", x: c.x - 160, y: c.y - 120, w: 320, h: 240, imageUrl: url, zIndex: newZ },
     ]);
-  }, [maxZ, pan, zoom]);
+  }, [maxZ, viewCenter]);
 
   const addNote = useCallback(() => {
     const newZ = maxZ + 1;
     setMaxZ(newZ);
-    const centerX = (-pan.x + (containerRef.current?.clientWidth ?? 800) / 2) / zoom - 140;
-    const centerY = (-pan.y + (containerRef.current?.clientHeight ?? 600) / 2) / zoom - 60;
+    const c = viewCenter();
     setNodes((prev) => [
       ...prev,
-      { id: generateId(), type: "note", x: centerX, y: centerY, w: 280, h: 160, content: "", zIndex: newZ },
+      { id: generateId(), type: "note", x: c.x - 140, y: c.y - 80, w: 280, h: 160, content: "", zIndex: newZ },
     ]);
-  }, [maxZ, pan, zoom]);
+  }, [maxZ, viewCenter]);
 
   const updateNodeContent = useCallback((id: string, content: string) => {
     setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, content } : n)));
   }, []);
 
-  const zoomIn = () => setZoom((z) => Math.min(MAX_ZOOM, z + 0.15));
-  const zoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, z - 0.15));
-  const zoomReset = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+  // Animated zoom for toolbar buttons
+  const animateZoom = useCallback((targetZoom: number) => {
+    cancelAnimationFrame(zoomAnimRef.current);
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) { setZoom(clampZoom(targetZoom)); return; }
+
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const startZoom = zoom;
+    const startPan = { ...pan };
+    const start = performance.now();
+    const duration = 150;
+
+    const step = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const z = startZoom + (targetZoom - startZoom) * ease;
+      const ratio = z / startZoom;
+      const px = cx - ratio * (cx - startPan.x);
+      const py = cy - ratio * (cy - startPan.y);
+      setZoom(z);
+      setPan({ x: px, y: py });
+      if (t < 1) zoomAnimRef.current = requestAnimationFrame(step);
+    };
+    zoomAnimRef.current = requestAnimationFrame(step);
+  }, [zoom, pan]);
+
+  const zoomIn = () => animateZoom(clampZoom(zoom * 1.25));
+  const zoomOut = () => animateZoom(clampZoom(zoom / 1.25));
+  const zoomReset = () => { animateZoom(1); setTimeout(() => setPan({ x: 0, y: 0 }), 160); };
+
+  // Delete selected with keyboard
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        setNodes((prev) => prev.filter((n) => !selected.has(n.id)));
+        setSelected(new Set());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+
+  // Grid CSS variables
+  const gridSize = GRID_SIZE * zoom;
+  const gridOffX = pan.x % gridSize;
+  const gridOffY = pan.y % gridSize;
+
+  // Selection box in screen coords
+  const selRect = selBox ? {
+    left: Math.min(selBox.x1, selBox.x2) * zoom + pan.x,
+    top: Math.min(selBox.y1, selBox.y2) * zoom + pan.y,
+    width: Math.abs(selBox.x2 - selBox.x1) * zoom,
+    height: Math.abs(selBox.y2 - selBox.y1) * zoom,
+  } : null;
 
   return (
     <div className="canvas-dashboard" ref={containerRef}>
@@ -216,22 +346,19 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
       />
 
       <div
-        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId ? " canvas-viewport--dragging" : ""}`}
+        ref={viewportRef}
+        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId ? " canvas-viewport--dragging" : ""}${selBox ? " canvas-viewport--selecting" : ""}`}
         onWheel={onWheel}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPointerMove}
         onPointerUp={onCanvasPointerUp}
+        style={{
+          "--grid-size": `${gridSize}px`,
+          "--grid-off-x": `${gridOffX}px`,
+          "--grid-off-y": `${gridOffY}px`,
+          "--grid-opacity": `${Math.min(0.4, Math.max(0.08, zoom * 0.15))}`,
+        } as React.CSSProperties}
       >
-        {/* Grid background */}
-        <div
-          className="canvas-grid"
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            backgroundSize: `${40}px ${40}px`,
-            backgroundPosition: `0 0`,
-          }}
-        />
-
         {/* Canvas content layer */}
         <div
           className="canvas-layer"
@@ -242,6 +369,7 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
               key={node.id}
               node={node}
               widgets={widgets}
+              isSelected={selected.has(node.id)}
               onDragStart={(e) => startDrag(node.id, e)}
               onResizeStart={(e) => startResize(node.id, e)}
               onRemove={() => removeNode(node.id)}
@@ -249,10 +377,27 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
             />
           ))}
         </div>
+
+        {/* Selection box */}
+        {selRect && (
+          <div className="canvas-sel-box" style={selRect} />
+        )}
       </div>
+
+      <CanvasMinimap
+        nodes={nodes}
+        pan={pan}
+        zoom={zoom}
+        viewportWidth={containerRef.current?.clientWidth ?? 800}
+        viewportHeight={containerRef.current?.clientHeight ?? 600}
+      />
 
       <div className="canvas-zoom-badge">
         {Math.round(zoom * 100)}%
+      </div>
+
+      <div className="canvas-hints">
+        Scroll to pan · Ctrl+scroll to zoom · Shift+drag to select · Delete to remove
       </div>
     </div>
   );
