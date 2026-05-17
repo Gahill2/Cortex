@@ -1,16 +1,23 @@
 import type { Tab } from "../App";
 import { CORTEX_MAIN_NAV } from "../navigation";
+import cortexLogo from "../assets/cortex-logo.png";
 
 interface Props {
   active: Tab;
   onChange: (tab: Tab) => void;
+  mobileOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const Sidebar = ({ active, onChange }: Props) => (
-  <aside className="sidebar">
+export const Sidebar = ({ active, onChange, mobileOpen, onClose }: Props) => (
+  <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
     <div className="sidebar-logo">
-      <div className="sidebar-logo-mark">C</div>
-      <span className="sidebar-logo-text">Cortex</span>
+      <img src={cortexLogo} alt="Cortex" className="cortex-logo-img sidebar-logo-img" />
+      {onClose && (
+        <button type="button" className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
+          ×
+        </button>
+      )}
     </div>
 
     <nav className="sidebar-nav" aria-label="Primary">
@@ -18,6 +25,7 @@ export const Sidebar = ({ active, onChange }: Props) => (
       {CORTEX_MAIN_NAV.map((item) => (
         <button
           key={item.id}
+          type="button"
           className={`sidebar-nav-item ${active === item.id ? "active" : ""}`}
           onClick={() => onChange(item.id)}
           data-badge=""

@@ -1,10 +1,8 @@
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { z } from "zod";
 
-// Load env files manually — dotenvx v17 populate() doesn't reliably set process.env.
-// Variables already in process.env (injected by Electron at spawn) take priority.
 function loadEnvFile(filePath: string) {
   try {
     const content = readFileSync(filePath, "utf8");
@@ -15,30 +13,51 @@ function loadEnvFile(filePath: string) {
       if (eq <= 0) continue;
       const key = trimmed.slice(0, eq).trim();
       const raw = trimmed.slice(eq + 1).trim();
-      const val = raw.replace(/^["']|["']$/g, ""); // strip surrounding quotes
-      // Override only if unset or empty (non-empty Electron-injected values win)
+      const val = raw.replace(/^["']|["']$/g, "");
       if (!process.env[key]) {
         process.env[key] = val;
       }
     }
-  } catch { /* file not found — skip silently */ }
+  } catch {
+    /* file not found — skip */
+  }
 }
 
-const __dir = dirname(fileURLToPath(import.meta.url));
-loadEnvFile(join(__dir, "../../.env"));           // backend/.env
-loadEnvFile(join(__dir, "../../../.env.local"));  // repo root .env.local (dev overrides)
+function resolveBackendEnvPaths(): string[] {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 16; i++) {
+    if (existsSync(join(dir, "prisma", "schema.prisma"))) {
+      const backendRoot = dir;
+      const repoRoot = dirname(backendRoot);
+      const paths = [join(repoRoot, ".env"), join(backendRoot, ".env"), join(repoRoot, ".env.local")];
+      return paths.filter((p) => existsSync(p));
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  const fallbackDir = dirname(fileURLToPath(import.meta.url));
+  return [join(fallbackDir, "../../.env"), join(fallbackDir, "../../../.env.local")];
+}
+
+for (const p of resolveBackendEnvPaths()) {
+  loadEnvFile(p);
+}
+
+const WEAK_DEMO_PASSWORDS = new Set(["ChangeMe123!", "Password123!", "password", "12345678"]);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().default(4000),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default("1h"),
-  CORTEX_DEMO_USER_EMAIL: z.email().default("grey@cortex.local"),
-  CORTEX_DEMO_USER_PASSWORD: z.string().min(8).default("ChangeMe123!"),
-  CORTEX_DEMO_USER_PIN: z.string().regex(/^\d{4,6}$/).default("1234"),
+  CORTEX_DEMO_USER_EMAIL: z.email().optional(),
+  CORTEX_DEMO_USER_PASSWORD: z.string().min(8).optional(),
+  CORTEX_DEMO_USER_PIN: z.string().regex(/^\d{4,6}$/).optional(),
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(""),
   GOOGLE_REDIRECT_URI: z.string().optional().default(""),
+  GOOGLE_REDIRECT_URL: z.string().optional().default(""),
   CORTEX_FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
@@ -53,31 +72,75 @@ const envSchema = z.object({
   MICROSOFT_CLIENT_ID: z.string().optional().default(""),
   MICROSOFT_CLIENT_SECRET: z.string().optional().default(""),
   MICROSOFT_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/microsoft/oauth/callback"),
-  /** Public OAuth (https://developers.notion.com/docs/authorization) */
   NOTION_CLIENT_ID: z.string().optional().default(""),
   NOTION_CLIENT_SECRET: z.string().optional().default(""),
   NOTION_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/notion/oauth/callback"),
-  /** Optional: internal integration secret — shared for all users when set (good for solo dev / Electron). */
+  NOTION_TOKEN: z.string().optional().default(""),
+  NOTION_PERSONAL_TOKEN: z.string().optional().default(""),
   NOTION_INTERNAL_TOKEN: z.string().optional().default(""),
-
-  /** Apps SDK / CLI scaffold — public app id (e.g. from developer portal or `canva apps create`). */
   CANVA_APP_ID: z.string().optional().default(""),
-  /** Hosted app origin for Apps SDK (typically `https://app-….canva-apps.com`). */
   CANVA_APP_ORIGIN: z.string().optional().default(""),
-  /** CLI `.env` flag for hot reload in the Canva editor (`true` / `false`). */
   CANVA_HMR_ENABLED: z.string().optional().default(""),
-
-  /** Connect API OAuth client id (`OC-…` from Developer Portal → Connect integration). */
   CANVA_CLIENT_ID: z.string().optional().default(""),
-  /** Connect API client secret (`cnvca…`) — server only; never expose to the frontend bundle. */
   CANVA_CLIENT_SECRET: z.string().optional().default(""),
-  /** Must match an allowed redirect URL in the Connect integration settings. */
   CANVA_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/canva/oauth/callback"),
-  /**
-   * Space-separated Connect scopes (must be enabled for the integration in the portal).
-   * @see https://www.canva.dev/docs/connect/appendix/scopes/
-   */
-  CANVA_CONNECT_SCOPES: z.string().optional().default("design:meta:read")
+  CANVA_CONNECT_SCOPES: z.string().optional().default("design:meta:read"),
+  FIREBASE_PROJECT_ID: z.string().optional().default(""),
+  FIREBASE_CLIENT_EMAIL: z.string().optional().default(""),
+  FIREBASE_PRIVATE_KEY: z.string().optional().default(""),
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional().default(""),
+  FIREBASE_USE_APPLICATION_DEFAULT: z.string().optional().default(""),
+  FIRESTORE_ENV_DOC: z.string().optional().default("cortex_config/env"),
+  ALLOW_FIREBASE_ENV_SYNC: z.string().optional().default(""),
+  N8N_WEBHOOK_URL: z.string().optional().default(""),
+  N8N_WEBHOOK_SECRET: z.string().optional().default(""),
+  CORTEX_MCP_MODE: z.string().optional().default(""),
+  CORTEX_MCP_HOST: z.string().optional().default(""),
+  CORTEX_MCPPORT: z.string().optional().default(""),
+  CORTEX_DESKTOP_SECRET: z.string().optional().default(""),
+  CORS_ORIGINS: z.string().optional().default(""),
+  STRIPE_SECRET_KEY: z.string().optional().default(""),
+  STRIPE_WEBHOOK_SECRET: z.string().optional().default(""),
+  STRIPE_PRO_PRICE_ID: z.string().optional().default(""),
+  AGENTMEMORY_URL: z.string().optional().default("http://127.0.0.1:3111"),
+  AGENTMEMORY_SECRET: z.string().optional().default(""),
+  AGENTMEMORY_PROJECT: z.string().optional().default(""),
+  AGENTMEMORY_AUTO_REMEMBER: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  OBSIDIAN_VAULT_PATH: z.string().optional().default(""),
+  OBSIDIAN_VAULT_PATHS: z.string().optional().default(""),
+  CORTEX_ENABLE_VAULT_WATCHER: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase()))
 });
 
-export const env = envSchema.parse(process.env);
+const parsed = envSchema.parse(process.env);
+
+const isProd = parsed.NODE_ENV === "production";
+const demoEmail = parsed.CORTEX_DEMO_USER_EMAIL ?? (isProd ? undefined : "grey@cortex.local");
+const demoPassword = parsed.CORTEX_DEMO_USER_PASSWORD ?? (isProd ? undefined : "ChangeMe123!");
+const demoPin = parsed.CORTEX_DEMO_USER_PIN ?? (isProd ? undefined : "1234");
+
+if (isProd) {
+  if (demoPassword && WEAK_DEMO_PASSWORDS.has(demoPassword)) {
+    throw new Error("CORTEX_DEMO_USER_PASSWORD is too weak for production — set a strong value or unset demo vars");
+  }
+  if (demoPin === "1234") {
+    throw new Error("CORTEX_DEMO_USER_PIN must not be 1234 in production");
+  }
+}
+
+export const demoAuthEnabled =
+  !isProd || Boolean(demoEmail && demoPassword && demoPin);
+
+export const env = {
+  ...parsed,
+  CORTEX_DEMO_USER_EMAIL: demoEmail ?? (isProd ? "" : "grey@cortex.local"),
+  CORTEX_DEMO_USER_PASSWORD: demoPassword ?? (isProd ? "" : "ChangeMe123!"),
+  CORTEX_DEMO_USER_PIN: demoPin ?? (isProd ? "" : "1234")
+};

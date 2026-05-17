@@ -21,6 +21,7 @@ import {
   clearSpotifyTokens,
   isSpotifyConnected
 } from "../../features/spotify/spotify-token-store.js";
+import { oauthCallbackQuerySchema, spotifyPlaybackActionSchema } from "../../schemas/query-schemas.js";
 
 const volumeSchema = z.object({
   volumePercent: z.number().min(0).max(100)
@@ -68,13 +69,13 @@ cortexSpotifyRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_0
 cortexSpotifyRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
   const frontend = env.CORTEX_FRONTEND_URL || "http://localhost:5173";
   try {
-    if (typeof req.query.error === "string") {
-      res.redirect(`${frontend}/?spotify_error=${encodeURIComponent(req.query.error)}`);
+    const query = oauthCallbackQuerySchema.parse(req.query);
+    if (query.error) {
+      res.redirect(`${frontend}/?spotify_error=${encodeURIComponent(query.error)}`);
       return;
     }
-    const code = req.query.code;
-    const state = req.query.state;
-    if (typeof code !== "string" || typeof state !== "string") {
+    const { code, state } = query;
+    if (!code || !state) {
       res.redirect(`${frontend}/?spotify_error=missing_code`);
       return;
     }
@@ -98,8 +99,20 @@ cortexSpotifyRouter.get("/now-playing", requireAuth, routeRateLimit(60, 60_000),
     sendSuccess(res, { configured: true, connected: false, playing: false });
     return;
   }
-  const result = await getNowPlaying(req.auth!.userId);
-  sendSuccess(res, { configured: true, ...result });
+  try {
+    const result = await getNowPlaying(req.auth!.userId);
+    sendSuccess(res, {
+      configured: true,
+      ...result,
+      // Frontend expects `isPlaying` (API field is `playing`)
+      isPlaying: result.playing
+    });
+  } catch (err) {
+    throw new HttpError(
+      502,
+      err instanceof Error ? err.message : "Failed to load Spotify playback"
+    );
+  }
 });
 
 // ── Playback controls ────────────────────────────────────────────────────────
@@ -108,10 +121,7 @@ cortexSpotifyRouter.post("/playback/:action", requireAuth, routeRateLimit(60, 60
   if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
-  const action = req.params.action as "play" | "pause" | "next" | "previous";
-  if (!["play", "pause", "next", "previous"].includes(action)) {
-    throw new HttpError(400, `Unknown action: ${action}`);
-  }
+  const { action } = spotifyPlaybackActionSchema.parse({ action: req.params.action });
 
   await playbackControl(req.auth!.userId, action);
   sendSuccess(res, { action });

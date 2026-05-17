@@ -8,6 +8,12 @@ export default defineConfig({
     extensions: [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".json"]
   },
   server: {
-    port: 5173
+    port: 5173,
+    // Allow http://<Tailscale-IP>:5173 from other devices on your tailnet
+    host: true,
+    proxy: {
+      // Browser dev uses same-origin `/api` (see `api/client.ts`); Electron still hits localhost:4000 directly.
+      "/api": { target: "http://127.0.0.1:4000", changeOrigin: true }
+    }
   }
 });

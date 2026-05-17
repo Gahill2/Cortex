@@ -6,7 +6,7 @@ import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
 import { getOrCreateCortexUser } from "../../features/auth/cortex-db-user.js";
-type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
+import { taskStatusQuerySchema } from "../../schemas/query-schemas.js";
 
 const createTaskSchema = z.object({
   title: z.string().min(1).max(500),
@@ -34,7 +34,7 @@ cortexTasksRouter.use(requireAuth);
 cortexTasksRouter.get("/", routeRateLimit(60, 60_000), async (req, res) => {
   const { userId, email } = req.auth!;
   const { org } = await getOrCreateCortexUser(userId, email);
-  const status = req.query["status"] as TaskStatus | undefined;
+  const { status } = taskStatusQuerySchema.parse(req.query);
 
   const tasks = await prisma.task.findMany({
     where: {

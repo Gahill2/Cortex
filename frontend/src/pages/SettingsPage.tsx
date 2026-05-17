@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { IntegrationsPanel } from "../components/IntegrationsPanel";
 import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
@@ -433,6 +434,8 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               Reset Cortex UI preferences
             </button>
           </section>
+
+          <IntegrationsPanel compact={false} />
 
           <section className="settings-section" id="settings-integrations">
             <h2 className="settings-section-title">Integrations</h2>

@@ -5,7 +5,10 @@ import { PrismaClient, TaskStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("Password123!", 10);
+  const seedPassword =
+    process.env.SEED_USER_PASSWORD?.trim() ||
+    `AcmeSeed-${Date.now().toString(36)}!`;
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
   const org = await prisma.organization.create({
     data: {
       name: "Acme Product Team",
@@ -51,7 +54,7 @@ async function main() {
     ]
   });
 
-  console.log("Seed complete");
+  console.log("Seed complete (set SEED_USER_PASSWORD to reproduce login for seeded users)");
 }
 
 main()

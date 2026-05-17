@@ -1,33 +1,49 @@
 import nodemailer from "nodemailer";
 import { env } from "../../config/env.js";
+import { logger } from "../../utils/logger.js";
+
+function stripEnvQuotes(value: string): string {
+  const t = value.trim();
+  if (
+    (t.startsWith('"') && t.endsWith('"')) ||
+    (t.startsWith("'") && t.endsWith("'"))
+  ) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
 
 function createTransport() {
-  if (!env.SMTP_USER || !env.SMTP_PASS) return null;
+  const user = stripEnvQuotes(env.SMTP_USER ?? "");
+  const pass = stripEnvQuotes(env.SMTP_PASS ?? "");
+  if (!user || !pass) return null;
   return nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+    auth: { user, pass },
     connectionTimeout: 5_000,
     greetingTimeout: 5_000,
     socketTimeout: 5_000,
   });
 }
 
-export async function sendOtpEmail(to: string, code: string): Promise<void> {
+/** @returns true if the message was handed to SMTP successfully */
+export async function sendOtpEmail(to: string, code: string): Promise<boolean> {
   const transport = createTransport();
 
-  // Always log code so it's visible in Railway logs as a fallback
-  console.log(`\n[Cortex OTP] ──────────────────────`);
-  console.log(`  To:   ${to}`);
-  console.log(`  Code: ${code}`);
-  console.log(`────────────────────────────────────\n`);
-
-  if (!transport) return;
+  if (!transport) {
+    if (env.NODE_ENV === "development") {
+      logger.debug("OTP not sent via SMTP (no credentials); check devOtpCode in API response", {
+        toDomain: to.split("@")[1] ?? "unknown"
+      });
+    }
+    return false;
+  }
 
   try {
     await transport.sendMail({
-    from: `"Cortex" <${env.SMTP_USER}>`,
+    from: `"Cortex" <${stripEnvQuotes(env.SMTP_USER ?? "")}>`,
     to,
     subject: "Your Cortex verification code",
     text: `Your Cortex verification code is: ${code}\n\nThis code expires in 10 minutes. Do not share it.`,
@@ -53,8 +69,11 @@ export async function sendOtpEmail(to: string, code: string): Promise<void> {
 </body>
 </html>`
     });
+    return true;
   } catch (err) {
-    console.error(`[Cortex OTP] SMTP send failed:`, err);
-    // Don't rethrow — code is already logged above, user can use it
+    logger.error("OTP SMTP send failed", {
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return false;
   }
 }

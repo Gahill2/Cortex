@@ -55,21 +55,39 @@ model OAuthToken {
   @@unique([userId, provider])
 }
 
+/// Connected mail inboxes (Gmail OAuth + optional IMAP).
 model MailAccount {
-  id          String   @id @default(cuid())
-  userId      String
-  provider    String   // "gmail" | "imap"
-  label       String   // display name e.g. "Work Gmail", "Personal"
-  email       String
-  imapHost    String?
-  imapPort    Int?
-  smtpHost    String?
-  smtpPort    Int?
-  username    String?
-  passwordEnc String?  // base64-obfuscated for IMAP
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // "gmail" | "imap"
+  email        String
+  label        String?
+  isPrimary    Boolean  @default(false)
+  tokens       String?  // JSON OAuth credentials (gmail)
+  imapHost     String?
+  imapPort     Int?
+  smtpHost     String?
+  smtpPort     Int?
+  username     String?
+  passwordEnc  String?  // base64-obfuscated for IMAP
+  autoOrganize Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@unique([userId, email])
+  @@unique([userId, provider, email])
+  @@index([userId])
+}
+
+/// Per-session user profile (JWT userId) — billing & preferences.
+model CortexProfile {
+  userId                 String    @id
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  stripePriceId          String?
+  subscriptionStatus     String    @default("free")
+  stripeCurrentPeriodEnd DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model Task {

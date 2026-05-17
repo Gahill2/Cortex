@@ -1,8 +1,8 @@
 /**
- * Sync backend/.env with Firestore cortex_config/env
- * Usage (from backend/): npm run sync:env:pull | npm run sync:env:push
+ * CLI: sync backend/.env with Firestore cortex_config/env
+ * Usage: npx tsx scripts/sync-env-firestore.ts pull|push
  */
-import "../src/config/env.js";
+import "dotenv/config";
 import { pullEnvFromFirestore, pushEnvToFirestore } from "../src/features/firebase/env-sync.js";
 import { getFirebaseAdminStatus } from "../src/features/firebase/admin.js";
 
@@ -36,7 +36,7 @@ async function main() {
     return;
   }
 
-  console.error("Usage: npm run sync:env:pull | npm run sync:env:push");
+  console.error("Usage: npx tsx scripts/sync-env-firestore.ts pull|push");
   process.exit(1);
 }
 

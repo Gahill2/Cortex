@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { logger } from "../../utils/logger.js";
 
 export type FirebaseAdminStatus = {
   configured: boolean;
@@ -62,7 +63,7 @@ export function getFirebaseApp(): App | null {
   const status = getFirebaseAdminStatus();
   if (!status.configured || !status.projectId) {
     if (status.error) {
-      console.error("Firebase:", status.error);
+      logger.error("Firebase not configured", { error: status.error });
     }
     return null;
   }
@@ -104,7 +105,9 @@ export function getFirebaseApp(): App | null {
 
     return null;
   } catch (err) {
-    console.error("Firebase init failed:", err instanceof Error ? err.message : String(err));
+    logger.error("Firebase init failed", {
+      error: err instanceof Error ? err.message : String(err)
+    });
     return null;
   }
 }

@@ -2,12 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
-import {
-  pingFirestore,
-  pullEnvFromFirestore,
-  pushEnvToFirestore,
-  getEnvDocPath
-} from "../../features/firebase/env-sync.js";
+import { pingFirestore, pullEnvFromFirestore, pushEnvToFirestore, getEnvDocPath } from "../../features/firebase/env-sync.js";
 import { HttpError } from "../../utils/http-error.js";
 
 export const cortexFirebaseRouter = Router();
@@ -26,6 +21,7 @@ cortexFirebaseRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), asy
   });
 });
 
+/** Pull Firestore env doc → backend/.env (trusted operators only). */
 cortexFirebaseRouter.post("/env/pull", requireAuth, routeRateLimit(3, 60_000), async (_req, res) => {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_FIREBASE_ENV_SYNC !== "true") {
     throw new HttpError(403, "Env sync disabled in production");
@@ -37,6 +33,7 @@ cortexFirebaseRouter.post("/env/pull", requireAuth, routeRateLimit(3, 60_000), a
   res.json({ ok: true, keys: result.keys, path: result.path });
 });
 
+/** Push backend/.env → Firestore env doc (trusted operators only). */
 cortexFirebaseRouter.post("/env/push", requireAuth, routeRateLimit(3, 60_000), async (_req, res) => {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_FIREBASE_ENV_SYNC !== "true") {
     throw new HttpError(403, "Env sync disabled in production");

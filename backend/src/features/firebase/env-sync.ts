@@ -75,7 +75,6 @@ export async function pullEnvFromFirestore(targetPath?: string): Promise<{
   const data = snap.data() as Record<string, unknown>;
   const vars: Record<string, string> = {};
   for (const [k, v] of Object.entries(data)) {
-    if (k.startsWith("_")) continue;
     if (v === null || v === undefined) continue;
     if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
       vars[k] = String(v);

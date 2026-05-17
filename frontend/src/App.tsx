@@ -4,8 +4,9 @@ import { SessionPinGate } from "./components/SessionPinGate";
 import { Sidebar } from "./components/Sidebar";
 import { MobileAppBar } from "./components/MobileAppBar";
 import { MobileNavDrawer } from "./components/MobileNavDrawer";
+import { OAuthBootstrap } from "./components/OAuthBootstrap";
 import { PageLoading } from "./components/PageLoading";
-import { api, setAuthToken } from "./api/client";
+import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/client";
 import { useWallpaper } from "./hooks/useWallpaper";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { TAB_SCREEN_TITLES } from "./navigation";
@@ -23,6 +24,9 @@ const SettingsPage = lazy(() =>
 const MailPage = lazy(() =>
   import("./pages/MailPage").then((m) => ({ default: m.MailPage }))
 );
+const MemoryPage = lazy(() =>
+  import("./pages/MemoryPage").then((m) => ({ default: m.MemoryPage }))
+);
 const SpotifyPage = lazy(() =>
   import("./pages/SpotifyPage").then((m) => ({ default: m.SpotifyPage }))
 );
@@ -36,8 +40,17 @@ const McpLinkPage = lazy(() =>
   import("./pages/McpLinkPage").then((m) => ({ default: m.McpLinkPage }))
 );
 
-export type Tab = "home" | "tasks" | "ai" | "notes" | "settings" | "spotify" | "mail" | "calendar" | "link";
-const TOKEN_KEY = "cortex_token";
+export type Tab =
+  | "home"
+  | "tasks"
+  | "ai"
+  | "notes"
+  | "memory"
+  | "settings"
+  | "spotify"
+  | "mail"
+  | "calendar"
+  | "link";
 
 /** Renderer idle lock — must match server expectations for `/auth/lock` */
 const IDLE_LOCK_MS = 15 * 60 * 1000;
@@ -62,7 +75,7 @@ export default function App() {
     typeof window !== "undefined" && !!(window as ElectronWindow).electron?.isElectron
   );
   const [token, setToken] = useState<string | null>(() =>
-    isElectronEnv ? null : localStorage.getItem(TOKEN_KEY)
+    isElectronEnv ? null : localStorage.getItem(AUTH_STORAGE_KEY)
   );
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
   const [pinGateReason, setPinGateReason] = useState<"sign-in" | "idle" | "manual">("sign-in");
@@ -70,8 +83,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const isMobileLayout = useMediaQuery("(max-width: 768px)");
-  // In Electron we always fetch a fresh token before rendering — prevents stale
-  // localStorage tokens causing 401s before the new token arrives.
   const [tokenReady, setTokenReady] = useState(() => !isElectronEnv);
 
   useLayoutEffect(() => {
@@ -83,15 +94,16 @@ export default function App() {
     };
   }, [token]);
 
-  useWallpaper(!!token); // applies saved wallpaper on mount (skipped when logged-in Notion shell)
+  useWallpaper(!!token);
+
+  useEffect(() => {
+    const onLogout = () => setToken(null);
+    window.addEventListener(AUTH_LOGOUT_EVENT, onLogout);
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onLogout);
+  }, []);
 
   useEffect(() => {
     setAuthToken(token);
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
   }, [token]);
 
   useEffect(() => {
@@ -139,16 +151,20 @@ export default function App() {
     };
   }, [token, sessionUnlocked]);
 
-  // Auto-login when running inside Electron (always refresh on startup)
   useEffect(() => {
     if (!isElectronEnv) return;
-    api.get<{ token: string }>("/auth/desktop-token")
-      .then((r) => { setAuthToken(r.data.token); setToken(r.data.token); })
-      .catch(() => { /* fall through to login page */ })
+    api
+      .get<{ token: string }>("/auth/desktop-token")
+      .then((r) => {
+        setAuthToken(r.data.token);
+        setToken(r.data.token);
+      })
+      .catch(() => {
+        /* fall through to login page */
+      })
       .finally(() => setTokenReady(true));
-  }, []);
+  }, [isElectronEnv]);
 
-  // Wire up deep-link OAuth handler (called by Electron main process)
   useEffect(() => {
     if (!isElectronEnv) return;
     (window as OAuthWindow).__handleOAuth = async (
@@ -161,7 +177,7 @@ export default function App() {
       }
       try {
         if (params.connected) {
-          // Server-side exchange already done (Gmail/mail flow) — just notify UI
+          /* Server-side exchange already done */
         } else if (!params.code || !params.state) {
           console.error("[oauth] missing code/state", params);
           return;
@@ -184,8 +200,10 @@ export default function App() {
         console.error("[oauth] exchange failed:", e);
       }
     };
-    return () => { delete (window as OAuthWindow).__handleOAuth; };
-  }, [token]);
+    return () => {
+      delete (window as OAuthWindow).__handleOAuth;
+    };
+  }, [isElectronEnv, token]);
 
   useEffect(() => {
     if (!isMobileLayout) setNavDrawerOpen(false);
@@ -197,8 +215,11 @@ export default function App() {
       window.history.replaceState({}, "", window.location.pathname);
       setTab("mail");
     } else if (params.has("spotify_connected") || params.has("gmail_connected")) {
+      sessionStorage.removeItem("cortex_oauth_auto_spotify");
+      sessionStorage.removeItem("cortex_oauth_auto_gmail");
       window.history.replaceState({}, "", window.location.pathname);
-      setTab("settings");
+      if (params.has("gmail_connected")) setTab("mail");
+      else setTab("settings");
     } else if (params.has("notion_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
       setTab("notes");
@@ -217,68 +238,77 @@ export default function App() {
     return <SessionPinGate reason={pinGateReason} onUnlocked={() => setSessionUnlocked(true)} />;
   }
 
+  const goTab = (next: Tab) => {
+    setTab(next);
+    setNavDrawerOpen(false);
+  };
+
   return (
-    <div
-      className={`desktop-shell flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
-        import.meta.env.DEV ? " desktop-shell--dev" : ""
-      }`}
-      title={import.meta.env.DEV ? "Vite dev server (hot reload)" : undefined}
-    >
-      {!isMobileLayout && <Sidebar active={tab} onChange={setTab} />}
-      {isMobileLayout && (
-        <MobileAppBar
-          title={TAB_SCREEN_TITLES[tab]}
-          onOpenMenu={() => setNavDrawerOpen(true)}
-        />
-      )}
-      {isMobileLayout && (
-        <MobileNavDrawer
-          open={navDrawerOpen}
-          onClose={() => setNavDrawerOpen(false)}
-          active={tab}
-          onSelect={(t) => {
-            setTab(t);
-            setNavDrawerOpen(false);
-          }}
-        />
-      )}
-      <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
-        <div
-          className={
-            isMobileLayout
-              ? "d-flex flex-column flex-grow-1 min-vh-0"
-              : "container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap"
-          }
-        >
-          <Suspense fallback={<PageLoading />}>
-            {tab === "home"     && <HomePage onNavigate={setTab} />}
-            {tab === "tasks"    && <TasksPage />}
-            {tab === "ai"       && <AIPage />}
-            {tab === "notes"    && <NotesPage />}
-            {tab === "settings" && (
-              <SettingsPage
-                onLogout={() => {
-                  setToken(null);
-                  setTab("home");
-                }}
-                onLockSession={async () => {
-                  try {
-                    await api.post("/auth/lock", { lockReason: "manual" });
-                  } catch {
-                    /* still show gate */
-                  }
-                  setPinGateReason("manual");
-                  setSessionUnlocked(false);
-                }}
-              />
-            )}
-            {tab === "mail"     && <MailPage />}
-            {tab === "spotify"  && <SpotifyPage />}
-            {tab === "calendar" && <CalendarPage />}
-            {tab === "link"     && <McpLinkPage />}
-          </Suspense>
-        </div>
-      </main>
-    </div>
+    <>
+      <OAuthBootstrap enabled />
+      <div
+        className={`desktop-shell flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
+          import.meta.env.DEV ? " desktop-shell--dev" : ""
+        }`}
+        title={import.meta.env.DEV ? "Vite dev server (hot reload)" : undefined}
+      >
+        {!isMobileLayout && (
+          <Sidebar active={tab} onChange={goTab} />
+        )}
+        {isMobileLayout && (
+          <MobileAppBar
+            title={TAB_SCREEN_TITLES[tab]}
+            onOpenMenu={() => setNavDrawerOpen(true)}
+          />
+        )}
+        {isMobileLayout && (
+          <MobileNavDrawer
+            open={navDrawerOpen}
+            onClose={() => setNavDrawerOpen(false)}
+            active={tab}
+            onSelect={goTab}
+          />
+        )}
+        <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
+          <div
+            className={
+              isMobileLayout
+                ? "d-flex flex-column flex-grow-1 min-vh-0"
+                : "container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap"
+            }
+          >
+            <Suspense fallback={<PageLoading />}>
+              {tab === "home" && <HomePage onNavigate={goTab} />}
+              {tab === "tasks" && <TasksPage />}
+              {tab === "ai" && <AIPage />}
+              {tab === "notes" && <NotesPage />}
+              {tab === "memory" && <MemoryPage />}
+              {tab === "settings" && (
+                <SettingsPage
+                  onLogout={() => {
+                    setAuthToken(null);
+                    setToken(null);
+                    setTab("home");
+                  }}
+                  onLockSession={async () => {
+                    try {
+                      await api.post("/auth/lock", { lockReason: "manual" });
+                    } catch {
+                      /* still show gate */
+                    }
+                    setPinGateReason("manual");
+                    setSessionUnlocked(false);
+                  }}
+                />
+              )}
+              {tab === "mail" && <MailPage />}
+              {tab === "spotify" && <SpotifyPage />}
+              {tab === "calendar" && <CalendarPage />}
+              {tab === "link" && <McpLinkPage />}
+            </Suspense>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
