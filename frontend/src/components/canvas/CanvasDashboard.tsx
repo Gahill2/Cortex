@@ -77,6 +77,8 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const selStart = useRef({ x: 0, y: 0 });
   const zoomAnimRef = useRef<number>(0);
+  const dragElRef = useRef<HTMLElement | null>(null);
+  const resizeElRef = useRef<HTMLElement | null>(null);
 
   // Persist state (debounced)
   useEffect(() => {
@@ -149,27 +151,21 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
     }
-    if (dragId) {
+    if (dragId && dragElRef.current) {
       const dx = (e.clientX - dragStart.current.x) / zoom;
       const dy = (e.clientY - dragStart.current.y) / zoom;
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === dragId
-            ? { ...n, x: dragStart.current.nodeX + dx, y: dragStart.current.nodeY + dy }
-            : n
-        )
-      );
+      const newX = dragStart.current.nodeX + dx;
+      const newY = dragStart.current.nodeY + dy;
+      dragElRef.current.style.left = `${newX}px`;
+      dragElRef.current.style.top = `${newY}px`;
     }
-    if (resizeId) {
+    if (resizeId && resizeElRef.current) {
       const dx = (e.clientX - resizeStart.current.x) / zoom;
       const dy = (e.clientY - resizeStart.current.y) / zoom;
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === resizeId
-            ? { ...n, w: Math.max(120, resizeStart.current.w + dx), h: Math.max(80, resizeStart.current.h + dy) }
-            : n
-        )
-      );
+      const newW = Math.max(120, resizeStart.current.w + dx);
+      const newH = Math.max(80, resizeStart.current.h + dy);
+      resizeElRef.current.style.width = `${newW}px`;
+      resizeElRef.current.style.height = `${newH}px`;
     }
     if (selBox) {
       const rect = viewportRef.current?.getBoundingClientRect();
@@ -185,8 +181,34 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
       setIsPanning(false);
       try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
-    if (dragId) setDragId(null);
-    if (resizeId) setResizeId(null);
+    if (dragId && dragElRef.current) {
+      const dx = (e.clientX - dragStart.current.x) / zoom;
+      const dy = (e.clientY - dragStart.current.y) / zoom;
+      const finalX = dragStart.current.nodeX + dx;
+      const finalY = dragStart.current.nodeY + dy;
+      dragElRef.current.style.willChange = "";
+      dragElRef.current = null;
+      setNodes((prev) =>
+        prev.map((n) => (n.id === dragId ? { ...n, x: finalX, y: finalY } : n))
+      );
+      setDragId(null);
+    } else if (dragId) {
+      setDragId(null);
+    }
+    if (resizeId && resizeElRef.current) {
+      const dx = (e.clientX - resizeStart.current.x) / zoom;
+      const dy = (e.clientY - resizeStart.current.y) / zoom;
+      const finalW = Math.max(120, resizeStart.current.w + dx);
+      const finalH = Math.max(80, resizeStart.current.h + dy);
+      resizeElRef.current.style.willChange = "";
+      resizeElRef.current = null;
+      setNodes((prev) =>
+        prev.map((n) => (n.id === resizeId ? { ...n, w: finalW, h: finalH } : n))
+      );
+      setResizeId(null);
+    } else if (resizeId) {
+      setResizeId(null);
+    }
     if (selBox) {
       const bx1 = Math.min(selBox.x1, selBox.x2);
       const by1 = Math.min(selBox.y1, selBox.y2);
@@ -202,7 +224,7 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
       });
       setSelBox(null);
     }
-  }, [isPanning, dragId, resizeId, selBox, nodes]);
+  }, [isPanning, dragId, resizeId, selBox, nodes, zoom]);
 
   const bringToFront = useCallback((id: string) => {
     const newZ = maxZ + 1;
@@ -217,6 +239,10 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     if (!node) return;
     setDragId(id);
     dragStart.current = { x: e.clientX, y: e.clientY, nodeX: node.x, nodeY: node.y };
+    // Capture the DOM element for direct manipulation (no React re-renders during drag)
+    const header = e.currentTarget as HTMLElement;
+    dragElRef.current = header.closest(".canvas-item") as HTMLElement | null;
+    if (dragElRef.current) dragElRef.current.style.willChange = "left, top";
     if (!e.shiftKey) setSelected(new Set([id]));
     else setSelected((prev) => { const next = new Set(prev); next.add(id); return next; });
   }, [nodes, bringToFront]);
@@ -228,6 +254,9 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     if (!node) return;
     setResizeId(id);
     resizeStart.current = { x: e.clientX, y: e.clientY, w: node.w, h: node.h };
+    const handle = e.currentTarget as HTMLElement;
+    resizeElRef.current = handle.closest(".canvas-item") as HTMLElement | null;
+    if (resizeElRef.current) resizeElRef.current.style.willChange = "width, height";
   }, [nodes, bringToFront]);
 
   const removeNode = useCallback((id: string) => {
