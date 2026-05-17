@@ -559,6 +559,167 @@
   rx: 1;
 }
 
+/* ── Custom widget ───────────────────────────────────────────────────────── */
+
+.canvas-item__custom {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-item__custom-content {
+  flex: 1;
+  padding: 10px;
+  overflow: auto;
+}
+
+.canvas-item__custom-text {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.canvas-item__custom-text::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Embed widget ────────────────────────────────────────────────────────── */
+
+.canvas-item__embed {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.canvas-item__embed-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--bg-3);
+}
+
+/* ── Title input in header ───────────────────────────────────────────────── */
+
+.canvas-item__title-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  outline: none;
+  min-width: 0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+
+.canvas-item__title-input:focus {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.canvas-item__title-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Creation modals ─────────────────────────────────────────────────────── */
+
+.canvas-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: burger-backdrop-in 0.2s ease-out;
+}
+
+.canvas-modal {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  animation: menu-drop-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.canvas-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+
+.canvas-modal__desc {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: -8px 0 16px;
+}
+
+.canvas-modal__field {
+  margin-bottom: 14px;
+}
+
+.canvas-modal__field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.canvas-modal__textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.canvas-modal__colors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvas-modal__color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.canvas-modal__color-btn:hover {
+  transform: scale(1.15);
+}
+
+.canvas-modal__color-btn.is-active {
+  border-color: var(--text);
+  transform: scale(1.1);
+}
+
+.canvas-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 /* ── Hints bar ───────────────────────────────────────────────────────────── */
 
 .canvas-hints {

@@ -10,9 +10,10 @@ interface Props {
   onResizeStart: (e: React.PointerEvent) => void;
   onRemove: () => void;
   onContentChange: (content: string) => void;
+  onTitleChange?: (title: string) => void;
 }
 
-export function CanvasItem({ node, widgets, isSelected, onDragStart, onResizeStart, onRemove, onContentChange }: Props) {
+export function CanvasItem({ node, widgets, isSelected, onDragStart, onResizeStart, onRemove, onContentChange, onTitleChange }: Props) {
   const [hovered, setHovered] = useState(false);
 
   const renderContent = () => {
@@ -54,6 +55,31 @@ export function CanvasItem({ node, widgets, isSelected, onDragStart, onResizeSta
             />
           </div>
         );
+      case "custom":
+        return (
+          <div className="canvas-item__custom" style={{ borderTop: `3px solid ${node.color ?? "#5b8dff"}` }}>
+            <div className="canvas-item__custom-content" onPointerDown={(e) => e.stopPropagation()}>
+              <textarea
+                className="canvas-item__custom-text"
+                value={node.content ?? ""}
+                onChange={(e) => onContentChange(e.target.value)}
+                placeholder="Write anything..."
+              />
+            </div>
+          </div>
+        );
+      case "embed":
+        return (
+          <div className="canvas-item__embed">
+            <iframe
+              src={node.embedUrl}
+              className="canvas-item__embed-frame"
+              sandbox="allow-scripts allow-same-origin allow-popups"
+              title={node.title ?? "Embed"}
+              loading="lazy"
+            />
+          </div>
+        );
       default:
         return null;
     }
@@ -75,9 +101,19 @@ export function CanvasItem({ node, widgets, isSelected, onDragStart, onResizeSta
       {/* Drag handle (title bar) */}
       <div className="canvas-item__header" onPointerDown={onDragStart}>
         <span className="canvas-item__drag-dots" aria-hidden>⋮⋮</span>
-        <span className="canvas-item__type-label">
-          {node.type === "widget" ? node.widgetKey : node.type}
-        </span>
+        {(node.type === "custom" || node.type === "embed") && onTitleChange ? (
+          <input
+            className="canvas-item__title-input"
+            value={node.title ?? ""}
+            onChange={(e) => onTitleChange(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            placeholder="Untitled"
+          />
+        ) : (
+          <span className="canvas-item__type-label">
+            {node.type === "widget" ? node.widgetKey : node.title ?? node.type}
+          </span>
+        )}
         <button
           type="button"
           className="canvas-item__close"

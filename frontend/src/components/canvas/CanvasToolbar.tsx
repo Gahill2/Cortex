@@ -9,6 +9,8 @@ interface Props {
   onAddWidget: (key: string) => void;
   onAddImage: (url: string) => void;
   onAddNote: () => void;
+  onAddCustom: (title: string, content: string, color: string) => void;
+  onAddEmbed: (url: string, title?: string) => void;
 }
 
 const AVAILABLE_WIDGETS = [
@@ -19,8 +21,12 @@ const AVAILABLE_WIDGETS = [
   { key: "ai", label: "AI Chat", icon: "🤖" },
 ];
 
-export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWidget, onAddImage, onAddNote }: Props) {
+const COLORS = ["#5b8dff", "#3be8ad", "#f5a623", "#ff5f5f", "#a855f7", "#ec4899", "#06b6d4", "#84cc16"];
+
+export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWidget, onAddImage, onAddNote, onAddCustom, onAddEmbed }: Props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +110,18 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
                 <span>Image from URL</span>
               </button>
             </div>
+            <div className="canvas-add-menu__divider" />
+            <div className="canvas-add-menu__section">
+              <p className="canvas-add-menu__heading">Create</p>
+              <button type="button" className="canvas-add-menu__item" onClick={() => { setShowCustomModal(true); setShowAddMenu(false); }}>
+                <span className="canvas-add-menu__icon">🧩</span>
+                <span>Custom Widget</span>
+              </button>
+              <button type="button" className="canvas-add-menu__item" onClick={() => { setShowEmbedModal(true); setShowAddMenu(false); }}>
+                <span className="canvas-add-menu__icon">🌐</span>
+                <span>Web Embed</span>
+              </button>
+            </div>
           </div>
         )}
         <input
@@ -113,6 +131,91 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
           style={{ display: "none" }}
           onChange={handleImageUpload}
         />
+      </div>
+
+      {showCustomModal && (
+        <CustomWidgetModal
+          onClose={() => setShowCustomModal(false)}
+          onCreate={(title, content, color) => { onAddCustom(title, content, color); setShowCustomModal(false); }}
+        />
+      )}
+
+      {showEmbedModal && (
+        <EmbedModal
+          onClose={() => setShowEmbedModal(false)}
+          onCreate={(url, title) => { onAddEmbed(url, title); setShowEmbedModal(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CustomWidgetModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string, content: string, color: string) => void }) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [color, setColor] = useState(COLORS[0]);
+
+  return (
+    <div className="canvas-modal-overlay" onClick={onClose}>
+      <div className="canvas-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="canvas-modal__title">Create Custom Widget</h3>
+        <div className="canvas-modal__field">
+          <label>Title</label>
+          <input className="form-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My Widget" autoFocus />
+        </div>
+        <div className="canvas-modal__field">
+          <label>Content</label>
+          <textarea className="form-input canvas-modal__textarea" value={content} onChange={(e) => setContent(e.target.value)} placeholder="Add text, links, or notes..." rows={4} />
+        </div>
+        <div className="canvas-modal__field">
+          <label>Color</label>
+          <div className="canvas-modal__colors">
+            {COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`canvas-modal__color-btn${color === c ? " is-active" : ""}`}
+                style={{ background: c }}
+                onClick={() => setColor(c)}
+                aria-label={c}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="canvas-modal__actions">
+          <button type="button" className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-primary btn-sm" onClick={() => onCreate(title || "Untitled", content, color)} disabled={!title.trim() && !content.trim()}>
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmbedModal({ onClose, onCreate }: { onClose: () => void; onCreate: (url: string, title?: string) => void }) {
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+
+  return (
+    <div className="canvas-modal-overlay" onClick={onClose}>
+      <div className="canvas-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="canvas-modal__title">Embed Web Content</h3>
+        <p className="canvas-modal__desc">Embed any website, video, or web app in a resizable frame.</p>
+        <div className="canvas-modal__field">
+          <label>URL</label>
+          <input className="form-input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." autoFocus />
+        </div>
+        <div className="canvas-modal__field">
+          <label>Label (optional)</label>
+          <input className="form-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Figma, YouTube, Docs" />
+        </div>
+        <div className="canvas-modal__actions">
+          <button type="button" className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-primary btn-sm" onClick={() => onCreate(url, title || undefined)} disabled={!url.trim()}>
+            Embed
+          </button>
+        </div>
       </div>
     </div>
   );

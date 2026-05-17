@@ -5,7 +5,7 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
 
-export type CanvasItemType = "widget" | "image" | "text" | "note";
+export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed";
 
 export interface CanvasNode {
   id: string;
@@ -17,6 +17,9 @@ export interface CanvasNode {
   content?: string;
   widgetKey?: string;
   imageUrl?: string;
+  title?: string;
+  color?: string;
+  embedUrl?: string;
   zIndex: number;
 }
 
@@ -300,8 +303,32 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     ]);
   }, [maxZ, viewCenter]);
 
+  const addCustom = useCallback((title: string, content: string, color: string) => {
+    const newZ = maxZ + 1;
+    setMaxZ(newZ);
+    const c = viewCenter();
+    setNodes((prev) => [
+      ...prev,
+      { id: generateId(), type: "custom", x: c.x - 160, y: c.y - 100, w: 320, h: 200, title, content, color, zIndex: newZ },
+    ]);
+  }, [maxZ, viewCenter]);
+
+  const addEmbed = useCallback((embedUrl: string, title?: string) => {
+    const newZ = maxZ + 1;
+    setMaxZ(newZ);
+    const c = viewCenter();
+    setNodes((prev) => [
+      ...prev,
+      { id: generateId(), type: "embed", x: c.x - 200, y: c.y - 150, w: 400, h: 300, embedUrl, title: title ?? embedUrl, zIndex: newZ },
+    ]);
+  }, [maxZ, viewCenter]);
+
   const updateNodeContent = useCallback((id: string, content: string) => {
     setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, content } : n)));
+  }, []);
+
+  const updateNodeTitle = useCallback((id: string, title: string) => {
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
   }, []);
 
   // Animated zoom for toolbar buttons
@@ -372,6 +399,8 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
         onAddWidget={addWidget}
         onAddImage={addImage}
         onAddNote={addNote}
+        onAddCustom={addCustom}
+        onAddEmbed={addEmbed}
       />
 
       <div
@@ -403,6 +432,7 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
               onResizeStart={(e) => startResize(node.id, e)}
               onRemove={() => removeNode(node.id)}
               onContentChange={(c) => updateNodeContent(node.id, c)}
+              onTitleChange={(t) => updateNodeTitle(node.id, t)}
             />
           ))}
         </div>
