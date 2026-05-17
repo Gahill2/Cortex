@@ -1,6 +1,25 @@
-# Monorepo convenience — same image as backend/Dockerfile when context is backend/:
-#   docker build -f backend/Dockerfile backend -t cortex-api
-# Railway: set service root to backend/ and use backend/railway.json (not this file).
+# Monorepo-root build (Railway service root = repo root).
+# Preferred: set Railway root directory to backend/ and use backend/Dockerfile via backend/railway.json.
+FROM node:22-slim AS builder
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+ENV NODE_ENV=development
+
+ARG RAILWAY_GIT_COMMIT_SHA=local
+RUN echo "builder commit=${RAILWAY_GIT_COMMIT_SHA}"
+
+COPY backend/package*.json ./
+RUN npm ci --include=dev && test -x node_modules/.bin/tsc && node_modules/.bin/tsc --version
+
+COPY backend/prisma ./prisma
+COPY backend/src ./src
+COPY backend/tsconfig.json ./
+COPY backend/scripts ./scripts
+
+RUN npx prisma generate && node_modules/.bin/tsc -p tsconfig.json
+
 FROM node:22-slim
 
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
@@ -10,15 +29,15 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm ci --omit=dev
 
 COPY backend/prisma ./prisma
-COPY backend/src ./src
-COPY backend/tsconfig.json ./
 COPY backend/scripts ./scripts
-
-RUN npm run build
-RUN npm prune --omit=dev
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 CMD ["npm", "run", "start"]

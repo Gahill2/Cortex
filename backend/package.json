@@ -5,7 +5,7 @@
   "main": "dist/src/server.js",
   "scripts": {
     "dev": "node scripts/prisma-deploy.mjs && tsx watch src/server.ts",
-    "build": "npx prisma generate && npx tsc -p tsconfig.json",
+    "build": "npx prisma generate && npx -p typescript tsc -p tsconfig.json",
     "start": "node scripts/prisma-deploy.mjs && node dist/src/server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",

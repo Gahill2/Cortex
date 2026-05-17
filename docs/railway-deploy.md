@@ -51,7 +51,7 @@ Unset demo auth in production (`CORTEX_DEMO_USER_*`) unless you intentionally wa
 ## 3. Build & start
 
 - **Build:** `backend/railway.json` uses the **Dockerfile** builder (`backend/Dockerfile`), which copies `scripts/` into the image (required for `npm run start`).
-- **Service root directory** must be **`backend`** (not the monorepo root). Do not point `dockerfilePath` at the repo-root `/Dockerfile` unless the service root is the repo root.
+- **Service root directory:** either **`backend`** (uses `backend/Dockerfile` via `backend/railway.json`) **or** repo root (uses root `Dockerfile`). Both are kept in sync. Wrong combo: root directory `backend` + repo-root `Dockerfile` path.
 - **Start:** `npm run start` → `scripts/prisma-deploy.mjs` (migrate + P3005 baseline) then `node dist/src/server.js`.
 - **Health check:** path `/api/health` (configured in `backend/railway.json`).
 
