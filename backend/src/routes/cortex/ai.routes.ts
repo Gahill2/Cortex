@@ -137,17 +137,11 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
       : baseSystemPrompt;
 
     if (input.includeWorkspaceContext) {
-      const pieces: string[] = [];
-      const obs = await getObsidianContextForUser(req.auth!.userId);
-      if (obs.trim()) pieces.push("### Obsidian (recent notes, excerpts)\n" + obs);
-      if (await isNotionConnected(req.auth!.userId)) {
-        const n = await notionContext(req.auth!.userId);
-        if (n.trim()) pieces.push("### Notion (recent pages, excerpts)\n" + n);
-      }
-      if (pieces.length) {
-        systemPrompt +=
-          "\n\nThe following is the user's workspace context from linked tools. Prefer facts from here when answering about their notes; do not invent private data.\n\n" +
-          pieces.join("\n\n");
+      const { buildInjectedContext } = await import("../../features/ai/context-injection.js");
+      const obsText = await getObsidianContextForUser(req.auth!.userId);
+      const ctx = await buildInjectedContext(req.auth!.userId, { obsidianText: obsText });
+      if (ctx.formatted) {
+        systemPrompt += "\n\n" + ctx.formatted;
       }
     }
 

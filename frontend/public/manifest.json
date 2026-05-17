@@ -1,0 +1,19 @@
+{
+  "name": "Cortex",
+  "short_name": "Cortex",
+  "description": "Your neural command layer — one dashboard for everything you run.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e0e10",
+  "theme_color": "#0a0a0c",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
