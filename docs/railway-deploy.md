@@ -1,5 +1,7 @@
 # Railway deploy (Cortex API — PostgreSQL)
 
+**Moving to a home server (ZimaBoard / Docker / Tailscale)?** See [homelab-migration.md](./homelab-migration.md) for Postgres export/import and [`deploy/homelab/`](../deploy/homelab/) compose layout.
+
 Deploy the **backend** service only from the `backend/` directory (set **Root Directory** → `backend` in Railway).
 
 ## 1. PostgreSQL database
@@ -48,7 +50,8 @@ Unset demo auth in production (`CORTEX_DEMO_USER_*`) unless you intentionally wa
 
 ## 3. Build & start
 
-- **Build:** Nixpacks runs `npm install` + `npm run build` (see `backend/package.json`).
+- **Build:** `backend/railway.json` uses the **Dockerfile** builder (`backend/Dockerfile`), which copies `scripts/` into the image (required for `npm run start`).
+- **Service root directory** must be **`backend`** (not the monorepo root). Do not point `dockerfilePath` at the repo-root `/Dockerfile` unless the service root is the repo root.
 - **Start:** `npm run start` → `scripts/prisma-deploy.mjs` (migrate + P3005 baseline) then `node dist/src/server.js`.
 - **Health check:** path `/api/health` (configured in `backend/railway.json`).
 

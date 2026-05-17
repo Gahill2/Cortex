@@ -3,11 +3,23 @@
  * already has tables (e.g. from `db push`) but no _prisma_migrations history (P3005).
  */
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, '..');
+
+// #region agent log
+console.log('[prisma-deploy] bootstrap', {
+  hypothesisId: 'H1-H3',
+  cwd: process.cwd(),
+  backendRoot,
+  scriptPath: fileURLToPath(import.meta.url),
+  scriptsDirExists: existsSync(join(backendRoot, 'scripts')),
+  prismaDirExists: existsSync(join(backendRoot, 'prisma')),
+});
+// #endregion
 
 const BASELINE_MIGRATION = '20260517200000_postgres_init';
 const P3005_MARKERS = ['P3005', 'schema is not empty'];
