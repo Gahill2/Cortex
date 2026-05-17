@@ -4,9 +4,9 @@
   "description": "Launchpad API server",
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "npx prisma db push --skip-generate && tsx watch src/server.ts",
+    "dev": "npx prisma migrate deploy && tsx watch src/server.ts",
     "build": "npx prisma generate && tsc -p tsconfig.json",
-    "start": "npx prisma db push --skip-generate && node dist/src/server.js",
+    "start": "npx prisma migrate deploy && node dist/src/server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

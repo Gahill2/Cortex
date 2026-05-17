@@ -4,12 +4,14 @@ import { prisma } from "../../db/prisma.js";
 const AUTHORITY = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
+/** Minimal delegated scopes — avoids Mail.Send / Calendars.Read admin-consent on many tenants. */
 const SCOPES = [
   "offline_access",
+  "openid",
+  "profile",
+  "email",
   "User.Read",
-  "Mail.Read",
-  "Mail.Send",
-  "Calendars.Read",
+  "Mail.ReadWrite",
 ].join(" ");
 
 export interface MicrosoftTokens {
@@ -33,6 +35,7 @@ export function buildMicrosoftAuthUrl(state: string): string {
     redirect_uri: env.MICROSOFT_REDIRECT_URI!,
     scope: SCOPES,
     response_mode: "query",
+    prompt: "select_account",
     state,
   });
   return `${AUTHORITY}/authorize?${params}`;
@@ -129,11 +132,29 @@ export async function getValidMicrosoftToken(userId: string, email: string): Pro
 
 // ── Graph helpers ─────────────────────────────────────────────────────────────
 
-async function graphGet<T>(token: string, path: string): Promise<T> {
+async function graphRequest(
+  token: string,
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
   const res = await fetch(`${GRAPH}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
   });
-  if (!res.ok) throw new Error(`Graph API error ${res.status}: ${path}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Graph API ${res.status} ${path}${detail ? `: ${detail.slice(0, 240)}` : ""}`
+    );
+  }
+  return res;
+}
+
+async function graphGet<T>(token: string, path: string): Promise<T> {
+  const res = await graphRequest(token, path);
   return res.json() as Promise<T>;
 }
 
@@ -217,25 +238,31 @@ export async function getOutlookMessage(userId: string, email: string, messageId
     body: m.body?.content ?? m.bodyPreview,
     mimeType: m.body?.contentType === "html" ? "text/html" : "text/plain",
     labelIds: [],
+    isRead: m.isRead
   };
 }
 
 export async function markOutlookRead(userId: string, email: string, messageId: string) {
   const token = await getValidMicrosoftToken(userId, email);
-  await fetch(`${GRAPH}/me/messages/${messageId}`, {
+  await graphRequest(token, `/me/messages/${messageId}`, {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ isRead: true }),
   });
 }
 
 export async function archiveOutlookMessage(userId: string, email: string, messageId: string) {
   const token = await getValidMicrosoftToken(userId, email);
-  await fetch(`${GRAPH}/me/messages/${messageId}/move`, {
+  await graphRequest(token, `/me/messages/${messageId}/move`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ destinationId: "archive" }),
   });
+}
+
+export async function deleteOutlookMessage(userId: string, email: string, messageId: string) {
+  const token = await getValidMicrosoftToken(userId, email);
+  await graphRequest(token, `/me/messages/${messageId}`, { method: "DELETE" });
 }
 
 export async function sendOutlookMessage(

@@ -141,7 +141,9 @@ cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) =>
     throw new HttpError(503, "Set CORTEX_DESKTOP_SECRET for desktop login");
   }
   const token = signAccessToken({ userId: "local-user", email: "local@cortex.app" });
-  sessionLockStore.lock(token);
+  if (demoAuthEnabled) {
+    sessionLockStore.lock(token);
+  }
   res.json({ token, user: { id: "local-user", email: "local@cortex.app" } });
 });
 
@@ -196,7 +198,10 @@ cortexAuthRouter.post("/verify-otp", routeRateLimit(10, 60_000), async (req, res
     : email.toLowerCase();
 
   const token = signAccessToken({ userId, email });
-  sessionLockStore.lock(token);
+  // Production OTP has no PIN gate — only lock when demo PIN unlock is enabled.
+  if (demoAuthEnabled) {
+    sessionLockStore.lock(token);
+  }
 
   res.json({
     token,

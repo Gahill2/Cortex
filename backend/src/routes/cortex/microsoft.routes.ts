@@ -5,6 +5,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
 import { prisma } from "../../db/prisma.js";
+import { listMailAccounts } from "../../features/mail/mail-account-store.js";
 import { signMicrosoftState, verifyMicrosoftState } from "../../features/microsoft/microsoft-state.js";
 import {
   isMicrosoftConfigured,
@@ -58,10 +59,17 @@ cortexMicrosoftRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (
     if (!email) { res.redirect(err("no_email_returned")); return; }
 
     await saveMicrosoftTokens(userId, email, tokens);
+    const existing = await listMailAccounts(userId);
     await prisma.mailAccount.upsert({
-      where: { userId_email: { userId, email } },
-      update: { provider: "microsoft", label: email },
-      create: { userId, provider: "microsoft", label: email, email },
+      where: { userId_provider_email: { userId, provider: "microsoft", email: email.toLowerCase() } },
+      update: { label: email },
+      create: {
+        userId,
+        provider: "microsoft",
+        label: email,
+        email: email.toLowerCase(),
+        isPrimary: existing.length === 0
+      }
     });
 
     res.redirect(ok(email));

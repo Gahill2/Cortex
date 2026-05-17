@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../../config/env.js";
-import { callAI } from "../../features/ai/ai-provider.js";
+import { callAI, getAIStatus } from "../../features/ai/ai-provider.js";
+import { extractJsonObject } from "../../features/mail/mail-classify.js";
 import { HttpError } from "../../utils/http-error.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -152,6 +153,14 @@ cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
   const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
 
+  const aiStatus = await getAIStatus();
+  if (aiStatus.activeProvider === "none") {
+    throw new HttpError(
+      503,
+      "No AI provider available. Start Ollama, or set ANTHROPIC_API_KEY / OPENAI_API_KEY on the API server."
+    );
+  }
+
   // Step 1: Ask AI for track recommendations (Ollama → Anthropic fallback)
   const aiResult_raw = await callAI(
     [{ role: "user", content: prompt }],
@@ -164,14 +173,21 @@ Include 12-15 diverse, real tracks that match the requested mood/genre. Vary art
     }
   );
 
-  const rawText = aiResult_raw.text.trim();
-  let aiResult: { playlistName: string; tracks: Array<{ artist: string; title: string }> };
-  try {
-    // Strip possible markdown code fences
-    const cleaned = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    aiResult = JSON.parse(cleaned);
-  } catch {
+  const parsed = extractJsonObject(aiResult_raw.text);
+  if (!parsed || !Array.isArray(parsed.tracks)) {
     throw new HttpError(502, "AI returned invalid JSON for track recommendations");
+  }
+  const aiResult = {
+    playlistName:
+      typeof parsed.playlistName === "string" && parsed.playlistName.trim()
+        ? parsed.playlistName.trim()
+        : "Cortex Mix",
+    tracks: (parsed.tracks as Array<{ artist?: string; title?: string }>)
+      .filter((t) => t?.artist && t?.title)
+      .map((t) => ({ artist: String(t.artist), title: String(t.title) }))
+  };
+  if (aiResult.tracks.length === 0) {
+    throw new HttpError(502, "AI did not return any track suggestions");
   }
 
   // Step 2: Search Spotify for each recommended track
@@ -217,7 +233,14 @@ Include 12-15 diverse, real tracks that match the requested mood/genre. Vary art
     }
   }
 
-  sendSuccess(res, { tracks: foundTracks, prompt, playlistName: aiResult.playlistName });
+  if (foundTracks.length === 0) {
+    throw new HttpError(
+      502,
+      "Could not match any suggested tracks on Spotify. Try a more specific mood or artist name."
+    );
+  }
+
+  sendSuccess(res, { tracks: foundTracks, prompt, playlistName: aiResult.playlistName }, "live");
 });
 
 cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {

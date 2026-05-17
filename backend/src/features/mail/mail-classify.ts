@@ -56,6 +56,26 @@ export function shortSubjectSummary(subject: string): string {
 }
 
 /** Pull a JSON array from model output (handles prose + markdown fences). */
+/** Pull a JSON object from model output (handles prose + markdown fences). */
+export function extractJsonObject(text: string): Record<string, unknown> | null {
+  let t = text.trim();
+  const fenced = /^```(?:json)?\s*([\s\S]*?)```/im.exec(t);
+  if (fenced) t = fenced[1].trim();
+
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+
+  try {
+    const parsed = JSON.parse(t.slice(start, end + 1)) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function extractJsonArray(text: string): unknown[] | null {
   let t = text.trim();
   const fenced = /^```(?:json)?\s*([\s\S]*?)```/im.exec(t);
@@ -74,10 +94,10 @@ export function extractJsonArray(text: string): unknown[] | null {
 }
 
 export function mergeMailCategories(
-  messages: Array<{ id: string; from: string; subject: string; snippet?: string }>,
+  messages: Array<{ id: string; accountId?: string; from: string; subject: string; snippet?: string }>,
   aiRows: Array<{ id?: unknown; category?: unknown; summary?: unknown }>,
   validCategories: readonly string[]
-): Array<{ id: string; category: MailCategory; summary: string }> {
+): Array<{ id: string; accountId: string; category: MailCategory; summary: string }> {
   const norm = (s: string) => s.trim();
   const byId = new Map<string, { category: MailCategory; summary: string }>();
 
@@ -96,11 +116,12 @@ export function mergeMailCategories(
 
   return messages.map((m) => {
     const id = norm(m.id);
+    const accountId = m.accountId?.trim() ?? "";
     const hit = byId.get(id);
-    if (hit?.summary) return { id: m.id, category: hit.category, summary: hit.summary };
-    if (hit) return { id: m.id, category: hit.category, summary: shortSubjectSummary(m.subject) };
+    if (hit?.summary) return { id: m.id, accountId, category: hit.category, summary: hit.summary };
+    if (hit) return { id: m.id, accountId, category: hit.category, summary: shortSubjectSummary(m.subject) };
 
     const h = heuristicMailCategory(m.from, m.subject, m.snippet ?? "");
-    return { id: m.id, category: h, summary: shortSubjectSummary(m.subject) };
+    return { id: m.id, accountId, category: h, summary: shortSubjectSummary(m.subject) };
   });
 }

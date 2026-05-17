@@ -4,7 +4,13 @@ import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
-import { callAI, getAIStatus, resetOllamaCache } from "../../features/ai/ai-provider.js";
+import {
+  callAI,
+  callAIWithProvider,
+  getAIStatus,
+  resetOllamaCache,
+  type ChatAIProviderId,
+} from "../../features/ai/ai-provider.js";
 import { prisma } from "../../db/prisma.js";
 import { getOrCreateCortexUser } from "../../features/auth/cortex-db-user.js";
 import { isGmailConfigured, listInbox } from "../../features/gmail/gmail-service.js";
@@ -18,6 +24,8 @@ import {
 const chatSchema = z.object({
   message: z.string().min(1).max(4_000),
   conversationId: z.string().min(1).optional(),
+  /** claude | openai (ChatGPT) | ollama — when omitted, server picks default available provider */
+  provider: z.enum(["claude", "openai", "ollama"]).optional(),
   systemContext: z.string().max(8_000).optional(),
   /** When true, append recent Obsidian + Notion excerpts to the system prompt. */
   includeWorkspaceContext: z.boolean().optional().default(false),
@@ -79,16 +87,47 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
   try {
     status = await getAIStatus();
   } catch {
-    status = { ollama: false, anthropic: false, activeProvider: "none" };
+    status = {
+      ollama: false,
+      anthropic: false,
+      openai: false,
+      activeProvider: "none" as const,
+      providers: [],
+      defaultProvider: null,
+      ollamaModel: "",
+      openaiModel: "",
+    };
   }
 
-  if (status.activeProvider === "none") {
+  const anyAvailable = status.providers.some((p) => p.available);
+  if (!anyAvailable) {
     sendSuccess(res, {
       conversationId: input.conversationId ?? `conv_${Date.now()}`,
       reply: `(AI not configured) You said: ${input.message.slice(0, 120)}`,
-      model: "none"
+      model: "none",
+      provider: "none",
     });
     return;
+  }
+
+  const requested = input.provider as ChatAIProviderId | undefined;
+  if (requested) {
+    const meta = status.providers.find((p) => p.id === requested);
+    if (!meta?.available) {
+      const hint =
+        requested === "claude"
+          ? "Set ANTHROPIC_API_KEY on the API server."
+          : requested === "openai"
+            ? "Set OPENAI_API_KEY on the API server."
+            : "Start Ollama locally (ollama serve).";
+      sendSuccess(res, {
+        conversationId: input.conversationId ?? `conv_${Date.now()}`,
+        reply: `⚠️ ${meta?.label ?? requested} is not available. ${hint}`,
+        model: "none",
+        provider: "none",
+      });
+      return;
+    }
   }
 
   try {
@@ -112,14 +151,17 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
       }
     }
 
-    const result = await callAI(
-      [{ role: "user", content: input.message }],
-      {
-        tier: "simple",
-        systemPrompt,
-        maxTokens: 1024
-      }
-    );
+    const result = requested
+      ? await callAIWithProvider(
+          [{ role: "user", content: input.message }],
+          requested,
+          { systemPrompt, maxTokens: 1024 }
+        )
+      : await callAI([{ role: "user", content: input.message }], {
+          tier: "simple",
+          systemPrompt,
+          maxTokens: 1024,
+        });
     sendSuccess(res, {
       conversationId: input.conversationId ?? `conv_${Date.now()}`,
       reply: result.text,
@@ -214,7 +256,7 @@ Today's calendar:
 ${eventLines}`;
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     sendSuccess(res, {
       briefing: `Good ${today.getHours() < 12 ? "morning" : today.getHours() < 17 ? "afternoon" : "evening"}! You have ${tasks.length} active task${tasks.length !== 1 ? "s" : ""} and ${calEvents.length} event${calEvents.length !== 1 ? "s" : ""} today.`,
       provider: "none",
@@ -367,7 +409,7 @@ cortexAiRouter.post("/today-briefing", routeRateLimit(12, 60_000), async (req, r
   };
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     sendSuccess(
       res,
       {
@@ -415,8 +457,8 @@ cortexAiRouter.post("/today-briefing", routeRateLimit(12, 60_000), async (req, r
 
 cortexAiRouter.post("/tasks/enrich", routeRateLimit(5, 60_000), async (req, res) => {
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
-    throw new HttpError(503, "AI enrichment not available — configure Anthropic API key or start Ollama");
+  if (!status.providers.some((p) => p.available)) {
+    throw new HttpError(503, "AI enrichment not available — configure ANTHROPIC_API_KEY, OPENAI_API_KEY, or start Ollama");
   }
 
   const { title } = enrichSchema.parse(req.body);
@@ -435,6 +477,7 @@ const CATEGORIES = ["work", "school", "personal", "social", "media", "finance", 
 const organizeSchema = z.object({
   messages: z.array(z.object({
     id: z.string(),
+    accountId: z.string().optional().default(""),
     from: z.string(),
     subject: z.string(),
     snippet: z.string().optional().default(""),
@@ -452,7 +495,7 @@ cortexAiRouter.post("/mail/organize", routeRateLimit(20, 60_000), async (req, re
 
   let aiRows: Array<{ id?: unknown; category?: unknown; summary?: unknown }> = [];
 
-  const wantAi = !rulesOnly && status.activeProvider !== "none";
+  const wantAi = !rulesOnly && status.providers.some((p) => p.available);
 
   if (wantAi) {
     const emailList = messages.map((m, i) =>
@@ -481,11 +524,27 @@ ${emailList}`;
 
   const categories = mergeMailCategories(messages, aiRows, CATEGORIES);
 
-  await Promise.all(categories.map((c) => prisma.mailCategory.upsert({
-    where: { userId_messageId: { userId, messageId: c.id } },
-    update: { category: c.category, summary: c.summary },
-    create: { userId, messageId: c.id, category: c.category, summary: c.summary },
-  })));
+  await Promise.all(
+    categories.map((c) =>
+      prisma.mailCategory.upsert({
+        where: {
+          userId_accountId_messageId: {
+            userId,
+            accountId: c.accountId,
+            messageId: c.id,
+          },
+        },
+        update: { category: c.category, summary: c.summary },
+        create: {
+          userId,
+          accountId: c.accountId,
+          messageId: c.id,
+          category: c.category,
+          summary: c.summary,
+        },
+      })
+    )
+  );
 
   const mode = rulesOnly ? "rules" : wantAi ? "ai+rules" : "rules";
   sendSuccess(res, { categories, mode }, "live");
@@ -520,7 +579,7 @@ cortexAiRouter.post("/mail/reply", routeRateLimit(10, 60_000), async (req, res) 
   const { from, subject, body } = replySchema.parse(req.body);
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     throw new HttpError(503, "AI not available");
   }
 
@@ -549,7 +608,7 @@ cortexAiRouter.post("/tasks/parse", routeRateLimit(20, 60_000), async (req, res)
   const today = new Date().toISOString().split("T")[0];
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     // Fallback: return text as title with no extras
     sendSuccess(res, { title: text, priority: "MEDIUM", dueDate: null, description: null });
     return;
@@ -613,7 +672,7 @@ Rules:
 - Premium dark aesthetic, NOT pastel, NOT pure black`;
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     // Fallback gradient based on topic length (deterministic)
     const hue = (topic.length * 37) % 360;
     sendSuccess(res, {
@@ -684,7 +743,7 @@ cortexAiRouter.get("/meeting-prep", routeRateLimit(5, 300_000), async (req, res)
   }
 
   const status = await getAIStatus();
-  if (status.activeProvider === "none") {
+  if (!status.providers.some((p) => p.available)) {
     sendSuccess(res, {
       meetings: events.map((e) => ({ title: e.title, time: e.start, prep: "AI not available for prep notes." })),
       briefing: `${events.length} meeting${events.length !== 1 ? "s" : ""} scheduled.`,

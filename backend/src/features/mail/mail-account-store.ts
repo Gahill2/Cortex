@@ -3,7 +3,7 @@ import { prisma } from "../../db/prisma.js";
 import { fetchGoogleAccountEmail } from "../gmail/gmail-service.js";
 import { getGoogleCredentials } from "../gmail/google-token-store.js";
 
-export type MailProvider = "gmail";
+export type MailProvider = "gmail" | "microsoft" | "imap";
 
 export type MailAccountRow = {
   id: string;
@@ -49,8 +49,9 @@ export async function getMailAccountTokens(
         orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
       });
 
-  if (!row) return null;
-  return { accountId: row.id, tokens: JSON.parse(row.tokens) as Credentials };
+  if (!row || row.provider !== "gmail" || row.tokens == null) return null;
+  const tokenJson = row.tokens;
+  return { accountId: row.id, tokens: JSON.parse(tokenJson) as Credentials };
 }
 
 export async function upsertGmailAccount(

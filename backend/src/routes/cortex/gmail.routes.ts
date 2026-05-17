@@ -16,6 +16,7 @@ import {
 } from "../../features/gmail/gmail-service.js";
 import { saveGoogleCredentials, getGoogleCredentials, clearGoogleCredentials } from "../../features/gmail/google-token-store.js";
 import { verifyMailOAuthState } from "../../features/mail/mail-oauth-state.js";
+import { upsertGmailAccount } from "../../features/mail/mail-account-store.js";
 import { prisma } from "../../db/prisma.js";
 import { google } from "googleapis";
 
@@ -112,18 +113,7 @@ cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req,
       const email = userInfo.data.email;
       if (!email) { res.redirect(err("no_email_returned")); return; }
 
-      // Save OAuth token
-      await prisma.oAuthToken.upsert({
-        where: { userId_provider: { userId, provider: `mail_gmail:${email}` } },
-        update: { tokens: JSON.stringify(tokens) },
-        create: { userId, provider: `mail_gmail:${email}`, tokens: JSON.stringify(tokens) },
-      });
-      // Save MailAccount record
-      await prisma.mailAccount.upsert({
-        where: { userId_email: { userId, email } },
-        update: { provider: "gmail", label: email },
-        create: { userId, provider: "gmail", label: email, email },
-      });
+      await upsertGmailAccount(userId, email, tokens, { label: email });
 
       res.redirect(ok(email));
     } catch {
