@@ -25,7 +25,8 @@
     "dist": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "canva": "npx -y @canva/cli@latest",
-    "railway:deploy": "node -e \"console.log('Railway checklist: docs/railway-deploy.md\\nTemplate: backend/.env.railway.example')\""
+    "railway:deploy": "node -e \"console.log('Railway checklist: docs/railway-deploy.md\\nTemplate: backend/.env.railway.example')\"",
+    "cloud:push": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cloud-sync-push.ps1"
   },
   "build": {
     "appId": "com.cortex.app",

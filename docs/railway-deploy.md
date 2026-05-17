@@ -1,5 +1,7 @@
 # Railway deploy (Cortex API — PostgreSQL)
 
+**Public cloud (Vercel UI + this API):** see [cloud-deploy.md](./cloud-deploy.md).
+
 **Moving to a home server (ZimaBoard / Docker / Tailscale)?** See [homelab-migration.md](./homelab-migration.md) for Postgres export/import and [`deploy/homelab/`](../deploy/homelab/) compose layout.
 
 Deploy the **backend** service only from the `backend/` directory (set **Root Directory** → `backend` in Railway).
@@ -41,10 +43,10 @@ Copy from `backend/.env.railway.example`. Minimum for a stable solo production A
 | `DATABASE_URL` | Private Postgres URL from the Postgres plugin (`${{Postgres.DATABASE_URL}}`) |
 | `JWT_SECRET` | ≥32 random characters |
 | `CORTEX_ENCRYPTION_KEY` | ≥32 random characters (reserved for at-rest secrets) |
-| `CORTEX_FRONTEND_URL` | Public URL of your UI, e.g. `https://app.example.com` |
-| `CORS_ORIGINS` | Comma-separated browser origins, e.g. `https://app.example.com` (no `/api` suffix) |
+| `CORTEX_FRONTEND_URL` | `YOUR_VERCEL_URL` (e.g. `https://your-app.vercel.app`) |
+| `CORS_ORIGINS` | Same as UI origin(s), comma-separated, no `/api` suffix |
 
-OAuth redirects (Gmail, Spotify, etc.) must use your **API** public URL, e.g. `https://<api>.up.railway.app/api/gmail/oauth/callback`.
+OAuth redirects (Gmail, Spotify, etc.) use `YOUR_RAILWAY_URL` — see [cloud-deploy.md](./cloud-deploy.md) for the full URI table and provider console steps.
 
 Unset demo auth in production (`CORTEX_DEMO_USER_*`) unless you intentionally want them.
 
@@ -53,7 +55,7 @@ Unset demo auth in production (`CORTEX_DEMO_USER_*`) unless you intentionally wa
 - **Build:** `backend/railway.json` uses the **Dockerfile** builder (`backend/Dockerfile`), which copies `scripts/` into the image (required for `npm run start`).
 - **Service root directory:** either **`backend`** (uses `backend/Dockerfile` via `backend/railway.json`) **or** repo root (uses root `Dockerfile`). Both are kept in sync. Wrong combo: root directory `backend` + repo-root `Dockerfile` path.
 - **Start:** `npm run start` → `scripts/prisma-deploy.mjs` (migrate + P3005 baseline) then `node dist/src/server.js`.
-- **Health check:** path `/api/health` (configured in `backend/railway.json`).
+- **Health check:** path `/api/health/live` (configured in `backend/railway.json`).
 
 Local development: point `DATABASE_URL` at a local Postgres instance (see `backend/.env.example`), then `npx prisma migrate deploy` or `npm run dev`.
 
@@ -62,10 +64,10 @@ Local development: point `DATABASE_URL` at a local Postgres instance (see `backe
 At **build** time set:
 
 ```env
-VITE_API_BASE_URL=https://<your-api-service>.up.railway.app/api
+VITE_API_BASE_URL=https://YOUR_RAILWAY_URL/api
 ```
 
-See `frontend/.env.example`. Without this, production builds use same-origin `/api` only when UI and API share one hostname.
+See `frontend/.env.production.example` and [cloud-deploy.md](./cloud-deploy.md). Without `VITE_API_BASE_URL`, production builds use same-origin `/api` only when UI and API share one hostname (not the Vercel + Railway split).
 
 ## 5. Custom domain (optional)
 
@@ -78,5 +80,5 @@ See `frontend/.env.example`. Without this, production builds use same-origin `/a
 - [ ] Postgres plugin added; `DATABASE_URL` references **private** Postgres URL
 - [ ] `NODE_ENV=production`, secrets set
 - [ ] `CORS_ORIGINS` + `CORTEX_FRONTEND_URL` match real UI URL(s)
-- [ ] Health check `/api/health` green
+- [ ] Health check `/api/health/live` green
 - [ ] Frontend built with `VITE_API_BASE_URL` pointing at API `/api`

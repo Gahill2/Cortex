@@ -26,8 +26,8 @@ function buildCorsOrigins(): string[] {
     fromEnv.push(frontend);
   }
   if (env.NODE_ENV === "production" && fromEnv.length === 0) {
-    throw new Error(
-      "Production requires CORS_ORIGINS and/or CORTEX_FRONTEND_URL (see backend/.env.railway.example)"
+    console.warn(
+      "[cortex] CORS_ORIGINS and CORTEX_FRONTEND_URL are unset — API will boot for healthchecks; configure before browser traffic (see backend/.env.railway.example)"
     );
   }
   return fromEnv.length > 0 ? fromEnv : defaultOrigins;

@@ -4,6 +4,8 @@ dist/
 *.env.local
 .claude/
 .cursor/
+.vercel/
+frontend/.vercel/
 .agenthub/
 *.tsbuildinfo
 .env.local

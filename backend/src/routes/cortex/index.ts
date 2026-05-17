@@ -31,6 +31,11 @@ import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 
 export const cortexRouter = Router();
 
+/** Railway / load-balancer liveness — no I/O, must respond before slow dependency pings. */
+cortexRouter.get("/health/live", (_req, res) => {
+  res.status(200).json({ status: "ok", service: "cortex-api" });
+});
+
 cortexRouter.get("/health", async (_req, res) => {
   const agentmemory = await pingAgentmemory();
   const obsidianVaults = getObsidianVaultPaths(env);

@@ -24,12 +24,21 @@ console.log('[prisma-deploy] bootstrap', {
 const BASELINE_MIGRATION = '20260517200000_postgres_init';
 const P3005_MARKERS = ['P3005', 'schema is not empty'];
 
+function resolvePrismaInvocation() {
+  const localBin = join(backendRoot, 'node_modules', '.bin', 'prisma');
+  if (existsSync(localBin)) {
+    return { command: localBin, argsPrefix: [] };
+  }
+  return { command: 'npx', argsPrefix: ['prisma'] };
+}
+
 function runPrisma(args) {
+  const { command, argsPrefix } = resolvePrismaInvocation();
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['prisma', ...args], {
+    const child = spawn(command, [...argsPrefix, ...args], {
       cwd: backendRoot,
       stdio: ['inherit', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
+      shell: process.platform === 'win32' && command === 'npx',
       env: process.env,
     });
 

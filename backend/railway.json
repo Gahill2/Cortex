@@ -11,7 +11,7 @@
     "sleepApplication": false,
     "useLegacyStacker": false,
     "ipv6EgressEnabled": false,
-    "healthcheckPath": "/api/health",
+    "healthcheckPath": "/api/health/live",
     "healthcheckTimeout": 300,
     "multiRegionConfig": {
       "sfo": {

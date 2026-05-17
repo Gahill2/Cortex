@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/prisma-deploy.mjs && tsx watch src/server.ts",
     "build": "npx prisma generate && npx -p typescript tsc -p tsconfig.json",
-    "start": "node scripts/prisma-deploy.mjs && node dist/src/server.js",
+    "start": "node scripts/railway-start.mjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
