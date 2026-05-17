@@ -21,6 +21,8 @@ const AVAILABLE_WIDGETS = [
   { key: "ai", label: "AI Chat", icon: "🤖" },
   { key: "pomodoro", label: "Focus Timer", icon: "⏱️" },
   { key: "clock", label: "World Clock", icon: "🕐" },
+  { key: "habits", label: "Habit Tracker", icon: "📊" },
+  { key: "quote", label: "Daily Quote", icon: "💬" },
 ];
 
 const COLORS = ["#5b8dff", "#3be8ad", "#f5a623", "#ff5f5f", "#a855f7", "#ec4899", "#06b6d4", "#84cc16"];

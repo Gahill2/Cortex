@@ -33,6 +33,8 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const ZOOM_SENSITIVITY = 0.0015;
 const GRID_SIZE = 24;
+const SNAP_THRESHOLD = 8;
+const GUIDE_THRESHOLD = 6;
 
 function generateId() {
   return `n_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -71,6 +73,7 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
   const [resizeId, setResizeId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [guides, setGuides] = useState<{ type: "h" | "v"; pos: number }[]>([]);
   const [maxZ, setMaxZ] = useState(() => Math.max(...(saved?.nodes ?? defaultNodes()).map((n) => n.zIndex), 0));
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,8 +160,35 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
     if (dragId && dragElRef.current) {
       const dx = (e.clientX - dragStart.current.x) / zoom;
       const dy = (e.clientY - dragStart.current.y) / zoom;
-      const newX = dragStart.current.nodeX + dx;
-      const newY = dragStart.current.nodeY + dy;
+      let newX = dragStart.current.nodeX + dx;
+      let newY = dragStart.current.nodeY + dy;
+
+      // Snap to grid
+      if (e.ctrlKey || e.metaKey) {
+        newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
+        newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+      }
+
+      // Alignment guides
+      const dragNode = nodes.find((n) => n.id === dragId);
+      const activeGuides: { type: "h" | "v"; pos: number }[] = [];
+      if (dragNode) {
+        const others = nodes.filter((n) => n.id !== dragId);
+        const cx = newX + dragNode.w / 2;
+        const cy = newY + dragNode.h / 2;
+        for (const o of others) {
+          const ocx = o.x + o.w / 2;
+          const ocy = o.y + o.h / 2;
+          if (Math.abs(newX - o.x) < GUIDE_THRESHOLD) { newX = o.x; activeGuides.push({ type: "v", pos: o.x }); }
+          else if (Math.abs(newX + dragNode.w - (o.x + o.w)) < GUIDE_THRESHOLD) { newX = o.x + o.w - dragNode.w; activeGuides.push({ type: "v", pos: o.x + o.w }); }
+          else if (Math.abs(cx - ocx) < GUIDE_THRESHOLD) { newX = ocx - dragNode.w / 2; activeGuides.push({ type: "v", pos: ocx }); }
+          if (Math.abs(newY - o.y) < GUIDE_THRESHOLD) { newY = o.y; activeGuides.push({ type: "h", pos: o.y }); }
+          else if (Math.abs(newY + dragNode.h - (o.y + o.h)) < GUIDE_THRESHOLD) { newY = o.y + o.h - dragNode.h; activeGuides.push({ type: "h", pos: o.y + o.h }); }
+          else if (Math.abs(cy - ocy) < GUIDE_THRESHOLD) { newY = ocy - dragNode.h / 2; activeGuides.push({ type: "h", pos: ocy }); }
+        }
+      }
+      setGuides(activeGuides);
+
       dragElRef.current.style.left = `${newX}px`;
       dragElRef.current.style.top = `${newY}px`;
     }
@@ -185,18 +215,18 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
       try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
     if (dragId && dragElRef.current) {
-      const dx = (e.clientX - dragStart.current.x) / zoom;
-      const dy = (e.clientY - dragStart.current.y) / zoom;
-      const finalX = dragStart.current.nodeX + dx;
-      const finalY = dragStart.current.nodeY + dy;
+      const finalX = parseFloat(dragElRef.current.style.left) || 0;
+      const finalY = parseFloat(dragElRef.current.style.top) || 0;
       dragElRef.current.style.willChange = "";
       dragElRef.current = null;
       setNodes((prev) =>
         prev.map((n) => (n.id === dragId ? { ...n, x: finalX, y: finalY } : n))
       );
       setDragId(null);
+      setGuides([]);
     } else if (dragId) {
       setDragId(null);
+      setGuides([]);
     }
     if (resizeId && resizeElRef.current) {
       const dx = (e.clientX - resizeStart.current.x) / zoom;
@@ -436,6 +466,19 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
             />
           ))}
         </div>
+
+        {/* Alignment guides */}
+        {guides.map((g, i) => (
+          <div
+            key={`guide-${i}`}
+            className={`canvas-guide canvas-guide--${g.type}`}
+            style={
+              g.type === "h"
+                ? { top: g.pos * zoom + pan.y, left: 0, right: 0 }
+                : { left: g.pos * zoom + pan.x, top: 0, bottom: 0 }
+            }
+          />
+        ))}
 
         {/* Selection box */}
         {selRect && (

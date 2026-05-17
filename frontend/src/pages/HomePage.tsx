@@ -12,6 +12,8 @@ import {
 } from "../components/home/widgets";
 import { PomodoroWidget } from "../components/canvas/widgets/PomodoroWidget";
 import { WorldClockWidget } from "../components/canvas/widgets/WorldClockWidget";
+import { HabitTrackerWidget } from "../components/canvas/widgets/HabitTrackerWidget";
+import { QuoteWidget } from "../components/canvas/widgets/QuoteWidget";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -49,6 +51,8 @@ export const HomePage = ({ onNavigate }: Props) => {
     ai: <AIWidget onNavigate={onNavigate} />,
     pomodoro: <PomodoroWidget />,
     clock: <WorldClockWidget />,
+    habits: <HabitTrackerWidget />,
+    quote: <QuoteWidget />,
   };
 
   return <CanvasDashboard onNavigate={onNavigate} widgets={widgets} />;

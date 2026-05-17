@@ -214,3 +214,261 @@
 .worldclock-input::placeholder {
   color: var(--text-3);
 }
+
+/* ── Habit Tracker Widget ────────────────────────────────────────────────── */
+
+.habit-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  height: 100%;
+}
+
+.habit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.habit-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.habit-add-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.habit-add-btn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.habit-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+}
+
+.habit-input {
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.habit-input:focus {
+  border-color: var(--accent);
+}
+
+.habit-color-row {
+  display: flex;
+  gap: 6px;
+}
+
+.habit-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.habit-color-dot.is-active {
+  border-color: var(--text);
+  transform: scale(1.2);
+}
+
+.habit-add-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.habit-empty {
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.habit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.habit-grid-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.habit-grid-row--header {
+  margin-bottom: 4px;
+}
+
+.habit-grid-name {
+  width: 80px;
+  min-width: 80px;
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.habit-grid-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.habit-grid-day {
+  width: 24px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.habit-grid-day.is-today {
+  color: var(--accent);
+}
+
+.habit-grid-cell {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-2);
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s;
+}
+
+.habit-grid-cell:hover {
+  border-color: var(--text-3);
+  transform: scale(1.1);
+}
+
+.habit-grid-cell.is-done {
+  border-color: transparent;
+  transform: scale(1);
+}
+
+.habit-grid-streak {
+  width: 28px;
+  font-size: 11px;
+  color: var(--amber);
+  font-weight: 700;
+  text-align: center;
+}
+
+.habit-remove-btn {
+  position: absolute;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.habit-grid-name:hover .habit-remove-btn {
+  opacity: 1;
+}
+
+/* ── Quote Widget ────────────────────────────────────────────────────────── */
+
+.quote-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  position: relative;
+}
+
+.quote-content {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.quote-content--fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.quote-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.6;
+  font-style: italic;
+  margin: 0 0 12px;
+}
+
+.quote-author {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.quote-refresh {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, transform 0.2s;
+}
+
+.quote-refresh:hover {
+  background: var(--surface);
+  color: var(--text);
+  transform: rotate(180deg);
+}
