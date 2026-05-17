@@ -1,0 +1,760 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   CANVAS DASHBOARD — Infinite pan/zoom Figma-like workspace
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.canvas-dashboard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+}
+
+/* ── Viewport (pan & zoom layer) ─────────────────────────────────────────── */
+
+.canvas-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.canvas-viewport--panning {
+  cursor: grabbing;
+}
+
+.canvas-viewport--dragging {
+  cursor: move;
+}
+
+/* Grid dots — rendered as an ::after pseudo-element so it renders above wallpaper */
+.canvas-viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(180, 180, 200, var(--grid-opacity, 0.25)) 1.2px,
+    transparent 1.2px
+  );
+  background-size: var(--grid-size, 24px) var(--grid-size, 24px);
+  background-position: var(--grid-off-x, 0px) var(--grid-off-y, 0px);
+}
+
+.canvas-viewport--selecting {
+  cursor: crosshair;
+}
+
+/* Content layer — GPU-composited for smooth pan/zoom */
+.canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  z-index: 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Alignment guides (Figma-style red/blue snap lines) */
+.canvas-guide {
+  position: absolute;
+  pointer-events: none;
+  z-index: 998;
+}
+
+.canvas-guide--h {
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.7;
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.canvas-guide--v {
+  width: 1px;
+  background: var(--accent);
+  opacity: 0.7;
+  box-shadow: 0 0 4px var(--accent);
+}
+
+/* Selection box (Figma-style blue rectangle) */
+.canvas-sel-box {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  background: rgba(91, 141, 255, 0.08);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ── Canvas Items ────────────────────────────────────────────────────────── */
+
+.canvas-item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  border: 1.5px solid var(--border-2);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    0 0 0 0 rgba(91, 141, 255, 0);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.08s ease-out;
+  overflow: hidden;
+  animation: canvas-item-pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* GPU layer promotion for smooth drag */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@keyframes canvas-item-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.canvas-item--hovered {
+  border-color: rgba(91, 141, 255, 0.35);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(91, 141, 255, 0.1);
+}
+
+.canvas-item--selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(91, 141, 255, 0.3);
+}
+
+/* Lift effect while dragging — applied via will-change hint from JS */
+.canvas-item[style*="will-change: left"] {
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(91, 141, 255, 0.25);
+  transform: translateZ(0) scale(1.01);
+  z-index: 9999 !important;
+  opacity: 0.95;
+}
+
+.canvas-item--selected .canvas-item__close {
+  opacity: 1;
+}
+
+.canvas-item--selected .canvas-item__resize {
+  opacity: 1;
+}
+
+/* Picture frame effect */
+.canvas-item__frame {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: calc(var(--radius-lg) - 2px);
+  pointer-events: none;
+  transition: border-color 0.25s ease;
+}
+
+.canvas-item--hovered .canvas-item__frame {
+  border-color: rgba(91, 141, 255, 0.12);
+}
+
+/* Decorative corner accents on hover */
+.canvas-item::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: calc(var(--radius-lg) - 4px);
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(91, 141, 255, 0.1) 0%, transparent 12%),
+    linear-gradient(225deg, rgba(91, 141, 255, 0.1) 0%, transparent 12%),
+    linear-gradient(315deg, rgba(91, 141, 255, 0.1) 0%, transparent 12%),
+    linear-gradient(45deg, rgba(91, 141, 255, 0.1) 0%, transparent 12%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.canvas-item--hovered::before {
+  opacity: 1;
+}
+
+/* Header / drag bar */
+.canvas-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.canvas-item__header:active {
+  cursor: grabbing;
+}
+
+.canvas-item__drag-dots {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.canvas-item__type-label {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
+}
+
+.canvas-item__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.canvas-item--hovered .canvas-item__close {
+  opacity: 1;
+}
+
+.canvas-item__close:hover {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+/* Body */
+.canvas-item__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-item__widget {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 8px;
+}
+
+.canvas-item__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.canvas-item__image-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-3);
+}
+
+.canvas-item__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.canvas-item__text {
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.canvas-item__note {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+.canvas-item__note-input {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.canvas-item__note-input::placeholder {
+  color: var(--text-3);
+}
+
+/* Resize handle */
+.canvas-item__resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: nwse-resize;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.canvas-item--hovered .canvas-item__resize {
+  opacity: 1;
+}
+
+/* Note specific styling */
+.canvas-item--note {
+  background: linear-gradient(135deg, #2a2a3a 0%, var(--bg-2) 100%);
+}
+
+.canvas-item--image .canvas-item__header {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.canvas-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: toolbar-drop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes toolbar-drop-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.canvas-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.canvas-toolbar__group--add {
+  position: relative;
+}
+
+.canvas-toolbar__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-2);
+  margin: 0 6px;
+}
+
+.canvas-toolbar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.1s;
+}
+
+.canvas-toolbar__btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.canvas-toolbar__btn:active {
+  transform: scale(0.94);
+}
+
+.canvas-toolbar__btn--zoom {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-width: 48px;
+}
+
+.canvas-toolbar__btn--primary {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.canvas-toolbar__btn--primary:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.canvas-toolbar__icon {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.canvas-toolbar__label {
+  font-size: 12px;
+}
+
+/* Add menu dropdown */
+.canvas-add-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 200px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  animation: menu-drop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  z-index: 200;
+}
+
+@keyframes menu-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.canvas-add-menu__section {
+  padding: 4px 0;
+}
+
+.canvas-add-menu__heading {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  margin: 0;
+}
+
+.canvas-add-menu__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.canvas-add-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.canvas-add-menu__item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.canvas-add-menu__icon {
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Zoom badge (bottom-right) ───────────────────────────────────────────── */
+
+.canvas-zoom-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 100;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* ── Minimap ─────────────────────────────────────────────────────────────── */
+
+.canvas-minimap {
+  position: absolute;
+  bottom: 36px;
+  right: 12px;
+  z-index: 100;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.canvas-minimap:hover {
+  opacity: 1;
+}
+
+.canvas-minimap__svg {
+  display: block;
+}
+
+.canvas-minimap__node {
+  fill: rgba(255, 255, 255, 0.15);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 0.5;
+}
+
+.canvas-minimap__viewport {
+  fill: rgba(91, 141, 255, 0.1);
+  stroke: var(--accent);
+  stroke-width: 1;
+  rx: 1;
+}
+
+/* ── Custom widget ───────────────────────────────────────────────────────── */
+
+.canvas-item__custom {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-item__custom-content {
+  flex: 1;
+  padding: 10px;
+  overflow: auto;
+}
+
+.canvas-item__custom-text {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.canvas-item__custom-text::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Embed widget ────────────────────────────────────────────────────────── */
+
+.canvas-item__embed {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.canvas-item__embed-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: var(--bg-3);
+}
+
+/* ── Title input in header ───────────────────────────────────────────────── */
+
+.canvas-item__title-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  outline: none;
+  min-width: 0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+
+.canvas-item__title-input:focus {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.canvas-item__title-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Creation modals ─────────────────────────────────────────────────────── */
+
+.canvas-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: burger-backdrop-in 0.2s ease-out;
+}
+
+.canvas-modal {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  animation: menu-drop-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.canvas-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+
+.canvas-modal__desc {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: -8px 0 16px;
+}
+
+.canvas-modal__field {
+  margin-bottom: 14px;
+}
+
+.canvas-modal__field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.canvas-modal__textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.canvas-modal__colors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvas-modal__color-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.canvas-modal__color-btn:hover {
+  transform: scale(1.15);
+}
+
+.canvas-modal__color-btn.is-active {
+  border-color: var(--text);
+  transform: scale(1.1);
+}
+
+.canvas-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* ── Hints bar ───────────────────────────────────────────────────────────── */
+
+.canvas-hints {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 4px 10px;
+  font-size: 10px;
+  color: var(--text-3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  opacity: 0.6;
+  letter-spacing: 0.02em;
+}

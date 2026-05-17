@@ -50,3 +50,45 @@ Use this when several agents (or parallel chats) touch the same codebase so work
 
 - No merge without at least **Review** (or equivalent human review) on the final diff.
 - Optional **Challenger** pass for auth, mail, AI, or anything security- or data-sensitive.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Port | Start command |
+|---------|------|---------------|
+| PostgreSQL 16 | 5432 | `docker compose up -d postgres` (from repo root) |
+| Backend API (Express) | 4000 | `npm run dev:backend` (from repo root) |
+| Frontend (Vite/React) | 5173 | `npm run dev:frontend` (from repo root) |
+
+### Running the backend
+
+The backend's `prisma-deploy.mjs` script (runs as part of `npm run dev`) requires `DATABASE_URL` in the shell environment — it does **not** load `.env` itself. Use:
+
+```bash
+cd /workspace/backend
+set -a; source /workspace/.env; set +a
+OBSIDIAN_VAULT_PATH="" npm run dev
+```
+
+Setting `OBSIDIAN_VAULT_PATH=""` is required because the `.env.example` has a Windows path that crashes the server on Linux.
+
+### Auth / login in dev
+
+The app uses **cortex auth** (not the v1 auth). Demo credentials (env defaults):
+- Email: `grey@cortex.local`
+- Password: `ChangeMe123!`
+- PIN: `1234`
+
+The login flow uses OTP by default in the frontend. In dev (no SMTP), the backend returns the OTP code in the API response body (`devOtpCode` field).
+
+### Lint / typecheck / test
+
+- **Backend**: `npm run lint` (alias for `tsc --noEmit`), `npm run test` (vitest)
+- **Frontend**: `npm run typecheck` (tsc), `npm run lint` (eslint — pre-existing warnings exist)
+- The `firebase-status.test.ts` test expects Firebase credentials; it will fail without them (expected in Cloud Agent).
+- The Obsidian vault watcher throws unhandled rejections on the Windows path — clear `OBSIDIAN_VAULT_PATH` to avoid test noise.
+
+### Seed data
+
+`prisma/seed.ts` references a non-existent `TaskStatus` enum export. To seed, either use raw SQL or invoke Prisma directly with string values (`"TODO"`, `"IN_PROGRESS"`, `"DONE"`).

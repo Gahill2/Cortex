@@ -299,33 +299,41 @@ export default function App() {
     <>
       <OAuthBootstrap enabled />
       <div
-        className={`desktop-shell flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
+        className={`desktop-shell desktop-shell--burger flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
           import.meta.env.DEV ? " desktop-shell--dev" : ""
         }`}
         title={import.meta.env.DEV ? "Vite dev server (hot reload)" : undefined}
       >
-        {!isMobileLayout && (
-          <Sidebar active={tab} onChange={goTab} />
-        )}
-        {isMobileLayout && (
-          <MobileAppBar onOpenMenu={() => setNavDrawerOpen(true)} />
-        )}
-        {isMobileLayout && (
-          <MobileNavDrawer
-            open={navDrawerOpen}
-            onClose={() => setNavDrawerOpen(false)}
-            active={tab}
-            onSelect={goTab}
-          />
-        )}
-        <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
-          <div
-            className={
-              isMobileLayout
-                ? "d-flex flex-column flex-grow-1 min-vh-0"
-                : "container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap"
-            }
+        <header className="burger-appbar">
+          <button
+            type="button"
+            className="burger-appbar__btn"
+            onClick={() => setNavDrawerOpen(true)}
+            aria-label="Open menu"
           >
+            <span className="burger-appbar__icon" aria-hidden>
+              <span className="burger-appbar__line" />
+              <span className="burger-appbar__line" />
+              <span className="burger-appbar__line" />
+            </span>
+          </button>
+          <span className="burger-appbar__title">{TAB_SCREEN_TITLES[tab]}</span>
+        </header>
+
+        {navDrawerOpen && (
+          <div className="burger-drawer-root" role="presentation">
+            <button
+              type="button"
+              className="burger-drawer-backdrop"
+              onClick={() => setNavDrawerOpen(false)}
+              aria-label="Close menu"
+            />
+            <Sidebar active={tab} onChange={goTab} mobileOpen onClose={() => setNavDrawerOpen(false)} />
+          </div>
+        )}
+
+        <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
+          <div className="container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap cortex-animate-in">
             <Suspense fallback={<PageLoading />}>
               {tab === "home" && <HomePage onNavigate={goTab} />}
               {tab === "tasks" && <TasksPage />}

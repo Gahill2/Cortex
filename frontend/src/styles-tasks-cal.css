@@ -262,3 +262,34 @@
   background: rgba(0,188,212,0.18);
   color: #00bcd4;
 }
+
+/* ── Kanban drag overlay (smooth ghost card) ──────────────────────────────── */
+.kanban-card--overlay {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(91, 141, 255, 0.2);
+  transform: rotate(2deg) scale(1.02);
+  cursor: grabbing;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.kanban-card--dragging {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Drop target highlight animation */
+.kanban-col--drop-over .kanban-col-body {
+  background: rgba(91, 141, 255, 0.06);
+  border: 1.5px dashed rgba(91, 141, 255, 0.3);
+  border-radius: 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* Overdue card pulse */
+.kanban-card--overdue {
+  animation: overdue-pulse 2s ease-in-out infinite;
+}
+
+@keyframes overdue-pulse {
+  0%, 100% { border-left-color: #ef4444; }
+  50% { border-left-color: #fca5a5; }
+}

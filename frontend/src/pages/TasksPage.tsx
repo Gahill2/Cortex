@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   useDroppable,
   useDraggable,
   type DragEndEvent,
+  type DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -96,7 +98,7 @@ function TaskCard({
       {...attributes}
       {...listeners}
       className={`kanban-card kanban-card--priority-${task.priority} ${overdue ? "kanban-card--overdue" : ""} ${isDragging ? "kanban-card--dragging" : ""}`}
-      style={{ cursor: isDragging ? "grabbing" : "grab" }}
+      style={{ cursor: isDragging ? "grabbing" : "grab", opacity: isDragging ? 0.4 : 1, transform: isDragging ? "scale(0.97)" : undefined }}
     >
       {/* Project tag */}
       <span className="kanban-project-tag">{task.project.name}</span>
@@ -141,6 +143,33 @@ function TaskCard({
           <span className="kanban-assignee-avatar" title={task.assignee.name}>
             {initials(task.assignee.name)}
           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Drag overlay (smooth ghost that follows cursor at 60fps) ────────────────
+function TaskCardOverlay({ task }: { task: Task }) {
+  const overdue = isOverdue(task);
+  const today = isDueToday(task);
+  const dueBadgeClass = overdue ? "kanban-due-badge--overdue" : today ? "kanban-due-badge--today" : "";
+
+  return (
+    <div className={`kanban-card kanban-card--priority-${task.priority} kanban-card--overlay ${overdue ? "kanban-card--overdue" : ""}`}>
+      <span className="kanban-project-tag">{task.project.name}</span>
+      <div className="kanban-card-top">
+        <p className={`kanban-card-title ${task.status === "DONE" ? "done" : ""}`}>{task.title}</p>
+      </div>
+      <div className="kanban-card-bottom">
+        <span className="kanban-priority-label" style={{ color: PRIORITY_COLORS[task.priority] }}>
+          {PRIORITY_LABELS[task.priority]}
+        </span>
+        {task.dueDate && (
+          <span className={`kanban-due-badge ${dueBadgeClass}`}>{fmtDue(task.dueDate)}</span>
+        )}
+        {task.assignee?.name && (
+          <span className="kanban-assignee-avatar" title={task.assignee.name}>{initials(task.assignee.name)}</span>
         )}
       </div>
     </div>
@@ -251,7 +280,8 @@ export const TasksPage = () => {
   const [nlText,      setNlText]      = useState("");
   const [nlParsing,   setNlParsing]   = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => { void load(); }, []);
 
@@ -353,7 +383,13 @@ export const TasksPage = () => {
     catch { await load(); }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task ?? null);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveTask(null);
     const { active, over } = event;
     if (!over) return;
     const taskId = active.id as string;
@@ -467,7 +503,7 @@ export const TasksPage = () => {
 
       {/* Kanban board */}
       {!loading && (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="kanban-board">
             {STATUS_COLS.map((col) => {
               const colTasks = visible.filter((t) => t.status === col.key);
@@ -483,6 +519,9 @@ export const TasksPage = () => {
               );
             })}
           </div>
+          <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }}>
+            {activeTask ? <TaskCardOverlay task={activeTask} /> : null}
+          </DragOverlay>
         </DndContext>
       )}
       {loading && <p className="page-loading">Loading…</p>}

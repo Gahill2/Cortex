@@ -19,6 +19,93 @@ interface Props {
   onLockSession?: () => void | Promise<void>;
 }
 
+function PinChangeForm() {
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    if (newPin !== confirmPin) {
+      setMessage({ type: "error", text: "New PINs do not match" });
+      return;
+    }
+    if (newPin.length < 4 || newPin.length > 6 || !/^\d+$/.test(newPin)) {
+      setMessage({ type: "error", text: "PIN must be 4-6 digits" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post("/settings/change-pin", { currentPin, newPin });
+      setMessage({ type: "success", text: "PIN updated successfully" });
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? "Failed to update PIN";
+      setMessage({ type: "error", text: msg });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="settings-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
+      <div className="settings-item-left" style={{ marginBottom: 16 }}>
+        <div className="settings-item-icon">🔐</div>
+        <div>
+          <p className="settings-item-name">Change PIN</p>
+          <p className="settings-item-desc">Update the 4-6 digit PIN used to unlock your session</p>
+        </div>
+      </div>
+      <form onSubmit={(e) => void handleSubmit(e)} className="d-flex flex-column gap-2" style={{ maxWidth: 320 }}>
+        <input
+          type="password"
+          className="form-input"
+          placeholder="Current PIN"
+          value={currentPin}
+          onChange={(e) => setCurrentPin(e.target.value)}
+          inputMode="numeric"
+          pattern="\d{4,6}"
+          maxLength={6}
+          required
+        />
+        <input
+          type="password"
+          className="form-input"
+          placeholder="New PIN"
+          value={newPin}
+          onChange={(e) => setNewPin(e.target.value)}
+          inputMode="numeric"
+          pattern="\d{4,6}"
+          maxLength={6}
+          required
+        />
+        <input
+          type="password"
+          className="form-input"
+          placeholder="Confirm new PIN"
+          value={confirmPin}
+          onChange={(e) => setConfirmPin(e.target.value)}
+          inputMode="numeric"
+          pattern="\d{4,6}"
+          maxLength={6}
+          required
+        />
+        <button type="submit" className="btn-primary btn-sm" disabled={saving} style={{ alignSelf: "flex-start" }}>
+          {saving ? "Saving…" : "Update PIN"}
+        </button>
+        {message && (
+          <p className={`settings-msg settings-msg--${message.type}`}>{message.text}</p>
+        )}
+      </form>
+    </div>
+  );
+}
+
 type ElectronWindow = Window & {
   electron?: { isElectron?: boolean; openExternal?: (url: string) => Promise<void> };
 };
@@ -694,6 +781,13 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
                 </button>
               </div>
             </div>
+          </section>
+          )}
+
+          {section === "security" && (
+          <section className="settings-section settings-section--animated">
+            <h2 className="settings-section-title">Security</h2>
+            <PinChangeForm />
           </section>
           )}
 

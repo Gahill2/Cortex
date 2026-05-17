@@ -124,3 +124,19 @@ model MailCategory {
   @@unique([userId, accountId, messageId])
   @@index([userId, category])
 }
+
+/// Per-user UI preferences synced across devices (replaces localStorage).
+model UserSettings {
+  userId       String   @id
+  appearance   String   @default("system") // "light" | "dark" | "system"
+  wallpaper    String?  // JSON: { enabled, url, opacity }
+  aiTheme      String?  // JSON: { name, gradient, ... }
+  weatherCity  String?
+  weatherUnits String   @default("metric") // "metric" | "imperial"
+  homeGoals    String?  // JSON array
+  pinHash      String?  // bcrypt hash for PIN change feature
+  canvasLayout String?  // JSON: canvas node positions
+  extraJson    String?  // catch-all JSON for future prefs without schema migration
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+}

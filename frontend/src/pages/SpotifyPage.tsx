@@ -467,6 +467,88 @@ function AIDJSection() {
   );
 }
 
+// ── Queue section ────────────────────────────────────────────────────────────
+
+interface QueueTrack {
+  name: string;
+  artists: string[];
+  album: string;
+  albumArt: string | null;
+  durationMs: number;
+  uri: string;
+}
+
+function QueueSection() {
+  const [queue, setQueue] = useState<QueueTrack[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const loadQueue = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const r = await api.get<{ data?: { queue: QueueTrack[] } }>("/spotify/queue");
+      setQueue(r.data?.data?.queue ?? []);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadQueue(); }, []);
+
+  if (loading) return <section className="spotify-section"><p className="page-loading">Loading queue…</p></section>;
+  if (error) return (
+    <section className="spotify-section">
+      <div className="spotify-section-header">
+        <h2 className="spotify-section-title">Up Next</h2>
+        <button className="btn-ghost btn-sm" onClick={() => void loadQueue()}>Retry</button>
+      </div>
+      <p className="spotify-empty">Could not load queue — make sure Spotify is playing.</p>
+    </section>
+  );
+
+  const visible = expanded ? queue : queue.slice(0, 5);
+
+  return (
+    <section className="spotify-section">
+      <div className="spotify-section-header">
+        <h2 className="spotify-section-title">Up Next ({queue.length})</h2>
+        <button className="btn-ghost btn-sm" onClick={() => void loadQueue()}>↻ Refresh</button>
+      </div>
+      {queue.length === 0 ? (
+        <p className="spotify-empty">Queue is empty — play something to see upcoming tracks.</p>
+      ) : (
+        <>
+          <div className="spotify-queue-list">
+            {visible.map((t, i) => (
+              <div key={`${t.uri}-${i}`} className="spotify-queue-item">
+                <span className="spotify-queue-num">{i + 1}</span>
+                {t.albumArt && <img src={t.albumArt} alt="" className="spotify-queue-art" />}
+                <div className="spotify-queue-info">
+                  <span className="spotify-queue-name">{t.name}</span>
+                  <span className="spotify-queue-artist">{t.artists.join(", ")}</span>
+                </div>
+                <span className="spotify-queue-dur">{formatMs(t.durationMs)}</span>
+              </div>
+            ))}
+          </div>
+          {queue.length > 5 && (
+            <button
+              className="btn-ghost btn-sm spotify-queue-toggle"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? "Show less" : `Show all ${queue.length} tracks`}
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export const SpotifyPage = () => {
@@ -504,6 +586,7 @@ export const SpotifyPage = () => {
       </div>
 
       <NowPlayingSection />
+      {connected && <QueueSection />}
       <AIDJSection />
     </div>
   );

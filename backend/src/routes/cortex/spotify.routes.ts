@@ -284,6 +284,42 @@ cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 
   });
 });
 
+// ── Queue view ──────────────────────────────────────────────────────────────
+
+cortexSpotifyRouter.get("/queue", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+
+  const token = await getValidSpotifyToken(req.auth!.userId);
+  const r = await fetch(`${SPOTIFY_API}/me/player/queue`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!r.ok) throw new HttpError(502, `Spotify queue error: ${r.status}`);
+
+  const data = await r.json() as {
+    currently_playing: { name: string; artists: { name: string }[]; album: { name: string; images: { url: string }[] }; duration_ms: number } | null;
+    queue: { name: string; artists: { name: string }[]; album: { name: string; images: { url: string }[] }; duration_ms: number; uri: string }[];
+  };
+
+  sendSuccess(res, {
+    currentlyPlaying: data.currently_playing ? {
+      name: data.currently_playing.name,
+      artists: data.currently_playing.artists.map((a) => a.name),
+      album: data.currently_playing.album.name,
+      albumArt: data.currently_playing.album.images[0]?.url ?? null,
+    } : null,
+    queue: (data.queue ?? []).slice(0, 20).map((t) => ({
+      name: t.name,
+      artists: t.artists.map((a) => a.name),
+      album: t.album.name,
+      albumArt: t.album.images[0]?.url ?? null,
+      durationMs: t.duration_ms,
+      uri: t.uri,
+    })),
+  });
+});
+
 cortexSpotifyRouter.post("/playback/queue-track", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
   if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
