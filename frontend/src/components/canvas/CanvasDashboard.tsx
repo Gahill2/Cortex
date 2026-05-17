@@ -356,7 +356,7 @@ export function CanvasDashboard({ onNavigate, widgets }: Props) {
           "--grid-size": `${gridSize}px`,
           "--grid-off-x": `${gridOffX}px`,
           "--grid-off-y": `${gridOffY}px`,
-          "--grid-opacity": `${Math.min(0.4, Math.max(0.08, zoom * 0.15))}`,
+          "--grid-opacity": `${Math.min(0.5, Math.max(0.15, zoom * 0.25))}`,
         } as React.CSSProperties}
       >
         {/* Canvas content layer */}

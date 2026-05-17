@@ -29,12 +29,17 @@
   cursor: move;
 }
 
-/* Grid dots — rendered as a CSS pattern on the viewport itself */
-.canvas-viewport {
+/* Grid dots — rendered as an ::after pseudo-element so it renders above wallpaper */
+.canvas-viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
   background-image: radial-gradient(
     circle,
-    rgba(255, 255, 255, var(--grid-opacity, 0.12)) 1px,
-    transparent 1px
+    rgba(180, 180, 200, var(--grid-opacity, 0.25)) 1.2px,
+    transparent 1.2px
   );
   background-size: var(--grid-size, 24px) var(--grid-size, 24px);
   background-position: var(--grid-off-x, 0px) var(--grid-off-y, 0px);
@@ -51,6 +56,7 @@
   left: 0;
   transform-origin: 0 0;
   will-change: transform;
+  z-index: 1;
 }
 
 /* Selection box (Figma-style blue rectangle) */
