@@ -1,14 +1,5 @@
 import type { Tab } from "../App";
-
-const NAV: Array<{ id: Tab; label: string; icon: string }> = [
-  { id: "home",     label: "Home",     icon: "⌂" },
-  { id: "tasks",    label: "Tasks",    icon: "✓" },
-  { id: "ai",       label: "AI",       icon: "◈" },
-  { id: "gmail",    label: "Gmail",    icon: "✉" },
-  { id: "mail",     label: "Mail",     icon: "✦" },
-  { id: "spotify",  label: "Spotify",  icon: "♫" },
-  { id: "settings", label: "Settings", icon: "⚙" },
-];
+import { CORTEX_MAIN_NAV } from "../navigation";
 
 interface Props {
   active: Tab;
@@ -22,23 +13,26 @@ export const Sidebar = ({ active, onChange }: Props) => (
       <span className="sidebar-logo-text">Cortex</span>
     </div>
 
-    <nav className="sidebar-nav">
-      {NAV.map((item) => (
+    <nav className="sidebar-nav" aria-label="Primary">
+      <p className="sidebar-nav-heading">Navigate</p>
+      {CORTEX_MAIN_NAV.map((item) => (
         <button
           key={item.id}
           className={`sidebar-nav-item ${active === item.id ? "active" : ""}`}
           onClick={() => onChange(item.id)}
+          data-badge=""
         >
-          <span className="sidebar-nav-icon">{item.icon}</span>
+          <span className="sidebar-nav-icon">{item.emoji}</span>
           <span className="sidebar-nav-label">{item.label}</span>
         </button>
       ))}
     </nav>
 
     <div className="sidebar-footer">
-      <div className="sidebar-status">
+      <div className="sidebar-footer-status">
         <span className="sidebar-status-dot" />
-        <span className="sidebar-status-text">Online</span>
+        <span className="sidebar-status-text">Cortex</span>
+        <span className="sidebar-version">v1.0</span>
       </div>
     </div>
   </aside>

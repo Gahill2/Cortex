@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 *.env.local
+*.log
 
 .vercel
 
@@ -9,3 +10,6 @@ dist/
 src/**/*.js
 src/**/*.d.ts
 *.tsbuildinfo
+
+# Optional: clone or symlink a UI/design reference repo here (not shipped).
+design-gallery/

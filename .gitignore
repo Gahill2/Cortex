@@ -6,3 +6,5 @@ dist/
 .cursor/
 *.tsbuildinfo
 .env.local
+*.log
+**/prisma/dev.db

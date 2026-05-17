@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 
 let backendProcess: ChildProcess | null = null;
+let ollamaProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 
 // ── Custom protocol — register before app is ready ────────────────────────────
@@ -56,12 +57,22 @@ function handleDeepLink(url: string) {
       mainWindow?.webContents.executeJavaScript(
         `window.__handleOAuth && window.__handleOAuth("spotify", ${JSON.stringify({ code, state, error })})`
       );
+    } else if (parsed.pathname.includes("notion")) {
+      mainWindow?.webContents.executeJavaScript(
+        `window.__handleOAuth && window.__handleOAuth("notion", ${JSON.stringify({ code, state, error })})`
+      );
     } else if (parsed.pathname.includes("mail")) {
       // Multi-account Mail: backend already exchanged the code server-side
       const connected = parsed.searchParams.get("connected");
       const email = parsed.searchParams.get("email");
       mainWindow?.webContents.executeJavaScript(
         `window.__handleOAuth && window.__handleOAuth("mail", ${JSON.stringify({ connected, email, error })})`
+      );
+    } else if (parsed.pathname.includes("microsoft")) {
+      const connected = parsed.searchParams.get("connected");
+      const email = parsed.searchParams.get("email");
+      mainWindow?.webContents.executeJavaScript(
+        `window.__handleOAuth && window.__handleOAuth("microsoft", ${JSON.stringify({ connected, email, error })})`
       );
     } else if (parsed.pathname.includes("google") || parsed.pathname.includes("gmail")) {
       const connected = parsed.searchParams.get("connected");
@@ -117,6 +128,7 @@ function startBackend() {
       NODE_ENV: "production",
       PORT: "4000",
       SPOTIFY_REDIRECT_URI: "cortex://oauth/spotify",
+      NOTION_REDIRECT_URI: "cortex://oauth/notion",
       GOOGLE_REDIRECT_URI: "cortex://oauth/google",
       CORTEX_FRONTEND_URL: "cortex://app",
     },
@@ -162,7 +174,8 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: "detach" });
-    void mainWindow.loadURL("http://localhost:5173");
+    const viteUrl = process.env.CORTEX_VITE_URL ?? "http://localhost:5173";
+    void mainWindow.loadURL(viteUrl);
   } else {
     void mainWindow.loadFile(
       path.join(__dirname, "../../frontend/dist/index.html")
@@ -174,6 +187,41 @@ function createWindow() {
 
 ipcMain.handle("get-version", () => app.getVersion());
 ipcMain.handle("open-external", (_e, url: string) => shell.openExternal(url));
+
+ipcMain.handle("start-ollama", () => {
+  return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    // Already running
+    if (ollamaProcess && !ollamaProcess.killed) {
+      resolve({ ok: true });
+      return;
+    }
+    try {
+      ollamaProcess = spawn("ollama", ["serve"], {
+        detached: false,
+        stdio: "pipe",
+        shell: process.platform === "win32",
+      });
+      ollamaProcess.stdout?.on("data", (d: Buffer) =>
+        console.log("[ollama]", d.toString().trim())
+      );
+      ollamaProcess.stderr?.on("data", (d: Buffer) =>
+        console.log("[ollama]", d.toString().trim())
+      );
+      ollamaProcess.on("error", (err) => {
+        console.error("[ollama] failed to start:", err.message);
+        resolve({ ok: false, error: err.message });
+      });
+      // Give it 1.5 s to either error out or start listening
+      setTimeout(() => resolve({ ok: true }), 1500);
+    } catch (err) {
+      resolve({ ok: false, error: String(err) });
+    }
+  });
+});
+
+ipcMain.handle("ollama-status", () => ({
+  running: !!(ollamaProcess && !ollamaProcess.killed),
+}));
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
@@ -191,4 +239,5 @@ app.on("window-all-closed", () => {
 
 app.on("quit", () => {
   backendProcess?.kill();
+  ollamaProcess?.kill();
 });

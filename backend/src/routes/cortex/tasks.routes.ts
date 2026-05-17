@@ -13,14 +13,18 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   projectId: z.string().min(1),
   assigneeId: z.string().optional(),
-  status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional().default("TODO")
+  status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional().default("TODO"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional().default("MEDIUM"),
+  dueDate: z.string().optional().nullable(),
 });
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().optional(),
   status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
-  assigneeId: z.string().nullable().optional()
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
+  dueDate: z.string().optional().nullable(),
+  assigneeId: z.string().nullable().optional(),
 });
 
 export const cortexTasksRouter = Router();
@@ -42,7 +46,7 @@ cortexTasksRouter.get("/", routeRateLimit(60, 60_000), async (req, res) => {
       assignee: { select: { id: true, email: true, fullName: true } },
       createdBy: { select: { id: true, email: true, fullName: true } }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: [{ dueDate: "asc" }, { priority: "desc" }, { createdAt: "desc" }]
   });
 
   sendSuccess(res, tasks);
@@ -65,6 +69,8 @@ cortexTasksRouter.post("/", routeRateLimit(30, 60_000), async (req, res) => {
       title: input.title,
       description: input.description,
       status: input.status,
+      priority: input.priority,
+      dueDate: input.dueDate ? new Date(input.dueDate) : null,
       organizationId: org.id,
       projectId: project.id,
       createdById: user.id,
@@ -97,6 +103,8 @@ cortexTasksRouter.patch("/:id", routeRateLimit(60, 60_000), async (req, res) => 
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.priority !== undefined ? { priority: input.priority } : {}),
+      ...(input.dueDate !== undefined ? { dueDate: input.dueDate ? new Date(input.dueDate) : null } : {}),
       ...(input.assigneeId !== undefined ? { assigneeId: input.assigneeId } : {})
     },
     include: {

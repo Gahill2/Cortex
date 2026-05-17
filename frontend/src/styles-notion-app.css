@@ -1,0 +1,1108 @@
+/*
+ * Cortex — Notion-inspired workspace (global).
+ * Applied when html.cortex-notion (authenticated shell). Loads last; overrides lazyweb/wallpaper tokens.
+ * Palette aligned with Notion’s light UI: warm gray rail, white canvas, ink text, blue accent.
+ */
+
+html.cortex-notion {
+  /* Core ink & paper (Notion light) */
+  --bg: #ffffff;
+  --bg-2: #f7f6f3;
+  --bg-3: #ededec;
+  --surface: #ffffff;
+  --surface-2: #f1f1ef;
+  --border: rgba(55, 53, 47, 0.09);
+  --border-2: rgba(55, 53, 47, 0.12);
+  --text: #37352f;
+  --text-2: rgba(55, 53, 47, 0.65);
+  --text-3: rgba(55, 53, 47, 0.42);
+  --accent: #2383e2;
+  --accent-dim: rgba(35, 131, 226, 0.12);
+  --accent-secondary: #0b6bcb;
+  --green: #0f7b6c;
+  --green-dim: rgba(15, 123, 108, 0.12);
+  --amber: #d9a006;
+  --amber-dim: rgba(217, 160, 6, 0.12);
+  --red: #cd4c4c;
+  --red-dim: rgba(205, 76, 76, 0.12);
+  /* Slightly narrower rail + shared interaction tokens */
+  --sidebar-w: 218px;
+  --notion-logo-mark-bg: #37352f;
+  --notion-ui-hover: rgba(55, 53, 47, 0.06);
+  --notion-ui-hover-strong: rgba(55, 53, 47, 0.08);
+  --notion-ui-press: rgba(55, 53, 47, 0.1);
+  --notion-ui-row: rgba(55, 53, 47, 0.04);
+  --notion-ui-row-soft: rgba(55, 53, 47, 0.05);
+  --notion-scrollbar-thumb: rgba(55, 53, 47, 0.22);
+  --notion-mark-bg: rgba(55, 53, 47, 0.08);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --widget-glass-bg: rgba(255, 255, 255, 0.92);
+  --widget-shadow: 0 1px 2px rgba(15, 15, 15, 0.04), 0 4px 16px rgba(15, 15, 15, 0.06);
+  --widget-shadow-hover: 0 2px 4px rgba(15, 15, 15, 0.06), 0 8px 24px rgba(15, 15, 15, 0.08);
+  --muted: rgba(55, 53, 47, 0.5);
+}
+
+/* Notion-like dark: warm graphite rail, ink UI blue — not flat neutral gray */
+html.cortex-notion[data-color-scheme="dark"] {
+  --bg: #191919;
+  --bg-2: #202020;
+  --bg-3: #2c2c2c;
+  --surface: #252525;
+  --surface-2: #2f2f2f;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.12);
+  --text: rgba(255, 255, 255, 0.9);
+  --text-2: rgba(255, 255, 255, 0.62);
+  --text-3: rgba(255, 255, 255, 0.42);
+  --accent: #529cca;
+  --accent-dim: rgba(82, 156, 202, 0.18);
+  --accent-secondary: #6ba3d0;
+  --green: #4dab9a;
+  --green-dim: rgba(77, 171, 154, 0.16);
+  --amber: #e2b84a;
+  --amber-dim: rgba(226, 184, 74, 0.14);
+  --red: #e87c7c;
+  --red-dim: rgba(232, 124, 124, 0.14);
+  --notion-logo-mark-bg: rgba(255, 255, 255, 0.14);
+  --notion-ui-hover: rgba(255, 255, 255, 0.06);
+  --notion-ui-hover-strong: rgba(255, 255, 255, 0.09);
+  --notion-ui-press: rgba(255, 255, 255, 0.11);
+  --notion-ui-row: rgba(255, 255, 255, 0.04);
+  --notion-ui-row-soft: rgba(255, 255, 255, 0.055);
+  --notion-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --notion-mark-bg: rgba(255, 255, 255, 0.1);
+  --widget-glass-bg: rgba(37, 37, 37, 0.94);
+  --widget-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 8px 28px rgba(0, 0, 0, 0.45);
+  --widget-shadow-hover: 0 1px 0 rgba(0, 0, 0, 0.4), 0 12px 36px rgba(0, 0, 0, 0.5);
+  --muted: rgba(255, 255, 255, 0.45);
+}
+
+html.cortex-notion body {
+  color: var(--text);
+  background: var(--bg-2);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.011em;
+}
+
+html.cortex-notion .desktop-shell {
+  background: var(--bg-2) !important;
+  background-image: none !important;
+}
+
+html.cortex-notion .desktop-shell--dev {
+  box-shadow: inset 0 3px 0 0 #2383e2;
+}
+
+/* Sidebar — Notion private rail */
+html.cortex-notion .sidebar {
+  background: var(--bg-2) !important;
+  border-right: 1px solid var(--border);
+  box-shadow: none;
+}
+
+html.cortex-notion .sidebar-logo {
+  border-bottom-color: var(--border);
+  padding: 12px 12px 10px;
+}
+
+html.cortex-notion .sidebar-logo-mark {
+  background: var(--notion-logo-mark-bg);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.cortex-notion .sidebar-logo-text {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html.cortex-notion .sidebar-nav-heading {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+html.cortex-notion .sidebar-nav {
+  padding: 8px 6px;
+  gap: 1px;
+}
+
+html.cortex-notion .sidebar-nav-item {
+  border-radius: 4px;
+  color: var(--text-2);
+  font-weight: 500;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+html.cortex-notion .sidebar-nav-item:hover {
+  background: var(--notion-ui-hover);
+  color: var(--text);
+}
+
+html.cortex-notion .sidebar-nav-item.active {
+  background: var(--notion-ui-hover-strong);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+html.cortex-notion .sidebar-footer {
+  border-top-color: var(--border);
+}
+
+html.cortex-notion .sidebar-status-dot {
+  background: var(--green);
+}
+
+html.cortex-notion .sidebar-status-text,
+html.cortex-notion .sidebar-version {
+  color: var(--text-3);
+}
+
+/* Main canvas — hairline separation from rail (Notion page chrome) */
+html.cortex-notion .desktop-main {
+  background: var(--bg) !important;
+  background-image: none !important;
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+html.cortex-notion .page-titlebar {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 14px;
+  margin-bottom: 2px;
+}
+
+html.cortex-notion .page-title {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+html.cortex-notion .page-eyebrow {
+  color: var(--text-3);
+}
+
+/* Kill wallpaper glass overrides */
+html.cortex-notion [data-wallpaper="true"] .sidebar,
+html.cortex-notion [data-wallpaper="true"] .desktop-main,
+html.cortex-notion [data-ai-theme="true"] .desktop-main {
+  background: var(--bg-2) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.cortex-notion [data-wallpaper="true"] .desktop-main {
+  background: var(--bg) !important;
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+html.cortex-notion [data-wallpaper="true"] .page-titlebar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.cortex-notion [data-wallpaper="true"] .widget,
+html.cortex-notion [data-ai-theme="true"] .widget {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: var(--widget-shadow) !important;
+}
+
+html.cortex-notion [data-wallpaper="true"] .widget[role="button"]:hover,
+html.cortex-notion [data-ai-theme="true"] .widget[role="button"]:hover {
+  background: var(--bg-3) !important;
+  box-shadow: var(--widget-shadow-hover) !important;
+}
+
+/* Lazyweb / bento overrides */
+html.cortex-notion .desktop-shell .sidebar {
+  background: var(--bg-2) !important;
+  border-right: 1px solid var(--border);
+}
+
+html.cortex-notion .desktop-shell .sidebar-nav-item.active {
+  background: var(--notion-ui-hover-strong) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+html.cortex-notion .desktop-shell .sidebar-nav-item.active::before {
+  display: none;
+}
+
+html.cortex-notion .desktop-shell .sidebar-nav-item:hover {
+  background: var(--notion-ui-hover) !important;
+}
+
+html.cortex-notion .desktop-shell .desktop-main {
+  background-color: var(--bg) !important;
+  background-image: none !important;
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+html.cortex-notion .desktop-shell .home-header {
+  border-bottom-color: var(--border);
+  background: transparent;
+}
+
+html.cortex-notion .desktop-shell .home-board {
+  background: transparent;
+}
+
+html.cortex-notion .desktop-shell .page {
+  padding-top: 20px;
+}
+
+/* Buttons & inputs */
+html.cortex-notion .btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+html.cortex-notion .btn-primary:hover {
+  opacity: 0.92;
+}
+
+html.cortex-notion .btn-ghost {
+  color: var(--text-2);
+  border-radius: 4px;
+}
+
+html.cortex-notion .btn-ghost:hover {
+  background: var(--notion-ui-hover);
+  color: var(--text);
+}
+
+html.cortex-notion .form-input {
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+html.cortex-notion .form-input--date {
+  color-scheme: light;
+}
+
+html.cortex-notion[data-color-scheme="dark"] .form-input--date {
+  color-scheme: dark;
+}
+
+/* AI chat */
+html.cortex-notion .ai-layout {
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+}
+
+html.cortex-notion .ai-msg--assistant .ai-msg-body {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+html.cortex-notion .ai-composer {
+  background: var(--bg-2);
+  border-top-color: var(--border);
+}
+
+html.cortex-notion .ai-composer-input {
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+}
+
+html.cortex-notion .ai-starter-chip {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+html.cortex-notion .ai-starter-chip:hover {
+  background: var(--notion-ui-hover-strong);
+  color: var(--text);
+}
+
+/* Kanban */
+html.cortex-notion .kanban-board {
+  background: transparent;
+}
+
+html.cortex-notion .kanban-col {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+html.cortex-notion .kanban-card {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+html.cortex-notion .kanban-card-advance {
+  border-color: rgba(35, 131, 226, 0.35);
+}
+
+/* Mail */
+html.cortex-notion .mail-sidebar {
+  background: var(--bg-2);
+  border-color: var(--border);
+}
+
+html.cortex-notion .mail-sidebar-item:hover {
+  background: var(--notion-ui-hover);
+}
+
+html.cortex-notion .mail-sidebar-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+html.cortex-notion .mail-folder-header {
+  background: var(--bg-2);
+  border-color: var(--border);
+}
+
+html.cortex-notion .mail-row:hover {
+  background: var(--notion-ui-row);
+}
+
+/* Settings */
+html.cortex-notion .settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+html.cortex-notion .settings-item {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Mobile */
+html.cortex-notion .mobile-app-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+html.cortex-notion .mobile-app-bar__burger-line {
+  background: var(--text);
+}
+
+html.cortex-notion .mobile-nav-drawer {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+/* Filter bars, chips */
+html.cortex-notion .filter-bar,
+html.cortex-notion .filter-chip {
+  border-color: var(--border);
+}
+
+html.cortex-notion .filter-chip--active {
+  background: rgba(35, 131, 226, 0.12);
+  color: var(--accent);
+  border-color: rgba(35, 131, 226, 0.35);
+}
+
+/* Scrollbars (WebKit) */
+html.cortex-notion ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html.cortex-notion ::-webkit-scrollbar-track {
+  background: transparent;
+}
+html.cortex-notion ::-webkit-scrollbar-thumb {
+  background: var(--notion-scrollbar-thumb);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* ── Notes page (Notion shell internals) ─────────────────────────────────── */
+
+html.cortex-notion .notes-titlebar .notes-subtitle {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-workbench--shell {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--widget-shadow);
+}
+
+html.cortex-notion .notes-notion-app {
+  border-right-color: var(--border);
+}
+
+@media (max-width: 991.98px) {
+  html.cortex-notion .notes-notion-app {
+    border-bottom-color: var(--border);
+  }
+}
+
+html.cortex-notion .notes-ns-sidebar {
+  background: var(--bg-2);
+  border-right-color: var(--border);
+}
+
+html.cortex-notion .notes-ns-sidebar--muted {
+  background: var(--surface-2);
+}
+
+html.cortex-notion .notes-ns-mark {
+  background: var(--notion-mark-bg);
+  color: var(--text-2);
+}
+
+html.cortex-notion .notes-ns-brand-title {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-ns-brand-sub {
+  color: var(--text);
+}
+
+html.cortex-notion .notes-ns-seg {
+  background: var(--bg-3);
+}
+
+html.cortex-notion .notes-ns-seg button {
+  color: var(--text-2);
+}
+
+html.cortex-notion .notes-ns-seg button.is-active {
+  background: var(--notion-ui-press);
+  color: var(--text);
+}
+
+html.cortex-notion .notes-ns-label {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-muted {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-ns-row:hover {
+  background: var(--notion-ui-hover);
+}
+
+html.cortex-notion .notes-ns-row.is-active {
+  background: var(--accent-dim);
+}
+
+html.cortex-notion .notes-ns-row-meta {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-ns-row-excerpt {
+  color: var(--text-2);
+}
+
+html.cortex-notion .notes-ns-main {
+  background: var(--bg);
+  background-image: none;
+}
+
+html.cortex-notion .notes-ns-main--paper {
+  background: var(--bg);
+  background-image: none;
+}
+
+html.cortex-notion .notes-ns-doc-title {
+  color: var(--text);
+}
+
+html.cortex-notion .notes-ns-doc-path {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-doc-body {
+  color: var(--text);
+}
+
+html.cortex-notion .notes-doc-empty {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-ns-table-scroll {
+  border-color: var(--border);
+}
+
+html.cortex-notion .notes-ns-table th,
+html.cortex-notion .notes-ns-table td {
+  border-bottom-color: var(--border);
+}
+
+html.cortex-notion .notes-ns-table th {
+  color: var(--text-3);
+  background: var(--bg-2);
+}
+
+html.cortex-notion .notes-ns-table tr:hover td {
+  background: var(--notion-ui-row);
+}
+
+html.cortex-notion .notes-callout {
+  background: rgba(35, 131, 226, 0.08);
+  border-color: rgba(35, 131, 226, 0.22);
+}
+
+html.cortex-notion .notes-callout--warn {
+  background: var(--amber-dim);
+  border-color: rgba(217, 160, 6, 0.35);
+}
+
+html.cortex-notion .notes-column {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+html.cortex-notion .notes-label {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-list {
+  background: var(--bg-2);
+}
+
+html.cortex-notion .notes-list-item {
+  border-bottom-color: var(--border);
+}
+
+html.cortex-notion .notes-list-item:hover {
+  background: var(--notion-ui-row-soft);
+}
+
+html.cortex-notion .notes-list-item.is-active {
+  background: var(--accent-dim);
+}
+
+html.cortex-notion .notes-list-meta,
+html.cortex-notion .notes-list-excerpt {
+  color: var(--text-3);
+}
+
+html.cortex-notion .notes-preview {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+html.cortex-notion .notes-preview-body {
+  color: var(--text);
+}
+
+/* Settings — appearance (Light / Dark / System) */
+html.cortex-notion .appearance-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+html.cortex-notion .appearance-seg__btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  border-radius: 4px;
+  line-height: 1.2;
+  transition: background 90ms ease, color 90ms ease;
+}
+
+html.cortex-notion .appearance-seg__btn:hover {
+  background: var(--notion-ui-hover);
+  color: var(--text);
+}
+
+html.cortex-notion .appearance-seg__btn--active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(55, 53, 47, 0.1);
+}
+
+html.cortex-notion[data-color-scheme="dark"] .appearance-seg__btn--active {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Home: Notion-style personal hero (cover, callout, link cards, clock, calendar) ── */
+html.cortex-notion .home-hero {
+  position: relative;
+  margin-bottom: 28px;
+}
+
+html.cortex-notion .home-hero-cover {
+  min-height: 200px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--widget-shadow);
+}
+
+@media (min-width: 992px) {
+  html.cortex-notion .home-hero-cover {
+    min-height: 240px;
+  }
+}
+
+html.cortex-notion .home-hero-sheet {
+  position: relative;
+  z-index: 1;
+  margin-top: -52px;
+  padding: 0 4px 8px;
+}
+
+html.cortex-notion .home-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+html.cortex-notion .home-hero-page-icon {
+  font-size: 42px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+}
+
+html.cortex-notion .home-hero-page-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  min-width: 0;
+}
+
+html.cortex-notion .home-hero-title-actions {
+  margin-left: auto;
+}
+
+html.cortex-notion .home-hero-customize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
+}
+
+html.cortex-notion .home-hero-customize-btn:hover {
+  background: var(--notion-ui-hover);
+  color: var(--text);
+}
+
+html.cortex-notion .home-hero-customize-label {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  html.cortex-notion .home-hero-customize-label {
+    display: inline;
+  }
+}
+
+html.cortex-notion .home-hero-callout {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 0 rgba(55, 53, 47, 0.04);
+}
+
+html.cortex-notion[data-color-scheme="dark"] .home-hero-callout {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+html.cortex-notion .home-hero-callout-bar {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent) 0%, #9b6bff 100%);
+}
+
+html.cortex-notion .home-hero-callout-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-2);
+  font-style: italic;
+}
+
+html.cortex-notion .home-hero-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  html.cortex-notion .home-hero-columns {
+    grid-template-columns: minmax(200px, 1fr) minmax(220px, 1.1fr) minmax(200px, 1fr);
+    gap: 16px;
+  }
+}
+
+html.cortex-notion .home-hero-col--links {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+html.cortex-notion .home-hero-link-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 12px 8px;
+  box-shadow: var(--widget-shadow);
+}
+
+html.cortex-notion .home-hero-link-card:hover {
+  box-shadow: var(--widget-shadow-hover);
+}
+
+html.cortex-notion .home-hero-card-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: -0.01em;
+}
+
+html.cortex-notion .home-hero-link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+html.cortex-notion .home-hero-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 6px;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+html.cortex-notion .home-hero-link-row:hover {
+  background: var(--notion-ui-hover);
+}
+
+html.cortex-notion .home-hero-link-chev {
+  color: var(--text-3);
+  font-size: 14px;
+  width: 14px;
+}
+
+html.cortex-notion .home-hero-link-label {
+  flex: 1;
+  min-width: 0;
+}
+
+html.cortex-notion .home-hero-mid-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  box-shadow: var(--widget-shadow);
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html.cortex-notion .home-hero-mid-card--cal {
+  padding: 14px 12px 12px;
+  align-items: stretch;
+}
+
+html.cortex-notion .home-hero-clock {
+  text-align: center;
+  width: 100%;
+}
+
+html.cortex-notion .home-hero-clock-time {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+html.cortex-notion .home-hero-clock-date {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+html.cortex-notion .home-hero-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+html.cortex-notion .home-hero-cal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+html.cortex-notion .home-hero-cal-nav {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+html.cortex-notion .home-hero-cal-nav:hover {
+  background: var(--notion-ui-hover);
+}
+
+html.cortex-notion .home-hero-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+html.cortex-notion .home-hero-cal-wd {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+html.cortex-notion .home-hero-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+html.cortex-notion .home-hero-cal-cell {
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 4px;
+  color: transparent;
+  min-height: 22px;
+}
+
+html.cortex-notion .home-hero-cal-cell--in {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+html.cortex-notion .home-hero-cal-cell--today {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+html.cortex-notion .home-hero-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(15, 15, 15, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 32px;
+  overflow-y: auto;
+}
+
+html.cortex-notion .home-hero-modal {
+  width: min(560px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+}
+
+html.cortex-notion .home-hero-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+html.cortex-notion .home-hero-modal-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+html.cortex-notion .home-hero-modal-x {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+html.cortex-notion .home-hero-modal-x:hover {
+  background: var(--notion-ui-hover);
+  color: var(--text);
+}
+
+html.cortex-notion .home-hero-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+html.cortex-notion .home-hero-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+html.cortex-notion .home-hero-hint {
+  font-weight: 400;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+html.cortex-notion .home-hero-textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+}
+
+html.cortex-notion .home-hero-groups-editor {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+html.cortex-notion .home-hero-groups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+html.cortex-notion .home-hero-group-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--bg-2);
+}
+
+html.cortex-notion .home-hero-group-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+html.cortex-notion .home-hero-group-row .form-input {
+  flex: 1;
+}
+
+html.cortex-notion .home-hero-link-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 540px) {
+  html.cortex-notion .home-hero-link-edit-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  html.cortex-notion .home-hero-link-edit-row .form-input:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  html.cortex-notion .home-hero-link-edit-row button {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+html.cortex-notion .home-hero-modal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+html.cortex-notion .home-hero-modal-foot-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}

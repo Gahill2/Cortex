@@ -47,7 +47,7 @@ model Project {
 model OAuthToken {
   id        String   @id @default(cuid())
   userId    String
-  provider  String   // "spotify" | "google"
+  provider  String   // "spotify" | "google" | "notion" | "canva"
   tokens    String   // JSON serialized
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,6 +77,8 @@ model Task {
   title          String
   description    String?
   status         String     @default("TODO")
+  priority       String     @default("MEDIUM")  // LOW | MEDIUM | HIGH
+  dueDate        DateTime?
   organizationId String
   projectId      String
   assigneeId     String?
@@ -89,4 +91,17 @@ model Task {
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId, status])
+}
+
+model MailCategory {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  category  String   // work | personal | finance | newsletters | social | important | other
+  summary   String?  // AI one-liner
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, messageId])
+  @@index([userId, category])
 }

@@ -47,7 +47,37 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional().default(""),
   SPOTIFY_CLIENT_ID: z.string().optional().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().optional().default(""),
-  SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback")
+  SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),
+  OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
+  OLLAMA_MODEL: z.string().optional().default("llama3.2"),
+  MICROSOFT_CLIENT_ID: z.string().optional().default(""),
+  MICROSOFT_CLIENT_SECRET: z.string().optional().default(""),
+  MICROSOFT_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/microsoft/oauth/callback"),
+  /** Public OAuth (https://developers.notion.com/docs/authorization) */
+  NOTION_CLIENT_ID: z.string().optional().default(""),
+  NOTION_CLIENT_SECRET: z.string().optional().default(""),
+  NOTION_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/notion/oauth/callback"),
+  /** Optional: internal integration secret — shared for all users when set (good for solo dev / Electron). */
+  NOTION_INTERNAL_TOKEN: z.string().optional().default(""),
+
+  /** Apps SDK / CLI scaffold — public app id (e.g. from developer portal or `canva apps create`). */
+  CANVA_APP_ID: z.string().optional().default(""),
+  /** Hosted app origin for Apps SDK (typically `https://app-….canva-apps.com`). */
+  CANVA_APP_ORIGIN: z.string().optional().default(""),
+  /** CLI `.env` flag for hot reload in the Canva editor (`true` / `false`). */
+  CANVA_HMR_ENABLED: z.string().optional().default(""),
+
+  /** Connect API OAuth client id (`OC-…` from Developer Portal → Connect integration). */
+  CANVA_CLIENT_ID: z.string().optional().default(""),
+  /** Connect API client secret (`cnvca…`) — server only; never expose to the frontend bundle. */
+  CANVA_CLIENT_SECRET: z.string().optional().default(""),
+  /** Must match an allowed redirect URL in the Connect integration settings. */
+  CANVA_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/canva/oauth/callback"),
+  /**
+   * Space-separated Connect scopes (must be enabled for the integration in the portal).
+   * @see https://www.canva.dev/docs/connect/appendix/scopes/
+   */
+  CANVA_CONNECT_SCOPES: z.string().optional().default("design:meta:read")
 });
 
 export const env = envSchema.parse(process.env);

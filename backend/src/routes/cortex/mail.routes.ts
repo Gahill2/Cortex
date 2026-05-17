@@ -10,6 +10,13 @@ import { signMailOAuthState, verifyMailOAuthState } from "../../features/mail/ma
 import {
   isGmailConfigured,
 } from "../../features/gmail/gmail-service.js";
+import {
+  listOutlookInbox,
+  getOutlookMessage,
+  markOutlookRead,
+  archiveOutlookMessage,
+  sendOutlookMessage,
+} from "../../features/microsoft/microsoft-service.js";
 import type { Credentials } from "google-auth-library";
 import { google } from "googleapis";
 import type { gmail_v1 } from "googleapis";
@@ -27,6 +34,8 @@ const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
+// Must use the same redirect URI registered in Google Cloud Console (GOOGLE_REDIRECT_URI).
+// The callback is handled by /api/gmail/oauth/callback which dispatches on state.purpose.
 const getMailRedirectUri = (): string =>
   process.env.MAIL_REDIRECT_URI || env.GOOGLE_REDIRECT_URI || "";
 
@@ -286,7 +295,7 @@ cortexMailRouter.delete(
 const inboxQuerySchema = z.object({
   accountId: z.string().optional(),
   unified: z.string().optional(),
-  maxResults: z.coerce.number().int().min(1).max(50).optional().default(20),
+  maxResults: z.coerce.number().int().min(1).max(50).optional().default(15),
   q: z.string().max(500).optional().default("in:inbox"),
 });
 
@@ -336,14 +345,22 @@ cortexMailRouter.get(
             .map((m) => m.id)
             .filter(Boolean) as string[];
 
-          for (const id of ids.slice(0, input.maxResults)) {
-            const detail = await gmail.users.messages.get({
-              userId: "me",
-              id,
-              format: "metadata",
-              metadataHeaders: ["Subject", "From", "Date"],
-            });
+          // Fetch all message details in parallel (was sequential — huge speedup)
+          const details = await Promise.all(
+            ids.slice(0, input.maxResults).map((id) =>
+              gmail.users.messages.get({
+                userId: "me",
+                id,
+                format: "metadata",
+                metadataHeaders: ["Subject", "From", "Date"],
+              }).catch(() => null)
+            )
+          );
+
+          for (const detail of details) {
+            if (!detail) continue;
             const md = detail.data;
+            const id = md.id ?? "";
             const headers = md.payload?.headers ?? [];
             const labelIds = md.labelIds ?? [];
             const hdr = (key: string) =>
@@ -366,6 +383,12 @@ cortexMailRouter.get(
         } catch {
           // skip failed accounts
         }
+      }
+      else if (account.provider === "microsoft") {
+        try {
+          const msgs = await listOutlookInbox(userId, account.email, account.id, input.maxResults);
+          allMessages.push(...msgs);
+        } catch { /* skip failed accounts */ }
       }
       // IMAP accounts: would need imapflow here; skipped for now (returns empty)
     }
@@ -394,8 +417,14 @@ cortexMailRouter.get(
     });
     if (!account) throw new HttpError(404, "Account not found");
 
+    if (account.provider === "microsoft") {
+      const msg = await getOutlookMessage(req.auth!.userId, account.email, messageId);
+      sendSuccess(res, msg, "live");
+      return;
+    }
+
     if (account.provider !== "gmail") {
-      throw new HttpError(501, "Full message body only supported for Gmail accounts");
+      throw new HttpError(501, "Full message body only supported for Gmail and Outlook accounts");
     }
 
     const gmail = await gmailClientForAccount(req.auth!.userId, account.email);
@@ -460,6 +489,12 @@ cortexMailRouter.post(
       where: { id: input.accountId, userId: req.auth!.userId },
     });
     if (!account) throw new HttpError(404, "Account not found");
+
+    if (account.provider === "microsoft") {
+      await sendOutlookMessage(req.auth!.userId, account.email, input.to, input.subject, input.body);
+      sendSuccess(res, { sent: true }, "live");
+      return;
+    }
 
     if (account.provider === "gmail") {
       const gmail = await gmailClientForAccount(req.auth!.userId, account.email);
@@ -528,8 +563,15 @@ cortexMailRouter.patch(
     });
     if (!account) throw new HttpError(404, "Account not found");
 
+    if (account.provider === "microsoft") {
+      if (input.read === true) await markOutlookRead(req.auth!.userId, account.email, messageId);
+      if (input.archived === true) await archiveOutlookMessage(req.auth!.userId, account.email, messageId);
+      sendSuccess(res, { updated: true }, "live");
+      return;
+    }
+
     if (account.provider !== "gmail") {
-      throw new HttpError(501, "Message mutation only supported for Gmail accounts");
+      throw new HttpError(501, "Message mutation only supported for Gmail and Outlook accounts");
     }
     const gmail = await gmailClientForAccount(req.auth!.userId, account.email);
     if (!gmail) throw new HttpError(401, "Gmail account not connected");

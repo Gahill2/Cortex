@@ -2,3 +2,9 @@ node_modules/
 dist/
 .env
 *.env.local
+data/
+*.log
+prisma/dev.db
+obsidian-vaults.json
+firebase-service-account.json
+*-firebase-adminsdk-*.json

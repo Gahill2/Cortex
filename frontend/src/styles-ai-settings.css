@@ -1,0 +1,123 @@
+/* ── AI message bubbles ─────────────────────────────────────────────── */
+.ai-messages { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+
+.ai-msg { display: flex; flex-direction: column; max-width: 80%; }
+.ai-msg--user { align-self: flex-end; align-items: flex-end; max-width: 75%; }
+.ai-msg--assistant { align-self: flex-start; align-items: flex-start; }
+
+.ai-msg-inner { display: flex; align-items: flex-end; gap: 8px; }
+
+.ai-msg-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  line-height: 1.55;
+  font-size: 13px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.ai-msg--user .ai-msg-bubble {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+}
+.ai-msg--assistant .ai-msg-bubble {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: var(--text);
+  border-radius: 18px 18px 18px 4px;
+}
+.ai-msg-time {
+  font-size: 10px; color: var(--text-3); margin-top: 3px; padding: 0 4px;
+}
+.ai-msg-icon {
+  font-size: 14px; color: var(--accent); flex-shrink: 0; margin-bottom: 4px;
+  line-height: 1;
+}
+
+/* ── Typing dots ────────────────────────────────────────────────────── */
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+.ai-typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.ai-typing span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--text-3);
+  animation: bounce-dot 1.2s ease-in-out infinite;
+}
+.ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+/* ── Conversation starters ──────────────────────────────────────────── */
+.ai-starters { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 16px; }
+.ai-starter-chip {
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  font-size: 12px; color: var(--text-2);
+  cursor: pointer; transition: background 140ms, border-color 140ms, color 140ms;
+}
+.ai-starter-chip:hover {
+  background: var(--accent-dim); border-color: var(--accent); color: var(--accent);
+}
+
+/* ── Provider badge ─────────────────────────────────────────────────── */
+.ai-provider-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+.ai-provider-badge--ollama     { background: rgba(34,197,94,0.15);  color: #22c55e; }
+.ai-provider-badge--anthropic  { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.ai-provider-badge--none       { background: rgba(239,68,68,0.15);  color: #ef4444; }
+
+/* ── Composer glow ──────────────────────────────────────────────────── */
+.ai-composer-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* ── Settings cards ─────────────────────────────────────────────────── */
+.settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ── User card ──────────────────────────────────────────────────────── */
+.settings-user-card {
+  flex-direction: row; align-items: center; gap: 16px;
+  background: linear-gradient(135deg, rgba(91,141,255,0.1) 0%, rgba(168,85,247,0.1) 100%);
+  border-color: rgba(91,141,255,0.2);
+}
+.settings-user-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.settings-user-name  { font-size: 16px; font-weight: 700; color: var(--text); }
+.settings-user-email { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* ── Integration status pills ───────────────────────────────────────── */
+.integration-status { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; }
+.integration-status--connected    { color: #22c55e; }
+.integration-status--disconnected { color: var(--text-3); }
+
+/* ── Keyboard shortcuts ─────────────────────────────────────────────── */
+.settings-shortcut-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.settings-kbd {
+  font-family: monospace; font-size: 11px;
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  border-radius: 5px; padding: 2px 8px;
+  color: var(--text-2); white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+.settings-shortcut-desc { font-size: 12px; color: var(--text-2); }
+
+/* ── Settings footer ────────────────────────────────────────────────── */
+.settings-footer {
+  font-size: 11px; color: var(--text-3); text-align: center;
+  padding: 16px 0 4px; display: flex; gap: 16px; justify-content: center;
+}

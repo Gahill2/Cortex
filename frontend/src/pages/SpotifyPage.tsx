@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 
+type ElectronWindow = Window & {
+  electron?: { isElectron?: boolean; openExternal?: (url: string) => Promise<void> };
+};
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface NowPlayingTrack {
@@ -44,18 +48,51 @@ function formatMs(ms: number): string {
 function NowPlayingSection() {
   const [data, setData] = useState<NowPlayingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [connectUrl, setConnectUrl] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadConnectUrl = async () => {
+    try {
+      const r = await api.get<{ data?: { url?: string } }>("/spotify/oauth/url");
+      setConnectUrl(r.data?.data?.url ?? null);
+    } catch { /* ignore */ }
+  };
 
   const load = async () => {
     try {
       const r = await api.get<{ data?: NowPlayingData }>("/spotify/now-playing");
-      setData(r.data?.data ?? null);
+      const d = r.data?.data ?? null;
+      setData(d);
+      setFetchError(false);
+      // If not connected, prefetch the connect URL
+      if (d && !d.connected) void loadConnectUrl();
     } catch {
-      /* ignore */
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
   };
+
+  const openConnect = async () => {
+    if (!connectUrl) return;
+    const win = window as ElectronWindow;
+    if (win.electron?.openExternal) {
+      await win.electron.openExternal(connectUrl);
+    } else {
+      window.open(connectUrl, "_blank");
+    }
+  };
+
+  // Re-connect after OAuth completes
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ provider: string }>).detail;
+      if (detail?.provider === "spotify") void load();
+    };
+    window.addEventListener("oauth-connected", handler);
+    return () => window.removeEventListener("oauth-connected", handler);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -80,6 +117,18 @@ function NowPlayingSection() {
     );
   }
 
+  if (fetchError) {
+    return (
+      <section className="spotify-now-playing">
+        <div className="spotify-np-empty">
+          <p className="spotify-np-empty-title">Could not reach server</p>
+          <p className="spotify-np-empty-sub">Make sure the backend is running.</p>
+          <button className="btn-ghost btn-sm" style={{ marginTop: "0.5rem" }} onClick={() => { setFetchError(false); setLoading(true); void load(); }}>Retry</button>
+        </div>
+      </section>
+    );
+  }
+
   if (!data?.configured) {
     return (
       <section className="spotify-now-playing">
@@ -96,7 +145,13 @@ function NowPlayingSection() {
       <section className="spotify-now-playing">
         <div className="spotify-np-empty">
           <div className="spotify-np-icon">♫</div>
-          <p className="spotify-np-empty-title">Connect Spotify in Settings first</p>
+          <p className="spotify-np-empty-title">Connect your Spotify account</p>
+          <p className="spotify-np-empty-sub">Link Spotify to see what's playing and control playback.</p>
+          {connectUrl && (
+            <button className="btn-primary" style={{ marginTop: "1rem" }} onClick={() => void openConnect()}>
+              Connect Spotify
+            </button>
+          )}
         </div>
       </section>
     );
@@ -412,13 +467,42 @@ function AIDJSection() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export const SpotifyPage = () => (
-  <div className="page spotify-page">
-    <div className="page-titlebar">
-      <h1 className="page-title">♫ Spotify</h1>
-    </div>
+export const SpotifyPage = () => {
+  const [connected, setConnected] = useState<boolean | null>(null);
 
-    <NowPlayingSection />
-    <AIDJSection />
-  </div>
-);
+  useEffect(() => {
+    api.get<{ data?: { connected?: boolean } }>("/spotify/status")
+      .then((r) => setConnected(r.data?.data?.connected ?? false))
+      .catch(() => setConnected(false));
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent<{ provider: string }>).detail?.provider === "spotify") {
+        setConnected(true);
+      }
+    };
+    window.addEventListener("oauth-connected", handler);
+    return () => window.removeEventListener("oauth-connected", handler);
+  }, []);
+
+  const disconnect = async () => {
+    try { await api.post("/spotify/disconnect"); setConnected(false); } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="page spotify-page">
+      <div className="page-titlebar">
+        <h1 className="page-title">♫ Spotify</h1>
+        {connected && (
+          <button className="btn-ghost btn-sm" onClick={() => void disconnect()}>
+            Disconnect
+          </button>
+        )}
+      </div>
+
+      <NowPlayingSection />
+      <AIDJSection />
+    </div>
+  );
+};

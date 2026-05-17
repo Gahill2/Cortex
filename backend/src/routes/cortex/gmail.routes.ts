@@ -8,12 +8,16 @@ import { sendSuccess } from "../../utils/api-response.js";
 import { signGmailOAuthState, verifyGmailOAuthState } from "../../features/gmail/gmail-state.js";
 import {
   buildGmailAuthUrl,
+  createOAuth2Client,
   exchangeAuthorizationCode,
   isGmailConfigured,
   listInbox,
   modifyMessageLabels
 } from "../../features/gmail/gmail-service.js";
 import { saveGoogleCredentials, getGoogleCredentials, clearGoogleCredentials } from "../../features/gmail/google-token-store.js";
+import { verifyMailOAuthState } from "../../features/mail/mail-oauth-state.js";
+import { prisma } from "../../db/prisma.js";
+import { google } from "googleapis";
 
 const inboxQuerySchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(50).optional().default(20),
@@ -69,38 +73,78 @@ cortexGmailRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_000
 
 cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
   const frontend = env.CORTEX_FRONTEND_URL || "http://localhost:5173";
-  // isDesktop is resolved from the verified state JWT (set when /oauth/url was called
-  // with ?desktop=1 by the Electron frontend), OR from CORTEX_FRONTEND_URL being a
-  // cortex:// scheme (packaged Electron). This survives the round-trip through Google
-  // without relying on unreliable query params on the callback URL.
-  const resolveDesktop = (state: string): boolean => {
-    try {
-      const { desktop } = verifyGmailOAuthState(state);
-      return desktop;
-    } catch {
-      return false;
-    }
-  };
-
   const stateParam = typeof req.query.state === "string" ? req.query.state : "";
-  const isDesktop = frontend.startsWith("cortex://") || resolveDesktop(stateParam);
+  const code = req.query.code;
 
+  // ── Peek at state purpose to dispatch between single-Gmail and multi-account Mail flows ──
+  let statePurpose = "gmail";
+  try {
+    const peeked = JSON.parse(Buffer.from(stateParam.split(".")[1] ?? "", "base64url").toString());
+    if (peeked?.purpose === "mail_gmail") statePurpose = "mail_gmail";
+  } catch { /* default to gmail */ }
+
+  // ── Multi-account Mail flow ───────────────────────────────────────────────
+  if (statePurpose === "mail_gmail") {
+    let isDesktop = frontend.startsWith("cortex://");
+    try {
+      const { desktop } = verifyMailOAuthState(stateParam);
+      isDesktop = isDesktop || desktop;
+    } catch { /* ignore */ }
+
+    const ok  = (email: string) => isDesktop
+      ? `cortex://oauth/mail?connected=1&email=${encodeURIComponent(email)}`
+      : `${frontend}/?mail_connected=1&email=${encodeURIComponent(email)}`;
+    const err = (msg: string) => isDesktop
+      ? `cortex://oauth/mail?error=${encodeURIComponent(msg)}`
+      : `${frontend}/?mail_error=${encodeURIComponent(msg)}`;
+
+    try {
+      if (typeof req.query.error === "string") { res.redirect(err(req.query.error)); return; }
+      if (typeof code !== "string") { res.redirect(err("missing_code")); return; }
+
+      const { userId } = verifyMailOAuthState(stateParam);
+      const auth = createOAuth2Client();
+      const { tokens } = await auth.getToken(code);
+      auth.setCredentials(tokens);
+
+      const oauth2 = google.oauth2({ version: "v2", auth });
+      const userInfo = await oauth2.userinfo.get();
+      const email = userInfo.data.email;
+      if (!email) { res.redirect(err("no_email_returned")); return; }
+
+      // Save OAuth token
+      await prisma.oAuthToken.upsert({
+        where: { userId_provider: { userId, provider: `mail_gmail:${email}` } },
+        update: { tokens: JSON.stringify(tokens) },
+        create: { userId, provider: `mail_gmail:${email}`, tokens: JSON.stringify(tokens) },
+      });
+      // Save MailAccount record
+      await prisma.mailAccount.upsert({
+        where: { userId_email: { userId, email } },
+        update: { provider: "gmail", label: email },
+        create: { userId, provider: "gmail", label: email, email },
+      });
+
+      res.redirect(ok(email));
+    } catch {
+      res.redirect(err("oauth_failed"));
+    }
+    return;
+  }
+
+  // ── Single Gmail flow (original) ──────────────────────────────────────────
+  const resolveDesktop = (state: string): boolean => {
+    try { return verifyGmailOAuthState(state).desktop; } catch { return false; }
+  };
+  const isDesktop = frontend.startsWith("cortex://") || resolveDesktop(stateParam);
   const ok  = isDesktop ? "cortex://oauth/google?connected=1" : `${frontend}/?gmail_connected=1`;
   const err = (msg: string) =>
     isDesktop ? `cortex://oauth/google?error=${encodeURIComponent(msg)}` : `${frontend}/?gmail_error=${encodeURIComponent(msg)}`;
 
   try {
-    if (typeof req.query.error === "string") {
-      res.redirect(err(req.query.error));
-      return;
-    }
-    const code = req.query.code;
-    const state = req.query.state;
-    if (typeof code !== "string" || typeof state !== "string") {
-      res.redirect(err("missing_code"));
-      return;
-    }
-    const { userId } = verifyGmailOAuthState(state);
+    if (typeof req.query.error === "string") { res.redirect(err(req.query.error)); return; }
+    if (typeof code !== "string") { res.redirect(err("missing_code")); return; }
+    const { userId } = verifyGmailOAuthState(stateParam);
     const tokens = await exchangeAuthorizationCode(code);
     await saveGoogleCredentials(userId, tokens);
     res.redirect(ok);

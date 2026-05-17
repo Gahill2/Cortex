@@ -38,15 +38,22 @@ describe("cortex auth routes", () => {
       email: process.env.CORTEX_DEMO_USER_EMAIL,
       password: process.env.CORTEX_DEMO_USER_PASSWORD
     });
+    const bearer = `Bearer ${loginResponse.body.token}`;
+
+    const sessionBeforePin = await request(app).get("/api/auth/session").set("authorization", bearer);
+    expect(sessionBeforePin.status).toBe(423);
 
     const verifyPinResponse = await request(app)
       .post("/api/auth/verify-pin")
-      .set("authorization", `Bearer ${loginResponse.body.token}`)
+      .set("authorization", bearer)
       .send({ pin: process.env.CORTEX_DEMO_USER_PIN });
 
     expect(verifyPinResponse.status).toBe(200);
     expect(verifyPinResponse.body.ok).toBe(true);
     expect(verifyPinResponse.body.user.email).toBe(process.env.CORTEX_DEMO_USER_EMAIL);
+
+    const sessionAfterPin = await request(app).get("/api/auth/session").set("authorization", bearer);
+    expect(sessionAfterPin.status).toBe(200);
   });
 
   it("locks session and blocks session endpoint", async () => {

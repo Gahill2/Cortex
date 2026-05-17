@@ -14,7 +14,9 @@
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "mcp:dev": "tsx watch src/mcp/runMcp.ts",
-    "mcp:start": "node dist/src/mcp/runMcp.js"
+    "mcp:start": "node dist/src/mcp/runMcp.js",
+    "sync:env:pull": "tsx scripts/sync-env-firestore.ts pull",
+    "sync:env:push": "tsx scripts/sync-env-firestore.ts push"
   },
   "keywords": [
     "launchpad",
@@ -34,6 +36,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "firebase-admin": "^13.10.0",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",

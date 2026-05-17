@@ -9,7 +9,15 @@ import { cortexSpotifyRouter } from "./spotify.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
 import { cortexMailRouter } from "./mail.routes.js";
+import { cortexMicrosoftRouter } from "./microsoft.routes.js";
+import { cortexWeatherRouter } from "./weather.routes.js";
+import { cortexCalendarRouter } from "./calendar.routes.js";
+import { obsidianRouter } from "./obsidian.routes.js";
+import { notionRouter } from "./notion.routes.js";
+import { cortexCanvaRouter } from "./canva.routes.js";
+import { cortexFirebaseRouter } from "./firebase.routes.js";
 import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
+import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 
 export const cortexRouter = Router();
 
@@ -25,7 +33,14 @@ cortexRouter.get("/health", (_req, res) => {
       has_redirect_uri: Boolean(process.env.GOOGLE_REDIRECT_URI),
       has_redirect_url: Boolean(process.env.GOOGLE_REDIRECT_URL),
       redirect_uri_value: process.env.GOOGLE_REDIRECT_URI?.slice(0, 30) + "…",
-    }
+    },
+    canva_configured: {
+      apps_sdk_app_id: Boolean(process.env.CANVA_APP_ID?.trim()),
+      connect_client_id: Boolean(process.env.CANVA_CLIENT_ID?.trim()),
+      connect_client_secret: Boolean(process.env.CANVA_CLIENT_SECRET?.trim()),
+      connect_redirect_uri: Boolean(process.env.CANVA_REDIRECT_URI?.trim()),
+    },
+    firebase: getFirebaseAdminStatus(),
   });
 });
 
@@ -39,3 +54,10 @@ cortexRouter.use("/spotify", cortexSpotifyRouter);
 cortexRouter.use("/tasks", cortexTasksRouter);
 cortexRouter.use("/projects", cortexProjectsRouter);
 cortexRouter.use("/mail", cortexMailRouter);
+cortexRouter.use("/microsoft", cortexMicrosoftRouter);
+cortexRouter.use("/weather", cortexWeatherRouter);
+cortexRouter.use("/calendar", cortexCalendarRouter);
+cortexRouter.use("/obsidian", obsidianRouter);
+cortexRouter.use("/notion", notionRouter);
+cortexRouter.use("/canva", cortexCanvaRouter);
+cortexRouter.use("/firebase", cortexFirebaseRouter);

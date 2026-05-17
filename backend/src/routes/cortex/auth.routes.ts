@@ -52,7 +52,7 @@ cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
     email: demoUser.email
   });
 
-  sessionLockStore.unlock(token);
+  sessionLockStore.lock(token);
   res.json({
     token,
     user: {
@@ -70,8 +70,12 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
   }
   const bearerToken = authHeader.slice(7).trim();
   const token = tokenSchema.parse({ token: bearerToken }).token;
-  if (sessionLockStore.isLocked(token)) {
-    throw new HttpError(423, "Session is locked, log in again");
+
+  let payload: ReturnType<typeof verifyAccessToken>;
+  try {
+    payload = verifyAccessToken(token);
+  } catch {
+    throw new HttpError(401, "Invalid or expired session token");
   }
 
   const demoUser = await demoUserStore.getDemoUser();
@@ -80,12 +84,7 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
     throw new HttpError(401, "Invalid PIN");
   }
 
-  let payload: ReturnType<typeof verifyAccessToken>;
-  try {
-    payload = verifyAccessToken(token);
-  } catch {
-    throw new HttpError(401, "Invalid or expired session token");
-  }
+  sessionLockStore.unlock(token);
   res.json({
     ok: true,
     user: payload
@@ -126,6 +125,7 @@ cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) =>
     throw new HttpError(403, "Desktop token only available from localhost");
   }
   const token = signAccessToken({ userId: "local-user", email: "local@cortex.app" });
+  sessionLockStore.lock(token);
   res.json({ token, user: { id: "local-user", email: "local@cortex.app" } });
 });
 
@@ -163,7 +163,7 @@ cortexAuthRouter.post("/verify-otp", routeRateLimit(10, 60_000), async (req, res
     : email.toLowerCase();
 
   const token = signAccessToken({ userId, email });
-  sessionLockStore.unlock(token);
+  sessionLockStore.lock(token);
 
   res.json({
     token,

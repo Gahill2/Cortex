@@ -1,0 +1,264 @@
+/* ── Kanban column accent bars ──────────────────────────────────────────── */
+.kanban-col--TODO .kanban-col-header       { border-top: 3px solid #3b82f6; }
+.kanban-col--IN_PROGRESS .kanban-col-header { border-top: 3px solid #f59e0b; }
+.kanban-col--DONE .kanban-col-header        { border-top: 3px solid #22c55e; }
+
+/* column count badge */
+.kanban-col-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-3, rgba(255,255,255,0.08));
+  color: var(--text-2, #aaa);
+  margin-left: 6px;
+}
+
+/* column add button */
+.kanban-col-add-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-3, #666);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: var(--radius-sm, 4px);
+  transition: color 100ms, background 100ms;
+}
+.kanban-col-add-btn:hover {
+  color: var(--accent, #5b8dff);
+  background: var(--accent-dim, rgba(91,141,255,0.12));
+}
+
+/* ── Task card enhancements ──────────────────────────────────────────────── */
+.kanban-card {
+  transition: transform 120ms, box-shadow 120ms;
+}
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.kanban-card--dragging {
+  opacity: 0;
+}
+.kanban-card--priority-HIGH   { border-left: 4px solid #ef4444 !important; }
+.kanban-card--priority-MEDIUM { border-left: 4px solid #f59e0b !important; }
+.kanban-card--priority-LOW    { border-left: 4px solid #6b7280 !important; }
+
+/* project tag chip */
+.kanban-project-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--accent, #5b8dff);
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* priority label */
+.kanban-priority-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3, #888);
+  margin-right: 4px;
+}
+
+/* due date badge — restyled pill */
+.kanban-due-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg-3, rgba(255,255,255,0.07));
+  color: var(--text-2, #aaa);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+}
+.kanban-due-badge--overdue {
+  background: rgba(239,68,68,0.18);
+  color: #f87171;
+  border-color: rgba(239,68,68,0.35);
+}
+.kanban-due-badge--today {
+  background: rgba(245,158,11,0.18);
+  color: #fbbf24;
+  border-color: rgba(245,158,11,0.35);
+}
+
+/* assignee avatar */
+.kanban-assignee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent, #5b8dff);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* card footer bottom row */
+.kanban-card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── Column empty state ──────────────────────────────────────────────────── */
+.kanban-empty-col {
+  border: 2px dashed var(--border, rgba(255,255,255,0.12));
+  border-radius: var(--radius-lg, 10px);
+  padding: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3, #666);
+  margin: 8px 0;
+}
+.kanban-col--drop-over .kanban-empty-col {
+  border-color: var(--accent, #5b8dff);
+  background: var(--accent-dim, rgba(91,141,255,0.08));
+}
+
+/* drop-over highlight for non-empty columns */
+.kanban-col--drop-over .kanban-col-body {
+  background: var(--accent-dim, rgba(91,141,255,0.04));
+  border-radius: var(--radius-lg, 10px);
+}
+
+/* ── Quick-add inline form ───────────────────────────────────────────────── */
+.kanban-quick-add {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0;
+}
+.kanban-quick-input {
+  flex: 1;
+  background: var(--bg-3, rgba(255,255,255,0.06));
+  border: 1px solid var(--border-2, rgba(255,255,255,0.15));
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text, #fff);
+  outline: none;
+}
+.kanban-quick-input:focus {
+  border-color: var(--accent, #5b8dff);
+}
+.kanban-quick-cancel {
+  background: none;
+  border: none;
+  color: var(--text-3, #666);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+.kanban-quick-cancel:hover { color: var(--text, #fff); }
+
+/* ── Calendar day — today highlight ─────────────────────────────────────── */
+.cal-day--today .cal-day-num {
+  background: var(--accent, #5b8dff);
+  color: #fff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  line-height: 1;
+}
+.cal-day--today {
+  background: rgba(91,141,255,0.06);
+}
+
+/* ── Event chips ─────────────────────────────────────────────────────────── */
+.cal-event-chip {
+  border-radius: 999px !important;
+  padding: 1px 7px !important;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+.cal-event-chip:hover {
+  filter: brightness(1.15);
+}
+
+/* source badge inside chip */
+.cal-source-badge {
+  font-size: 9px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+.cal-source-badge--google    { color: #4285f4; }
+.cal-source-badge--microsoft { color: #00bcd4; }
+
+/* "+N more" chip */
+.cal-more-chip {
+  font-size: 10px;
+  color: var(--text-3, #888);
+  padding: 1px 4px;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+.cal-more-chip:hover { color: var(--accent, #5b8dff); }
+
+/* ── List view improvements ──────────────────────────────────────────────── */
+.cal-list-date-sep {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3, #888);
+  padding: 14px 0 4px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+  margin-bottom: 4px;
+}
+
+.cal-list-time-big {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #5b8dff);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.cal-list-source-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.cal-list-source-badge--google {
+  background: rgba(66,133,244,0.18);
+  color: #4285f4;
+}
+.cal-list-source-badge--microsoft {
+  background: rgba(0,188,212,0.18);
+  color: #00bcd4;
+}

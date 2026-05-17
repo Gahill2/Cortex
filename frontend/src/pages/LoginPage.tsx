@@ -51,6 +51,14 @@ export const LoginPage = ({ onLogin }: Props) => {
           <span className="login-logo-word">CORTEX</span>
         </div>
         <p className="login-tagline">Your personal command layer</p>
+        {typeof window !== "undefined" &&
+          window.location.hostname !== "localhost" &&
+          window.location.hostname !== "127.0.0.1" && (
+            <p className="login-hint login-hint--remote">
+              This address has its own saved session. Use the same email as on your PC to see the same account data
+              after you sign in.
+            </p>
+          )}
 
         {step === "email" ? (
           <div className="login-form">

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../../config/env.js";
+import { callAI } from "../../features/ai/ai-provider.js";
 import { HttpError } from "../../utils/http-error.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -140,22 +140,21 @@ const SPOTIFY_API = "https://api.spotify.com/v1";
 cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
   if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
-  if (!env.ANTHROPIC_API_KEY) throw new HttpError(503, "Anthropic API key not configured");
-
   const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
 
-  // Step 1: Ask Claude for track recommendations
-  const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  const message = await anthropic.messages.create({
-    model: "claude-3-5-haiku-20241022",
-    max_tokens: 1024,
-    system: `You are a music expert. When given a mood or genre prompt, return ONLY a JSON object (no markdown, no explanation) with this exact shape:
+  // Step 1: Ask AI for track recommendations (Ollama → Anthropic fallback)
+  const aiResult_raw = await callAI(
+    [{ role: "user", content: prompt }],
+    {
+      tier: "simple",
+      systemPrompt: `You are a music expert. When given a mood or genre prompt, return ONLY a JSON object (no markdown, no explanation) with this exact shape:
 { "playlistName": string, "tracks": Array<{ "artist": string, "title": string }> }
 Include 12-15 diverse, real tracks that match the requested mood/genre. Vary artists — avoid repeating the same artist more than twice.`,
-    messages: [{ role: "user", content: prompt }]
-  });
+      maxTokens: 1024
+    }
+  );
 
-  const rawText = message.content[0].type === "text" ? message.content[0].text.trim() : "";
+  const rawText = aiResult_raw.text.trim();
   let aiResult: { playlistName: string; tracks: Array<{ artist: string; title: string }> };
   try {
     // Strip possible markdown code fences

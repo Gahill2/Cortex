@@ -1,4 +1,4 @@
-import { api } from "../api/client";
+import { api, resolveCortexApiBaseURL } from "../api/client";
 
 interface NowPlaying {
   isPlaying: boolean;
@@ -24,7 +24,7 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
           <h2 className="widget-title">♫ Spotify</h2>
           <a
             className="btn-primary btn-sm"
-            href={`${import.meta.env.VITE_API_BASE_URL ?? "/api"}/spotify/oauth/url`}
+            href={`${resolveCortexApiBaseURL()}/spotify/oauth/url`}
           >
             Connect
           </a>
