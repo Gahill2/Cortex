@@ -4,8 +4,50 @@
  * Usage:
  *   set CURSOR_API_KEY=cursor_...   (https://cursor.com/dashboard/cloud-agents)
  *   node scripts/cloud-agent/run.mjs
+ *
+ * Also loads (first match wins): scripts/cloud-agent/.env, then backend/.env
+ * (supports CURSOR_API_KEY= or "Cursor API Key =").
  */
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Agent, CursorAgentError } from "@cursor/sdk";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(__dirname, "../..");
+
+function applyEnvLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return;
+
+  let key;
+  let value;
+  const standard = trimmed.match(
+    /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/,
+  );
+  const cursorAlias = trimmed.match(/^Cursor API Key\s*=\s*(.*)$/i);
+  if (standard) {
+    key = standard[1];
+    value = standard[2];
+  } else if (cursorAlias) {
+    key = "CURSOR_API_KEY";
+    value = cursorAlias[1];
+  } else return;
+
+  if (key !== "CURSOR_API_KEY" || process.env.CURSOR_API_KEY) return;
+  value = value.replace(/^["']|["']$/g, "").trim();
+  if (value) process.env.CURSOR_API_KEY = value;
+}
+
+function loadEnvFile(path) {
+  if (!existsSync(path)) return;
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    applyEnvLine(line);
+  }
+}
+
+loadEnvFile(join(__dirname, ".env"));
+loadEnvFile(join(repoRoot, "backend", ".env"));
 
 const REPO = "https://github.com/Gahill2/Cortex";
 const BRANCH = "main";
