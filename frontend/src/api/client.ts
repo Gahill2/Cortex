@@ -56,16 +56,9 @@ export function resolveCortexApiBaseURL(): string {
     return "/api";
   }
 
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host !== "localhost" && host !== "127.0.0.1") {
-      const apiPort = (import.meta.env as { VITE_API_PORT?: string }).VITE_API_PORT || "4000";
-      const scheme = window.location.protocol === "https:" ? "https" : "http";
-      return `${scheme}://${host}:${apiPort}/api`;
-    }
-  }
-
-  return "http://localhost:4000/api";
+  // In dev mode, always use the Vite proxy at /api (avoids CORS issues
+  // when accessing via network IP instead of localhost)
+  return "/api";
 }
 
 const baseURL = resolveCortexApiBaseURL();
