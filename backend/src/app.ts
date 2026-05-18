@@ -45,10 +45,10 @@ app.use(
     origin(origin, callback) {
       if (!origin) return callback(null, true);
       if (corsOrigins.includes(origin)) return callback(null, true);
-      // Vite may use 5174+ when 5173 is taken; allow localhost dev ports
+      // Dev: allow localhost, loopback, and private network IPs (Vite, Tailscale, LAN)
       if (
         env.NODE_ENV !== "production" &&
-        /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
+        /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+):\d+$/.test(origin)
       ) {
         return callback(null, true);
       }
