@@ -121,6 +121,7 @@ cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req,
       }
 
       await upsertGmailAccount(mailState.userId, email, tokens, { label: email });
+      await saveGoogleCredentials(mailState.userId, tokens);
       res.redirect(ok(email));
     } catch (e) {
       console.error("[mail] gmail oauth callback error:", e);

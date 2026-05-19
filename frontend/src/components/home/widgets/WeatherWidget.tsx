@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Cloud, Droplets, MapPin, Wind } from "lucide-react";
 import { api } from "../../../api/client";
+import { usePreferences } from "../../../context/PreferencesContext";
+import type { WeatherLocationPref } from "../../../lib/preferencesTypes";
 import type { WeatherData } from "./types";
 
-const SAVED_LOC_KEY = "cortex_weather_location";
-
-interface SavedLocation { lat: number; lon: number; name: string }
+function prefUnitsToApi(u: "metric" | "imperial"): "fahrenheit" | "celsius" {
+  return u === "imperial" ? "fahrenheit" : "celsius";
+}
 
 export interface WeatherWidgetProps {
   /** standard | hero | minimal | gradient */
@@ -14,21 +16,31 @@ export interface WeatherWidgetProps {
 }
 
 export function WeatherWidget({ display = "standard", layout = "default" }: WeatherWidgetProps) {
+  const { settings, ready, patch } = usePreferences();
   const compact = layout === "compact";
   const showForecast = display !== "minimal" && !compact;
   const heroLayout = display === "hero" || display === "gradient";
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [units, setUnits] = useState<"fahrenheit" | "celsius">(() =>
-    (localStorage.getItem("cortex_weather_units") as "fahrenheit" | "celsius") ?? "fahrenheit"
+  const savedLoc = settings.extraJson?.weatherLocation ?? null;
+  const units = useMemo(
+    () => prefUnitsToApi(settings.weatherUnits ?? "metric"),
+    [settings.weatherUnits],
   );
-  const [savedLoc, setSavedLoc] = useState<SavedLocation | null>(() => {
-    try { return JSON.parse(localStorage.getItem(SAVED_LOC_KEY) ?? "null"); } catch { return null; }
-  });
   const [cityInput, setCityInput] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  const persistLocation = useCallback(
+    (loc: WeatherLocationPref | null) => {
+      patch({
+        weatherCity: loc?.name ?? null,
+        extraJson: { weatherLocation: loc },
+      });
+    },
+    [patch],
+  );
 
   const fetchWeather = async (lat: number, lon: number, u: string) => {
     setLoading(true);
@@ -44,6 +56,7 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
   };
 
   useEffect(() => {
+    if (!ready) return;
     if (savedLoc) {
       void fetchWeather(savedLoc.lat, savedLoc.lon, units);
       return;
@@ -51,20 +64,20 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
     if (!navigator.geolocation) { setError("Enter a city to get weather"); return; }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const loc: SavedLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Current location" };
-        setSavedLoc(loc);
-        localStorage.setItem(SAVED_LOC_KEY, JSON.stringify(loc));
+        const loc: WeatherLocationPref = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Current location" };
+        persistLocation(loc);
         void fetchWeather(loc.lat, loc.lon, units);
       },
       () => setError("Enter a city below to get weather")
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready]);
 
   useEffect(() => {
-    if (savedLoc) void fetchWeather(savedLoc.lat, savedLoc.lon, units);
+    if (!ready || !savedLoc) return;
+    void fetchWeather(savedLoc.lat, savedLoc.lon, units);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [units]);
+  }, [units, ready, savedLoc?.lat, savedLoc?.lon]);
 
   const searchCity = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,9 +90,8 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
       const d = await r.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country: string }> };
       const result = d.results?.[0];
       if (!result) { setSearchError("City not found"); return; }
-      const loc: SavedLocation = { lat: result.latitude, lon: result.longitude, name: `${result.name}, ${result.country}` };
-      setSavedLoc(loc);
-      localStorage.setItem(SAVED_LOC_KEY, JSON.stringify(loc));
+      const loc: WeatherLocationPref = { lat: result.latitude, lon: result.longitude, name: `${result.name}, ${result.country}` };
+      persistLocation(loc);
       setCityInput("");
       void fetchWeather(loc.lat, loc.lon, units);
     } catch {
@@ -90,15 +102,12 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
   };
 
   const toggleUnits = () => {
-    const next = units === "fahrenheit" ? "celsius" : "fahrenheit";
-    setUnits(next);
-    localStorage.setItem("cortex_weather_units", next);
+    patch({ weatherUnits: settings.weatherUnits === "imperial" ? "metric" : "imperial" });
   };
 
   const clearLocation = () => {
-    setSavedLoc(null);
+    persistLocation(null);
     setData(null);
-    localStorage.removeItem(SAVED_LOC_KEY);
     setError("Enter a city below to get weather");
   };
 

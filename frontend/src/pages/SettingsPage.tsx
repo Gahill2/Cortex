@@ -5,6 +5,7 @@ import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
 import { clearCortexUiPreferences } from "../lib/cortexUiStorageKeys";
+import { usePreferences } from "../context/PreferencesContext";
 import { startOAuthFlow } from "../lib/oauth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { MemoryPage } from "./MemoryPage";
@@ -126,6 +127,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     writeSettingsSection(id);
   };
 
+  const { resetUiPreferences } = usePreferences();
   const { appearance, setAppearance } = useAppearance();
   const { wallpaper, setWallpaper } = useWallpaper();
   const { theme, saveTheme } = useTheme();
@@ -524,7 +526,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
           <section className="settings-section">
             <h2 className="settings-section-title">Data &amp; display</h2>
             <p className="settings-section-desc">
-              Clears saved home layout, Notion hero, goals, weather location, briefing cache, appearance, wallpaper, and AI theme in this browser.
+              Clears saved home canvas, widgets, appearance, wallpaper, AI theme, weather, and goals from your account and this browser.
               Does not sign you out or remove MCP / integration settings.
             </p>
             <button
@@ -532,11 +534,18 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               className="btn-danger btn-sm"
               onClick={() => {
                 const ok = window.confirm(
-                  "Reset Cortex UI preferences on this device? Home, appearance, and related layout will return to defaults after reload."
+                  "Reset Cortex UI preferences? Home layout, appearance, and related settings will return to defaults after reload."
                 );
                 if (!ok) return;
-                clearCortexUiPreferences();
-                window.location.reload();
+                void (async () => {
+                  try {
+                    await resetUiPreferences();
+                  } catch {
+                    /* still clear local cache */
+                  }
+                  clearCortexUiPreferences();
+                  window.location.reload();
+                })();
               }}
             >
               Reset Cortex UI preferences

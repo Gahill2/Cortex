@@ -1,7 +1,7 @@
 import type { Credentials } from "google-auth-library";
 import { prisma } from "../../db/prisma.js";
 import { fetchGoogleAccountEmail } from "../gmail/gmail-service.js";
-import { getGoogleCredentials } from "../gmail/google-token-store.js";
+import { getGoogleCredentials, saveGoogleCredentials } from "../gmail/google-token-store.js";
 
 export type MailProvider = "gmail" | "microsoft" | "imap";
 
@@ -85,6 +85,10 @@ export async function upsertGmailAccount(
       autoOrganize: true
     }
   });
+
+  if (isPrimary) {
+    await saveGoogleCredentials(userId, tokens);
+  }
 
   return {
     id: row.id,

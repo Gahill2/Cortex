@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { usePreferences } from "../context/PreferencesContext";
 
 const THEME_KEY = "cortex_ai_theme";
 
@@ -40,27 +41,51 @@ function applyThemeToDOM(theme: AppTheme | null) {
       shell.style.background = "";
       shell.style.backgroundImage = "";
       shell.removeAttribute("data-ai-theme");
-      // Don't remove data-wallpaper — useWallpaper manages that
     }
   }
 }
 
+function readThemeFromSettings(settings: { aiTheme: unknown }, ready: boolean): AppTheme | null {
+  if (ready && settings.aiTheme && typeof settings.aiTheme === "object") {
+    const t = settings.aiTheme as AppTheme;
+    if (t.name) return t;
+  }
+  try {
+    return JSON.parse(localStorage.getItem(THEME_KEY) ?? "null") as AppTheme | null;
+  } catch {
+    return null;
+  }
+}
+
 export function useTheme() {
-  const [theme, setThemeState] = useState<AppTheme | null>(() => {
-    try { return JSON.parse(localStorage.getItem(THEME_KEY) ?? "null") as AppTheme | null; }
-    catch { return null; }
-  });
+  const { settings, ready, patch } = usePreferences();
+  const [theme, setThemeState] = useState<AppTheme | null>(() => readThemeFromSettings(settings, ready));
+
+  useEffect(() => {
+    if (!ready) return;
+    setThemeState(readThemeFromSettings(settings, true));
+  }, [ready, settings.aiTheme, settings]);
 
   const applyTheme = useCallback((t: AppTheme | null) => {
     applyThemeToDOM(t);
   }, []);
 
-  useEffect(() => { applyTheme(theme); }, [theme, applyTheme]);
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme, applyTheme]);
 
-  const saveTheme = (t: AppTheme | null) => {
-    localStorage.setItem(THEME_KEY, JSON.stringify(t));
-    setThemeState(t);
-  };
+  const saveTheme = useCallback(
+    (t: AppTheme | null) => {
+      patch({ aiTheme: t });
+      try {
+        localStorage.setItem(THEME_KEY, JSON.stringify(t));
+      } catch {
+        /* ignore */
+      }
+      setThemeState(t);
+    },
+    [patch],
+  );
 
   return { theme, saveTheme, applyTheme };
 }

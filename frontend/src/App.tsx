@@ -9,6 +9,8 @@ import { MobileNavDrawer } from "./components/MobileNavDrawer";
 import { MobileTabBar } from "./components/MobileTabBar";
 import { OAuthBootstrap } from "./components/OAuthBootstrap";
 import { PageLoading } from "./components/PageLoading";
+import { AppearanceProvider } from "./AppearanceProvider";
+import { PreferencesProvider } from "./context/PreferencesContext";
 import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/client";
 import { useWallpaper } from "./hooks/useWallpaper";
 import { useMediaQuery } from "./hooks/useMediaQuery";
@@ -64,6 +66,11 @@ type OAuthWindow = Window & {
   ) => Promise<void>;
 };
 
+function WallpaperSync() {
+  useWallpaper(true);
+  return null;
+}
+
 export default function App() {
   const [isElectronEnv] = useState(() =>
     typeof window !== "undefined" && !!(window as ElectronWindow).electron?.isElectron
@@ -90,8 +97,6 @@ export default function App() {
       root.classList.remove("cortex-notion");
     };
   }, [token]);
-
-  useWallpaper(!!token);
 
   useEffect(() => {
     const onLogout = () => setToken(null);
@@ -373,7 +378,9 @@ export default function App() {
   };
 
   return (
-    <>
+    <PreferencesProvider>
+      <AppearanceProvider>
+      <WallpaperSync />
       <OAuthBootstrap enabled />
       <div
         className={`desktop-shell desktop-shell--burger flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
@@ -447,6 +454,7 @@ export default function App() {
         </main>
         {isMobileLayout && <MobileTabBar active={tab} onChange={goTab} />}
       </div>
-    </>
+      </AppearanceProvider>
+    </PreferencesProvider>
   );
 }

@@ -23,11 +23,28 @@ export interface CalendarEvent {
   color?: string;
 }
 
+type FetchResult = { events: CalendarEvent[]; warnings: string[] };
+
+function calendarScopeHint(source: "google" | "microsoft"): string {
+  if (source === "google") {
+    return "Reconnect Gmail in Mail to grant Google Calendar access (calendar permission was added).";
+  }
+  return "Reconnect Microsoft in Mail to grant calendar access (Calendars.Read was added).";
+}
+
+function isScopeOrAuthError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /403|401|insufficient|scope|permission|consent|forbidden/i.test(msg);
+}
+
 // ── Google Calendar ────────────────────────────────────────────────────────────
 
-async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: string): Promise<CalendarEvent[]> {
+async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: string): Promise<FetchResult> {
+  const warnings: string[] = [];
   const creds = await getGoogleCredentials(userId);
-  if (!creds?.access_token && !creds?.refresh_token) return [];
+  if (!creds?.access_token && !creds?.refresh_token) {
+    return { events: [], warnings };
+  }
 
   const auth = createOAuth2Client();
   auth.setCredentials(creds);
@@ -65,31 +82,50 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
             color,
           });
         }
-      } catch { /* skip inaccessible calendar */ }
+      } catch (err) {
+        console.warn("[calendar] google calendar events skipped:", calId, err);
+      }
     }
-    return events;
-  } catch {
-    return [];
+    return { events, warnings };
+  } catch (err) {
+    console.error("[calendar] google fetch failed:", err);
+    if (isScopeOrAuthError(err)) {
+      warnings.push(calendarScopeHint("google"));
+    } else {
+      warnings.push("Could not load Google Calendar. Try reconnecting Gmail in Mail.");
+    }
+    return { events: [], warnings };
   }
 }
 
 // ── Microsoft Calendar ─────────────────────────────────────────────────────────
 
-async function fetchMicrosoftEvents(userId: string, email: string, timeMin: string, timeMax: string): Promise<CalendarEvent[]> {
+async function fetchMicrosoftEvents(userId: string, email: string, timeMin: string, timeMax: string): Promise<FetchResult> {
+  const warnings: string[] = [];
   let token: string;
   try {
     token = await getValidMicrosoftToken(userId, email);
-  } catch {
-    return [];
+  } catch (err) {
+    console.warn("[calendar] microsoft token for", email, err);
+    warnings.push(`Microsoft (${email}): sign in again from Mail.`);
+    return { events: [], warnings };
   }
 
   const GRAPH = "https://graph.microsoft.com/v1.0";
   try {
-    // Get all calendars first
     const calRes = await fetch(`${GRAPH}/me/calendars`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!calRes.ok) return [];
+    if (!calRes.ok) {
+      const body = await calRes.text().catch(() => "");
+      console.error("[calendar] microsoft calendars:", calRes.status, body);
+      if (calRes.status === 403 || calRes.status === 401) {
+        warnings.push(calendarScopeHint("microsoft"));
+      } else {
+        warnings.push(`Microsoft (${email}): could not list calendars.`);
+      }
+      return { events: [], warnings };
+    }
     const calData = (await calRes.json()) as { value: Array<{ id: string; name: string; color: string }> };
 
     const events: CalendarEvent[] = [];
@@ -118,9 +154,15 @@ async function fetchMicrosoftEvents(userId: string, email: string, timeMin: stri
         });
       }
     }
-    return events;
-  } catch {
-    return [];
+    return { events, warnings };
+  } catch (err) {
+    console.error("[calendar] microsoft fetch failed:", err);
+    if (isScopeOrAuthError(err)) {
+      warnings.push(calendarScopeHint("microsoft"));
+    } else {
+      warnings.push(`Microsoft (${email}): could not load calendar events.`);
+    }
+    return { events: [], warnings };
   }
 }
 
@@ -135,21 +177,33 @@ cortexCalendarRouter.get("/events", requireAuth, async (req, res) => {
   const end   = (req.query.end   as string) || new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
 
   try {
-    const [googleEvents, microsoftAccounts] = await Promise.all([
+    const [googleResult, microsoftAccounts] = await Promise.all([
       fetchGoogleEvents(userId, start, end),
       prisma.mailAccount.findMany({ where: { userId, provider: "microsoft" } }),
     ]);
 
-    const msEventArrays = await Promise.all(
+    const msResults = await Promise.all(
       microsoftAccounts.map((acc) => fetchMicrosoftEvents(userId, acc.email, start, end))
     );
-    const msEvents = msEventArrays.flat();
+    const msEvents = msResults.flatMap((r) => r.events);
+    const warnings = [
+      ...googleResult.warnings,
+      ...msResults.flatMap((r) => r.warnings),
+    ];
 
-    const all = [...googleEvents, ...msEvents].sort(
+    const hasGmail = await prisma.mailAccount.count({ where: { userId, provider: "gmail" } });
+    const hasGoogleLegacy = Boolean(await getGoogleCredentials(userId));
+    if ((hasGmail > 0 || hasGoogleLegacy) && googleResult.events.length === 0 && !googleResult.warnings.length) {
+      warnings.push(
+        "Google Calendar returned no events. If you connected Gmail before calendar support, reconnect Gmail in Mail."
+      );
+    }
+
+    const all = [...googleResult.events, ...msEvents].sort(
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
     );
 
-    sendSuccess(res, { events: all, count: all.length });
+    sendSuccess(res, { events: all, count: all.length, warnings });
   } catch (e) {
     throw new HttpError(500, `Calendar fetch failed: ${e instanceof Error ? e.message : e}`);
   }
@@ -157,14 +211,14 @@ cortexCalendarRouter.get("/events", requireAuth, async (req, res) => {
 
 // Exported helper for AI briefing
 export async function fetchCalendarToday(userId: string, start: string, end: string): Promise<Array<{ title: string; start: string }>> {
-  const [googleEvents, microsoftAccounts] = await Promise.all([
+  const [googleResult, microsoftAccounts] = await Promise.all([
     fetchGoogleEvents(userId, start, end),
     prisma.mailAccount.findMany({ where: { userId, provider: "microsoft" } }),
   ]);
-  const msEventArrays = await Promise.all(
+  const msResults = await Promise.all(
     microsoftAccounts.map((acc) => fetchMicrosoftEvents(userId, acc.email, start, end))
   );
-  return [...googleEvents, ...msEventArrays.flat()]
+  return [...googleResult.events, ...msResults.flatMap((r) => r.events)]
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     .map((e) => ({ title: e.title, start: e.start }));
 }
@@ -177,17 +231,21 @@ cortexCalendarRouter.get("/today", requireAuth, async (req, res) => {
   const end   = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
 
   try {
-    const [googleEvents, microsoftAccounts] = await Promise.all([
+    const [googleResult, microsoftAccounts] = await Promise.all([
       fetchGoogleEvents(userId, start, end),
       prisma.mailAccount.findMany({ where: { userId, provider: "microsoft" } }),
     ]);
-    const msEventArrays = await Promise.all(
+    const msResults = await Promise.all(
       microsoftAccounts.map((acc) => fetchMicrosoftEvents(userId, acc.email, start, end))
     );
-    const all = [...googleEvents, ...msEventArrays.flat()].sort(
+    const all = [...googleResult.events, ...msResults.flatMap((r) => r.events)].sort(
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
     );
-    sendSuccess(res, { events: all });
+    const warnings = [
+      ...googleResult.warnings,
+      ...msResults.flatMap((r) => r.warnings),
+    ];
+    sendSuccess(res, { events: all, warnings });
   } catch (e) {
     throw new HttpError(500, `Calendar fetch failed: ${e instanceof Error ? e.message : e}`);
   }

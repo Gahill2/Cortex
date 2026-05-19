@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePreferences } from "../../../context/PreferencesContext";
+import type { HabitPref } from "../../../lib/preferencesTypes";
 
 const STORAGE_KEY = "cortex-habits";
 
@@ -49,13 +51,33 @@ function saveHabits(h: Habit[]) {
 }
 
 export function HabitTrackerWidget() {
-  const [habits, setHabits] = useState<Habit[]>(loadHabits);
+  const { settings, ready, patch } = usePreferences();
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(COLORS[0]);
   const days = last7Days();
 
-  const persist = (updated: Habit[]) => { setHabits(updated); saveHabits(updated); };
+  useEffect(() => {
+    if (!ready || hydrated) return;
+    const fromServer = settings.extraJson?.habits;
+    if (Array.isArray(fromServer) && fromServer.length > 0) {
+      setHabits(fromServer as Habit[]);
+    } else {
+      setHabits(loadHabits());
+    }
+    setHydrated(true);
+  }, [ready, settings.extraJson?.habits, hydrated]);
+
+  const persist = useCallback(
+    (updated: Habit[]) => {
+      setHabits(updated);
+      patch({ extraJson: { habits: updated as HabitPref[] } });
+      saveHabits(updated);
+    },
+    [patch],
+  );
 
   const addHabit = (e: React.FormEvent) => {
     e.preventDefault();

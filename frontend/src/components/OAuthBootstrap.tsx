@@ -1,28 +1,16 @@
 import { useEffect, useRef } from "react";
 import { api } from "../api/client";
 
-type Service = "spotify" | "gmail";
-
-const ORDER: Service[] = ["spotify", "gmail"];
-
-const URL_PATH: Record<Service, string> = {
-  spotify: "/spotify/oauth/url",
-  gmail: "/mail/oauth/url",
-};
-
 type IntegrationStatusResponse = {
   data?: {
     items?: Array<{ id: string; configured: boolean; connected: boolean }>;
   };
 };
 
-type OAuthUrlResponse = {
-  data?: { url?: string };
-};
-
 /**
- * When API keys are in .env but the user has not completed OAuth yet,
- * send them through the provider consent screen once per service per session.
+ * Optional one-time Gmail OAuth nudge when configured but not linked.
+ * Spotify is intentionally excluded — auto-redirecting each session felt like
+ * repeated login even when tokens were stored server-side.
  */
 export const OAuthBootstrap = ({ enabled }: { enabled: boolean }) => {
   const started = useRef(false);
@@ -35,24 +23,20 @@ export const OAuthBootstrap = ({ enabled }: { enabled: boolean }) => {
       try {
         const r = await api.get<IntegrationStatusResponse>("/integrations/status");
         const items = r.data?.data?.items ?? [];
+        const gmail = items.find((i) => i.id === "gmail");
+        if (!gmail?.configured || gmail.connected) return;
 
-        for (const service of ORDER) {
-          const item = items.find((i) => i.id === service);
-          if (!item?.configured || item.connected) continue;
+        const sessionKey = "cortex_oauth_auto_gmail";
+        if (sessionStorage.getItem(sessionKey)) return;
 
-          const sessionKey = `cortex_oauth_auto_${service}`;
-          if (sessionStorage.getItem(sessionKey)) continue;
+        const urlRes = await api.get<{ data?: { url?: string } }>("/mail/oauth/url");
+        const url = urlRes.data?.data?.url;
+        if (!url) return;
 
-          const urlRes = await api.get<OAuthUrlResponse>(URL_PATH[service]);
-          const url = urlRes.data?.data?.url;
-          if (!url) continue;
-
-          sessionStorage.setItem(sessionKey, "1");
-          window.location.href = url;
-          return;
-        }
+        sessionStorage.setItem(sessionKey, "1");
+        window.location.href = url;
       } catch {
-        /* user can connect manually from Settings */
+        /* user can connect manually from Settings or Mail */
       }
     })();
   }, [enabled]);

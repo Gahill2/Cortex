@@ -27,8 +27,6 @@ export const clearSpotifyTokens = async (userId: string): Promise<void> => {
 };
 
 export const isSpotifyConnected = async (userId: string): Promise<boolean> => {
-  const row = await prisma.oAuthToken.findUnique({
-    where: { userId_provider: { userId, provider: "spotify" } },
-  });
-  return Boolean(row);
+  const tokens = await getSpotifyTokens(userId);
+  return Boolean(tokens?.refresh_token || tokens?.access_token);
 };

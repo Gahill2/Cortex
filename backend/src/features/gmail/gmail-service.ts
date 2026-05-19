@@ -5,6 +5,7 @@ import { getGoogleCredentials } from "./google-token-store.js";
 
 const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/userinfo.email"
 ];
 

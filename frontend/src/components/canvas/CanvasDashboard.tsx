@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Tab } from "../../App";
 import type { ReactNode } from "react";
+import { usePreferences } from "../../context/PreferencesContext";
+import type { CanvasLayoutPref } from "../../lib/preferencesTypes";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
@@ -136,6 +138,8 @@ function defaultNodes(): CanvasNode[] {
 }
 
 export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Props) {
+  const { settings, ready, patch } = usePreferences();
+  const canvasHydratedRef = useRef(false);
   const saved = loadState();
   const [nodes, setNodes] = useState<CanvasNode[]>(() => normalizeNodes(saved?.nodes ?? defaultNodes()));
   const [pan, setPan] = useState(saved?.pan ?? { x: 0, y: 0 });
@@ -226,17 +230,41 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     };
   }, []);
 
-  // Persist state (debounced)
+  // Hydrate from server once preferences are loaded
   useEffect(() => {
+    if (!ready || canvasHydratedRef.current) return;
+    const layout = settings.canvasLayout as CanvasLayoutPref | null;
+    canvasHydratedRef.current = true;
+    if (layout?.nodes?.length) {
+      const normalized = normalizeNodes(layout.nodes);
+      setNodes(normalized);
+      setPan(layout.pan ?? { x: 0, y: 0 });
+      setZoom(clampZoom(layout.zoom ?? 1));
+      setMaxZ(Math.max(...normalized.map((n) => n.zIndex), 0));
+      if (layout.background) setBackground(layout.background);
+    }
+  }, [ready, settings.canvasLayout]);
+
+  // Persist canvas + widgets to account settings (debounced)
+  useEffect(() => {
+    if (!ready || !canvasHydratedRef.current) return;
     const timeout = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, pan, zoom }));
+      const payload: CanvasLayoutPref = {
+        nodes,
+        pan,
+        zoom,
+        background: background.kind !== "default" ? background : undefined,
+      };
+      patch({ canvasLayout: payload });
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, pan, zoom }));
+        saveCanvasBackground(background);
+      } catch {
+        /* ignore quota */
+      }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [nodes, pan, zoom]);
-
-  useEffect(() => {
-    saveCanvasBackground(background);
-  }, [background]);
+  }, [nodes, pan, zoom, background, ready, patch]);
 
   useEffect(() => {
     const vp = viewportRef.current;

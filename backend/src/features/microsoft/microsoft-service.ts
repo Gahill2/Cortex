@@ -4,7 +4,7 @@ import { prisma } from "../../db/prisma.js";
 const AUTHORITY = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
-/** Minimal delegated scopes — avoids Mail.Send / Calendars.Read admin-consent on many tenants. */
+/** Mail + calendar read; reconnect Microsoft in Mail after scope changes. */
 const SCOPES = [
   "offline_access",
   "openid",
@@ -12,6 +12,7 @@ const SCOPES = [
   "email",
   "User.Read",
   "Mail.ReadWrite",
+  "Calendars.Read",
 ].join(" ");
 
 export interface MicrosoftTokens {

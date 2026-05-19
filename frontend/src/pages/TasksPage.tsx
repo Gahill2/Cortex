@@ -26,9 +26,9 @@ interface Task {
 }
 
 const STATUS_COLS: Array<{ key: Task["status"]; label: string }> = [
-  { key: "TODO",        label: "To Do"       },
-  { key: "IN_PROGRESS", label: "In Progress" },
-  { key: "DONE",        label: "Done"        },
+  { key: "TODO", label: "Not started" },
+  { key: "IN_PROGRESS", label: "In progress" },
+  { key: "DONE", label: "Completed" },
 ];
 
 const NEXT: Record<Task["status"], Task["status"]> = {
@@ -90,60 +90,54 @@ function TaskCard({
   const today   = isDueToday(task);
 
   const dueBadgeClass = overdue ? "kanban-due-badge--overdue" : today ? "kanban-due-badge--today" : "";
-  const statusLabel = task.status === "TODO" ? "Start →" : task.status === "IN_PROGRESS" ? "Done ✓" : "Reopen";
+  const checked = task.status === "DONE";
 
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`kanban-card kanban-card--priority-${task.priority} ${overdue ? "kanban-card--overdue" : ""} ${isDragging ? "kanban-card--dragging" : ""}`}
-      style={{ cursor: isDragging ? "grabbing" : "grab", opacity: isDragging ? 0.4 : 1, transform: isDragging ? "scale(0.97)" : undefined }}
+      className={`kanban-card kanban-card--planner kanban-card--priority-${task.priority} ${overdue ? "kanban-card--overdue" : ""} ${isDragging ? "kanban-card--dragging" : ""}`}
+      style={{ cursor: isDragging ? "grabbing" : "grab", opacity: isDragging ? 0.35 : 1 }}
     >
-      {/* Project tag */}
-      <span className="kanban-project-tag">{task.project.name}</span>
-
-      {/* Title row */}
-      <div className="kanban-card-top">
-        <p className={`kanban-card-title ${task.status === "DONE" ? "done" : ""}`}>{task.title}</p>
-        <button
-          className="kanban-card-delete"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Bottom row: priority label + due badge + assignee + cycle button */}
-      <div className="kanban-card-bottom">
-        <span
-          className="kanban-priority-label"
-          style={{ color: PRIORITY_COLORS[task.priority] }}
-        >
-          {PRIORITY_LABELS[task.priority]}
-        </span>
-
-        {task.dueDate && (
-          <span className={`kanban-due-badge ${dueBadgeClass}`}>
-            {fmtDue(task.dueDate)}
-          </span>
-        )}
-
-        <button
-          className="kanban-card-advance"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onCycle(task); }}
-          style={{ marginLeft: "auto" }}
-        >
-          {statusLabel}
-        </button>
-
-        {task.assignee?.name && (
-          <span className="kanban-assignee-avatar" title={task.assignee.name}>
-            {initials(task.assignee.name)}
-          </span>
-        )}
+      <button
+        type="button"
+        className={`kanban-check${checked ? " kanban-check--done" : ""}`}
+        aria-label={checked ? "Mark not complete" : "Mark complete"}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onCycle(task);
+        }}
+      />
+      <div className="kanban-card-main">
+        <div className="kanban-card-top">
+          <p className={`kanban-card-title${checked ? " done" : ""}`}>{task.title}</p>
+          <button
+            type="button"
+            className="kanban-card-delete"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+          >
+            ×
+          </button>
+        </div>
+        <div className="kanban-card-meta">
+          <span className="kanban-card-project">{task.project.name}</span>
+          {task.dueDate ? (
+            <span className={`kanban-due-badge ${dueBadgeClass}`}>{fmtDue(task.dueDate)}</span>
+          ) : null}
+          <span
+            className="kanban-priority-dot"
+            style={{ background: PRIORITY_COLORS[task.priority] }}
+            title={PRIORITY_LABELS[task.priority]}
+          />
+          {task.assignee?.name ? (
+            <span className="kanban-assignee-avatar" title={task.assignee.name}>
+              {initials(task.assignee.name)}
+            </span>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -154,23 +148,24 @@ function TaskCardOverlay({ task }: { task: Task }) {
   const overdue = isOverdue(task);
   const today = isDueToday(task);
   const dueBadgeClass = overdue ? "kanban-due-badge--overdue" : today ? "kanban-due-badge--today" : "";
+  const checked = task.status === "DONE";
 
   return (
-    <div className={`kanban-card kanban-card--priority-${task.priority} kanban-card--overlay ${overdue ? "kanban-card--overdue" : ""}`}>
-      <span className="kanban-project-tag">{task.project.name}</span>
-      <div className="kanban-card-top">
-        <p className={`kanban-card-title ${task.status === "DONE" ? "done" : ""}`}>{task.title}</p>
-      </div>
-      <div className="kanban-card-bottom">
-        <span className="kanban-priority-label" style={{ color: PRIORITY_COLORS[task.priority] }}>
-          {PRIORITY_LABELS[task.priority]}
-        </span>
-        {task.dueDate && (
-          <span className={`kanban-due-badge ${dueBadgeClass}`}>{fmtDue(task.dueDate)}</span>
-        )}
-        {task.assignee?.name && (
-          <span className="kanban-assignee-avatar" title={task.assignee.name}>{initials(task.assignee.name)}</span>
-        )}
+    <div className={`kanban-card kanban-card--planner kanban-card--priority-${task.priority} kanban-card--overlay ${overdue ? "kanban-card--overdue" : ""}`}>
+      <span className={`kanban-check kanban-check--ghost${checked ? " kanban-check--done" : ""}`} aria-hidden />
+      <div className="kanban-card-main">
+        <p className={`kanban-card-title${checked ? " done" : ""}`}>{task.title}</p>
+        <div className="kanban-card-meta">
+          <span className="kanban-card-project">{task.project.name}</span>
+          {task.dueDate ? (
+            <span className={`kanban-due-badge ${dueBadgeClass}`}>{fmtDue(task.dueDate)}</span>
+          ) : null}
+          <span
+            className="kanban-priority-dot"
+            style={{ background: PRIORITY_COLORS[task.priority] }}
+            title={PRIORITY_LABELS[task.priority]}
+          />
+        </div>
       </div>
     </div>
   );
@@ -213,6 +208,7 @@ function KanbanColumn({
         <span className="kanban-col-title">{col.label}</span>
         <span className="kanban-col-count-badge">{tasks.length}</span>
         <button
+          type="button"
           className="kanban-col-add-btn"
           title={`Add task to ${col.label}`}
           onClick={() => { setAdding(true); }}
@@ -349,7 +345,6 @@ export const TasksPage = () => {
 
   const quickAddToCol = async (status: Task["status"], title: string) => {
     if (!title.trim() || !newProjId) {
-      // Use first project if available
       const pid = newProjId || projects[0]?.id;
       if (!pid) return;
       await api.post("/tasks", { title, projectId: pid, status, priority: "MEDIUM" });
@@ -405,28 +400,34 @@ export const TasksPage = () => {
   const overdueCount = tasks.filter(isOverdue).length;
 
   return (
-    <div className="page tasks-page">
-      <div className="page-titlebar">
-        <div>
-          <h1 className="page-title">
-            Tasks {overdueCount > 0 && <span className="overdue-badge">⚠ {overdueCount} overdue</span>}
+    <div className="page tasks-page teams-surface">
+      <div className="teams-command-bar">
+        <div className="teams-command-bar-start">
+          <h1 className="teams-page-heading">
+            Tasks
+            {overdueCount > 0 ? (
+              <span className="teams-badge teams-badge--warn">{overdueCount} overdue</span>
+            ) : null}
           </h1>
         </div>
-        <div className="page-actions">
-          <button className="btn-ghost" onClick={() => setShowProjectForm(true)}>+ Project</button>
-          <button className="btn-primary" onClick={() => setShowTaskForm(true)}>+ New Task</button>
+        <div className="teams-command-bar-end">
+          <button type="button" className="teams-btn teams-btn--ghost" onClick={() => setShowProjectForm(true)}>
+            + Project
+          </button>
+          <button type="button" className="teams-btn teams-btn--primary" onClick={() => setShowTaskForm(true)}>
+            + Task
+          </button>
         </div>
       </div>
 
-      {/* Project filter */}
-      <div className="filter-bar">
-        <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>
+      <div className="filter-bar teams-filter-bar">
+        <button type="button" className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>
           All <span className="filter-count">{tasks.length}</span>
         </button>
         {projects.map((p) => {
           const count = tasks.filter((t) => t.project.id === p.id).length;
           return (
-            <button key={p.id} className={`filter-chip ${filter === p.id ? "active" : ""}`} onClick={() => setFilter(p.id)}>
+            <button key={p.id} type="button" className={`filter-chip ${filter === p.id ? "active" : ""}`} onClick={() => setFilter(p.id)}>
               {p.name} <span className="filter-count">{count}</span>
             </button>
           );
@@ -435,7 +436,6 @@ export const TasksPage = () => {
 
       {error && <p className="page-error">{error}</p>}
 
-      {/* Inline forms */}
       {showTaskForm && (
         <div className="inline-form-card">
           {nlMode ? (
@@ -501,10 +501,9 @@ export const TasksPage = () => {
         </div>
       )}
 
-      {/* Kanban board */}
       {!loading && (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="kanban-board">
+          <div className="kanban-board teams-planner-board">
             {STATUS_COLS.map((col) => {
               const colTasks = visible.filter((t) => t.status === col.key);
               return (

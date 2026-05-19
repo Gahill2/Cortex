@@ -1,4 +1,4 @@
-export type CalendarView = "month" | "week" | "list";
+export type CalendarView = "month" | "workweek" | "week" | "agenda";
 
 export function localDayKey(d: Date): string {
   const y = d.getFullYear();
@@ -31,10 +31,31 @@ export function endOfWeek(d: Date): Date {
   return e;
 }
 
+/** Monday 00:00 of the week containing `d`. */
+export function startOfWorkWeek(d: Date): Date {
+  const m = new Date(d);
+  m.setHours(0, 0, 0, 0);
+  const dow = m.getDay();
+  m.setDate(m.getDate() + (dow === 0 ? -6 : 1 - dow));
+  return m;
+}
+
+export function endOfWorkWeek(d: Date): Date {
+  const e = new Date(startOfWorkWeek(d));
+  e.setDate(e.getDate() + 5);
+  e.setMilliseconds(-1);
+  return e;
+}
+
 export function fetchRangeForView(view: CalendarView, anchor: Date): { start: string; end: string } {
   if (view === "week") {
     const start = startOfWeek(anchor);
     const end = endOfWeek(anchor);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }
+  if (view === "workweek") {
+    const start = startOfWorkWeek(anchor);
+    const end = endOfWorkWeek(anchor);
     return { start: start.toISOString(), end: end.toISOString() };
   }
   if (view === "month") {
@@ -50,7 +71,7 @@ export function fetchRangeForView(view: CalendarView, anchor: Date): { start: st
 
 export function shiftAnchor(view: CalendarView, anchor: Date, direction: -1 | 1): Date {
   const next = new Date(anchor);
-  if (view === "week") {
+  if (view === "week" || view === "workweek") {
     next.setDate(next.getDate() + direction * 7);
   } else {
     next.setMonth(next.getMonth() + direction);
@@ -72,5 +93,20 @@ export function periodTitle(view: CalendarView, anchor: Date): string {
     });
     return `${startFmt} – ${endFmt}`;
   }
+  if (view === "workweek") {
+    const start = startOfWorkWeek(anchor);
+    const end = endOfWorkWeek(anchor);
+    const startFmt = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endFmt = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${startFmt} – ${endFmt}`;
+  }
   return anchor.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+export const SCHEDULE_START_HOUR = 6;
+export const SCHEDULE_END_HOUR = 22;
+export const SCHEDULE_SLOT_PX = 48;
+
+export function scheduleSlotCount(): number {
+  return SCHEDULE_END_HOUR - SCHEDULE_START_HOUR;
 }

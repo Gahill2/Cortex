@@ -8,6 +8,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { usePreferences } from "./context/PreferencesContext";
 
 const STORAGE_KEY = "cortex_appearance";
 
@@ -53,19 +54,33 @@ type AppearanceContextValue = {
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
-  const [appearance, setAppearanceState] = useState<AppearanceMode>(readStoredAppearance);
+  const { settings, ready, patch } = usePreferences();
+  const [appearance, setAppearanceState] = useState<AppearanceMode>(() =>
+    ready ? settings.appearance : readStoredAppearance(),
+  );
   const [resolvedScheme, setResolvedScheme] = useState<ColorScheme>(() =>
-    typeof window !== "undefined" ? resolveScheme(readStoredAppearance()) : "light"
+    typeof window !== "undefined"
+      ? resolveScheme(ready ? settings.appearance : readStoredAppearance())
+      : "light",
   );
 
-  const setAppearance = useCallback((mode: AppearanceMode) => {
-    setAppearanceState(mode);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mode));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    setAppearanceState(settings.appearance);
+  }, [ready, settings.appearance]);
+
+  const setAppearance = useCallback(
+    (mode: AppearanceMode) => {
+      setAppearanceState(mode);
+      patch({ appearance: mode });
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mode));
+      } catch {
+        /* ignore */
+      }
+    },
+    [patch],
+  );
 
   useLayoutEffect(() => {
     document.documentElement.dataset.appearance = appearance;
@@ -88,7 +103,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ appearance, setAppearance, resolvedScheme }),
-    [appearance, setAppearance, resolvedScheme]
+    [appearance, setAppearance, resolvedScheme],
   );
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;

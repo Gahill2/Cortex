@@ -1,7 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { AppearanceProvider } from "./AppearanceProvider";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 /* Bootstrap: grid + full utilities (sm–xxl breakpoints). No reboot — keeps Cortex tokens/buttons. */
 import "bootstrap/dist/css/bootstrap-grid.min.css";
@@ -25,9 +24,7 @@ import "./styles-widget-skins.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AppearanceProvider>
-        <App />
-      </AppearanceProvider>
+      <App />
     </ErrorBoundary>
   </React.StrictMode>
 );
