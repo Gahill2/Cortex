@@ -6,6 +6,7 @@
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
+    "dev:lite": "vite --mode lite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",

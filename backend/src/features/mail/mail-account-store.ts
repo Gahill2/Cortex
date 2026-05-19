@@ -36,6 +36,23 @@ export async function listMailAccounts(userId: string): Promise<MailAccountRow[]
   }));
 }
 
+/** Resolve DB account id from stored id or connected email (AI sometimes returns email). */
+export async function resolveMailAccountId(
+  userId: string,
+  accountIdOrEmail: string
+): Promise<string | null> {
+  const key = accountIdOrEmail.trim();
+  if (!key) return null;
+
+  const byId = await prisma.mailAccount.findFirst({ where: { id: key, userId } });
+  if (byId) return byId.id;
+
+  const byEmail = await prisma.mailAccount.findFirst({
+    where: { userId, email: key.toLowerCase() }
+  });
+  return byEmail?.id ?? null;
+}
+
 export async function getMailAccountTokens(
   userId: string,
   accountId?: string

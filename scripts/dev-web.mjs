@@ -1,6 +1,8 @@
 /**
- * One command: API + Vite dev server, then print URLs and open the app in your browser.
- * Set CORTEX_OPEN_BROWSER=0 to skip auto-open.
+ * One command: API + Vite dev server, then print URLs and open Chrome (if installed).
+ *
+ * Default is **lite dev** (less RAM). Set CORTEX_DEV_FULL=1 for Prisma on every restart.
+ * See docs/dev-resources.md. Chrome only; CORTEX_OPEN_BROWSER=0 to skip.
  */
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -29,7 +31,8 @@ async function announceWhenReady() {
     console.log(`  App:     ${appUrl}`);
     console.log("  API:     http://127.0.0.1:4000/api/health");
     console.log("  Stop:    Ctrl+C");
-    console.log("  Desktop: npm run dev:desktop  (Electron shell)");
+    console.log("  Lite dev:  default (docs/dev-resources.md)");
+    console.log("  Full dev:  CORTEX_DEV_FULL=1 npm run dev");
     console.log("");
 
     openBrowser(appUrl);
@@ -39,10 +42,18 @@ async function announceWhenReady() {
 }
 
 function main() {
-  const child = spawn("npm", ["run", "dev:servers"], {
+  if (process.env.CORTEX_DEV_FULL !== "1") {
+    process.env.CORTEX_SKIP_PRISMA_DEPLOY = "1";
+    process.env.CORTEX_VITE_LITE = "1";
+  }
+
+  console.warn(
+    "[dev] Vite uses port 5173 with strictPort. If npm run dev fails, stop other Vite/node on 5173 (Task Manager or: Get-NetTCPConnection -LocalPort 5173).",
+  );
+
+  const child = spawn(process.execPath, ["scripts/dev-servers.mjs"], {
     cwd: root,
     stdio: "inherit",
-    shell: true,
     env: process.env,
   });
 

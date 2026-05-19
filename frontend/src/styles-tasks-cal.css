@@ -962,3 +962,523 @@
   font-size: 12px;
   color: var(--text-3);
 }
+
+/* ── Tasks & Calendar command center (Teams-inspired) ───────────────────── */
+.tcc-page {
+  --tcc-rail-w: 220px;
+  --tcc-detail-w: 280px;
+  max-width: none;
+  padding: 0;
+  margin: 0 calc(-1 * var(--bs-gutter-x, 0.75rem));
+  min-height: calc(100vh - 120px);
+}
+
+.tcc-shell {
+  display: flex;
+  min-height: calc(100vh - 120px);
+  background: color-mix(in srgb, var(--bg) 92%, var(--bg-2));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.tcc-rail {
+  width: var(--tcc-rail-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+}
+
+.tcc-rail-brand {
+  padding: 4px 8px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.tcc-rail-wordmark {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.tcc-rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tcc-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.tcc-rail-item:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.tcc-rail-item--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tcc-rail-icon {
+  opacity: 0.9;
+}
+
+.tcc-rail-foot {
+  margin-top: auto;
+  padding: 12px 10px 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.tcc-workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  gap: 12px;
+}
+
+.tcc-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.tcc-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.tcc-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.tcc-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tcc-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  min-width: 200px;
+  color: var(--text-3);
+}
+
+.tcc-search input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  width: 180px;
+  outline: none;
+}
+
+.tcc-header-actions .teams-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tcc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tcc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tcc-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.tcc-chip--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.tcc-body {
+  display: flex;
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.tcc-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.tcc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.tcc-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 60%, var(--surface));
+}
+
+.tcc-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tcc-card-meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.tcc-cal-schedule {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.tcc-cal-placeholder {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.tcc-cal-placeholder-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tcc-cal-placeholder-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.tcc-event--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  z-index: 2;
+}
+
+.tcc-tasks-card {
+  max-height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tcc-task-groups {
+  overflow: auto;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tcc-task-group-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+
+.tcc-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tcc-task-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+
+.tcc-task-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.tcc-task-card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.tcc-task-card--done .tcc-task-title {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+.tcc-task-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tcc-task-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tcc-task-due {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.tcc-task-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tcc-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tcc-priority--high {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+.tcc-priority--medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.tcc-priority--low {
+  background: var(--bg-3);
+  color: var(--text-3);
+}
+
+.tcc-cat--work {
+  background: rgba(91, 141, 255, 0.15);
+  color: var(--accent);
+}
+.tcc-cat--personal {
+  background: rgba(167, 139, 250, 0.15);
+  color: #c4b5fd;
+}
+.tcc-cat--school {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+.tcc-cat--fitness {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+}
+
+.tcc-detail {
+  width: var(--tcc-detail-w);
+  flex-shrink: 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tcc-detail-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.tcc-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tcc-detail-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.tcc-detail-value {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tcc-detail-muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.tcc-detail-notes {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.tcc-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tcc-stat {
+  padding: 10px 8px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.tcc-stat-num {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tcc-stat-label {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.tcc-ai-card {
+  margin-top: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.tcc-ai-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.tcc-ai-card-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+@media (max-width: 1200px) {
+  .tcc-rail {
+    display: none;
+  }
+  .tcc-main {
+    grid-template-columns: 1fr;
+  }
+  .tcc-detail {
+    width: 100%;
+  }
+  .tcc-body {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .tcc-page {
+    margin: 0;
+  }
+  .tcc-shell {
+    border-radius: 8px;
+  }
+  .tcc-workspace {
+    padding: 12px;
+  }
+  .tcc-header-actions {
+    width: 100%;
+  }
+  .tcc-search {
+    flex: 1;
+    min-width: 0;
+  }
+  .tcc-search input {
+    width: 100%;
+  }
+}

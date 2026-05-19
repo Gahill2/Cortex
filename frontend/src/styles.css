@@ -227,8 +227,18 @@ img { display: block; max-width: 100%; }
 }
 
 .cortex-route-bootstrap > .page,
-.cortex-route-bootstrap > .home-prod {
+.cortex-route-bootstrap > .home-prod,
+.cortex-route-bootstrap > .home-page {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.desktop-shell--burger .desktop-main {
+  flex: 1;
+  min-height: 0;
 }
 
 .page {

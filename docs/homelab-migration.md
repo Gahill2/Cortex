@@ -4,6 +4,8 @@ Cortex is designed so **PostgreSQL is the portable source of truth**. Applicatio
 
 Homelab stack: [`deploy/homelab/docker-compose.yml`](../deploy/homelab/docker-compose.yml).
 
+**InsForge + same DB on all Tailscale devices:** use [`deploy/tailscale-hub/`](../deploy/tailscale-hub/) and [insforge-tailscale.md](./insforge-tailscale.md) instead of Postgres-only homelab when you want the full InsForge platform and one shared database across laptops and phones.
+
 ## Principles
 
 | Topic | Approach |

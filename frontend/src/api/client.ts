@@ -8,6 +8,7 @@ const LEGACY_AUTH_TOKEN_KEY = "launchpad_token";
 const LEGACY_AUTH_USER_KEY = "launchpad_user";
 
 export const AUTH_LOGOUT_EVENT = "cortex:auth-logout";
+export const AUTH_CHANGED_EVENT = "cortex:auth-changed";
 
 /** Copy legacy Launchpad keys into Cortex keys once; remove legacy after copy. */
 export function migrateLegacyAuthStorage(): void {
@@ -89,6 +90,9 @@ export const setAuthToken = (token: string | null): void => {
     } catch {
       /* ignore */
     }
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
   }
 };
 

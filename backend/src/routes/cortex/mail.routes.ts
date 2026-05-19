@@ -31,7 +31,7 @@ const inboxQuerySchema = z.object({
     .union([z.literal("true"), z.literal("false"), z.boolean()])
     .optional()
     .transform((v) => v === true || v === "true"),
-  maxResults: z.coerce.number().int().min(1).max(100).optional().default(40),
+  maxResults: z.coerce.number().int().min(1).max(500).optional().default(100),
   q: z.string().max(500).optional()
 });
 
@@ -61,7 +61,7 @@ const cleanupApplySchema = z.object({
       })
     )
     .min(1)
-    .max(100)
+    .max(300)
 });
 
 export const cortexMailRouter = Router();

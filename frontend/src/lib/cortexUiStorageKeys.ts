@@ -5,6 +5,7 @@ import { CORTEX_HOME_HERO_STORAGE_KEY } from "../components/home/homeHeroConfig"
  * Intentionally excludes auth (`cortex_token`, `cortex_user`), MCP link fields, and integration tokens.
  */
 export const CORTEX_UI_PREFERENCE_KEYS = [
+  "cortex-canvas-state",
   "cortex_appearance",
   "cortex_wallpaper",
   "cortex_ai_theme",

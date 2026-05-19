@@ -6,6 +6,7 @@ import {
   AUTH_USER_STORAGE_KEY,
   migrateLegacyAuthStorage,
 } from "../api/client";
+import { invalidateServerSettingsCache } from "../lib/serverSettingsCache";
 import type { User } from "../types";
 
 type AuthContextValue = {
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   setAuthToken(token);
 
   const persist = (nextToken: string, nextUser: User) => {
+    invalidateServerSettingsCache();
     setToken(nextToken);
     setUser(nextUser);
     localStorage.setItem(AUTH_STORAGE_KEY, nextToken);
@@ -70,6 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
+    invalidateServerSettingsCache();
     setToken(null);
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);

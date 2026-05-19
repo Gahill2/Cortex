@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { google } from "googleapis";
+import { z } from "zod";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
@@ -21,6 +22,29 @@ export interface CalendarEvent {
   source: "google" | "microsoft";
   calendarName?: string;
   color?: string;
+  /** Provider-native event id (for updates). */
+  providerEventId: string;
+  /** Google calendar id; required for Google updates. */
+  calendarId?: string;
+  /** Microsoft linked account email when multiple mail accounts exist. */
+  accountEmail?: string;
+}
+
+const patchEventSchema = z.object({
+  start: z.string().min(1),
+  end: z.string().min(1),
+  source: z.enum(["google", "microsoft"]),
+  providerEventId: z.string().min(1),
+  calendarId: z.string().optional(),
+  accountEmail: z.string().email().optional(),
+  timeZone: z.string().optional(),
+  allDay: z.boolean().optional(),
+});
+
+function clientTimeZone(tz?: string): string {
+  const trimmed = tz?.trim();
+  if (trimmed) return trimmed;
+  return "UTC";
 }
 
 type FetchResult = { events: CalendarEvent[]; warnings: string[] };
@@ -69,8 +93,9 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
         });
         for (const ev of evRes.data.items ?? []) {
           const allDay = Boolean(ev.start?.date && !ev.start.dateTime);
+          const providerEventId = ev.id ?? "";
           events.push({
-            id: `google_${ev.id}`,
+            id: `google_${calId}_${providerEventId}`,
             title: ev.summary ?? "(No title)",
             start: ev.start?.dateTime ?? ev.start?.date ?? "",
             end:   ev.end?.dateTime   ?? ev.end?.date   ?? "",
@@ -80,6 +105,8 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
             source: "google",
             calendarName: calendar.summary ?? undefined,
             color,
+            providerEventId,
+            calendarId: calId,
           });
         }
       } catch (err) {
@@ -140,8 +167,9 @@ async function fetchMicrosoftEvents(userId: string, email: string, timeMin: stri
         const start = ev.start as { dateTime: string; timeZone: string };
         const end   = ev.end   as { dateTime: string; timeZone: string };
         const allDay = Boolean((ev as Record<string, unknown>).isAllDay);
+        const providerEventId = ev.id as string;
         events.push({
-          id: `microsoft_${ev.id as string}`,
+          id: `microsoft_${providerEventId}`,
           title: (ev.subject as string) ?? "(No title)",
           start: start.dateTime,
           end:   end.dateTime,
@@ -151,6 +179,8 @@ async function fetchMicrosoftEvents(userId: string, email: string, timeMin: stri
           source: "microsoft",
           calendarName: cal.name,
           color: undefined,
+          providerEventId,
+          accountEmail: email,
         });
       }
     }
@@ -166,7 +196,122 @@ async function fetchMicrosoftEvents(userId: string, email: string, timeMin: stri
   }
 }
 
+// ── Updates ────────────────────────────────────────────────────────────────────
+
+async function patchGoogleEvent(
+  userId: string,
+  calendarId: string,
+  eventId: string,
+  start: string,
+  end: string,
+  allDay: boolean,
+  timeZone: string
+): Promise<void> {
+  const creds = await getGoogleCredentials(userId);
+  if (!creds?.access_token && !creds?.refresh_token) {
+    throw new HttpError(403, "Google Calendar is not connected");
+  }
+
+  const auth = createOAuth2Client();
+  auth.setCredentials(creds);
+  const cal = google.calendar({ version: "v3", auth });
+
+  const requestBody = allDay
+    ? {
+        start: { date: start.slice(0, 10) },
+        end: { date: end.slice(0, 10) },
+      }
+    : {
+        start: { dateTime: start, timeZone },
+        end: { dateTime: end, timeZone },
+      };
+
+  await cal.events.patch({
+    calendarId,
+    eventId,
+    requestBody,
+  });
+}
+
+async function patchMicrosoftEvent(
+  userId: string,
+  accountEmail: string | undefined,
+  eventId: string,
+  start: string,
+  end: string,
+  allDay: boolean,
+  timeZone: string
+): Promise<void> {
+  const accounts = await prisma.mailAccount.findMany({ where: { userId, provider: "microsoft" } });
+  const account = accountEmail
+    ? accounts.find((a) => a.email.toLowerCase() === accountEmail.toLowerCase())
+    : accounts[0];
+  if (!account) {
+    throw new HttpError(403, "Microsoft calendar account is not connected");
+  }
+
+  const token = await getValidMicrosoftToken(userId, account.email);
+  const body = allDay
+    ? {
+        isAllDay: true,
+        start: { dateTime: start.slice(0, 10), timeZone },
+        end: { dateTime: end.slice(0, 10), timeZone },
+      }
+    : {
+        isAllDay: false,
+        start: { dateTime: start, timeZone },
+        end: { dateTime: end, timeZone },
+      };
+
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Prefer: `outlook.timezone="${timeZone}"`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new HttpError(res.status === 403 ? 403 : 502, `Microsoft Calendar update failed: ${text.slice(0, 200)}`);
+  }
+}
+
 // ── Routes ─────────────────────────────────────────────────────────────────────
+
+// PATCH /calendar/events — move or resize an event
+cortexCalendarRouter.patch("/events", requireAuth, async (req, res) => {
+  const userId = req.auth!.userId;
+  const parsed = patchEventSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues.map((i) => i.message).join("; "));
+  }
+
+  const { start, end, source, providerEventId, calendarId, accountEmail, timeZone, allDay } = parsed.data;
+  const tz = clientTimeZone(timeZone);
+  const isAllDay = allDay ?? false;
+
+  if (new Date(end).getTime() <= new Date(start).getTime()) {
+    throw new HttpError(400, "End must be after start");
+  }
+
+  try {
+    if (source === "google") {
+      if (!calendarId) {
+        throw new HttpError(400, "calendarId is required for Google events");
+      }
+      await patchGoogleEvent(userId, calendarId, providerEventId, start, end, isAllDay, tz);
+    } else {
+      await patchMicrosoftEvent(userId, accountEmail, providerEventId, start, end, isAllDay, tz);
+    }
+    sendSuccess(res, { ok: true, start, end });
+  } catch (e) {
+    if (e instanceof HttpError) throw e;
+    throw new HttpError(502, `Calendar update failed: ${e instanceof Error ? e.message : e}`);
+  }
+});
 
 // GET /calendar/events?start=ISO&end=ISO
 cortexCalendarRouter.get("/events", requireAuth, async (req, res) => {

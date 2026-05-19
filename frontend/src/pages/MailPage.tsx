@@ -76,7 +76,16 @@ interface CleanupSuggestion {
   action: "delete" | "archive" | "keep";
   reason: string;
   confidence: "high" | "medium" | "low";
+  applyError?: string;
 }
+
+type CleanupApplySummary = {
+  deleted: number;
+  archived: number;
+  failed: number;
+  attempted: number;
+  succeeded: number;
+};
 
 function apiErrorMessage(err: unknown): string {
   const ax = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
@@ -312,6 +321,10 @@ export const MailPage = () => {
   const [cleanupApplying, setCleanupApplying] = useState(false);
   const [cleanupSuggestions, setCleanupSuggestions] = useState<CleanupSuggestion[]>([]);
   const [cleanupSelected, setCleanupSelected] = useState<Set<string>>(new Set());
+  const [cleanupSummary, setCleanupSummary] = useState<CleanupApplySummary | null>(null);
+  const [inboxLimit, setInboxLimit] = useState(100);
+  const INBOX_LIMIT_MAX = 500;
+  const INBOX_LIMIT_STEP = 100;
 
   // ── Load accounts ──────────────────────────────────────────────────────────
   const loadAccounts = useCallback(async () => {
@@ -335,24 +348,36 @@ export const MailPage = () => {
   }, []);
 
   // ── Load inbox ─────────────────────────────────────────────────────────────
-  const loadInbox = useCallback(async (accountId: string): Promise<MailMessage[]> => {
-    setLoading(true);
-    setSelectedMessage(null);
-    setFullMessage(null);
-    try {
-      const params: Record<string, string | number> = { maxResults: 40 };
-      if (accountId === "all") params.unified = "true";
-      else params.accountId = accountId;
-      const r = await api.get<{ data?: { messages: MailMessage[] } }>("/mail/inbox", { params });
-      const msgs = r.data?.data?.messages ?? [];
-      setAllMessages(msgs);
-      setMessages(msgs);
-      return msgs;
-    } catch {
-      return [];
-    }
-    finally { setLoading(false); }
-  }, []);
+  const loadInbox = useCallback(
+    async (accountId: string, limit = inboxLimit): Promise<MailMessage[]> => {
+      setLoading(true);
+      setSelectedMessage(null);
+      setFullMessage(null);
+      try {
+        const params: Record<string, string | number> = {
+          maxResults: Math.min(limit, INBOX_LIMIT_MAX),
+        };
+        if (accountId === "all") params.unified = "true";
+        else params.accountId = accountId;
+        const r = await api.get<{ data?: { messages: MailMessage[] } }>("/mail/inbox", { params });
+        const msgs = r.data?.data?.messages ?? [];
+        setAllMessages(msgs);
+        setMessages(msgs);
+        return msgs;
+      } catch {
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [inboxLimit]
+  );
+
+  const loadMoreInbox = useCallback(() => {
+    const next = Math.min(inboxLimit + INBOX_LIMIT_STEP, INBOX_LIMIT_MAX);
+    setInboxLimit(next);
+    void loadInbox(selectedAccountId, next);
+  }, [inboxLimit, loadInbox, selectedAccountId]);
 
   useEffect(() => {
     const err = sessionStorage.getItem("cortex_oauth_error");
@@ -427,7 +452,8 @@ export const MailPage = () => {
   const selectAccount = (id: string) => {
     setSelectedAccountId(id);
     setSelectedFolder(null);
-    void loadInbox(id);
+    setInboxLimit(100);
+    void loadInbox(id, 100);
   };
 
   const selectFolder = (cat: MailCat | null) => {
@@ -489,12 +515,13 @@ export const MailPage = () => {
         data?: { suggestions: CleanupSuggestion[]; scanned: number; mode: string };
       }>("/mail/cleanup/scan", {
         accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
-        maxMessages: 300,
+        maxMessages: 500,
         query: "in:inbox",
       });
       const suggestions = (r.data?.data?.suggestions ?? []).filter((s) => s.action !== "keep");
       setCleanupSuggestions(suggestions);
       setCleanupSelected(new Set(suggestions.map(cleanupKey)));
+      setCleanupSummary(null);
       setCleanupOpen(true);
       pushToast({
         title: "Backlog scan complete",
@@ -522,21 +549,90 @@ export const MailPage = () => {
     }
     setCleanupApplying(true);
     try {
-      const r = await api.post<{ data?: { deleted: number; archived: number; failed: number; errors?: string[] } }>(
-        "/mail/cleanup/apply",
-        { items }
+      type ApplyPayload = {
+        deleted: number;
+        archived: number;
+        failed: number;
+        errors?: string[];
+        results?: Array<{
+          accountId: string;
+          messageId: string;
+          action: "delete" | "archive";
+          ok: boolean;
+          error?: string;
+        }>;
+      };
+
+      const CHUNK = 100;
+      let deleted = 0;
+      let archived = 0;
+      let failed = 0;
+      const errors: string[] = [];
+      const results: NonNullable<ApplyPayload["results"]> = [];
+
+      for (let i = 0; i < items.length; i += CHUNK) {
+        const chunk = items.slice(i, i + CHUNK);
+        const r = await api.post<{ data?: ApplyPayload }>("/mail/cleanup/apply", { items: chunk });
+        const payload = r.data?.data;
+        deleted += payload?.deleted ?? 0;
+        archived += payload?.archived ?? 0;
+        failed += payload?.failed ?? 0;
+        for (const e of payload?.errors ?? []) {
+          if (!errors.includes(e)) errors.push(e);
+        }
+        results.push(...(payload?.results ?? []));
+      }
+      const resultByKey = new Map<string, (typeof results)[number]>(
+        results.map((row) => [`${row.accountId}:${row.messageId}`, row])
       );
-      const { deleted = 0, archived = 0, failed = 0, errors = [] } = r.data?.data ?? {};
-      const applied = new Set(items.map((i) => `${i.accountId}:${i.messageId}`));
-      setCleanupSuggestions((prev) => prev.filter((s) => !applied.has(cleanupKey(s))));
-      setCleanupSelected(new Set());
-      await loadInbox(selectedAccountId);
-      const errHint = errors[0] ? ` ${errors[0]}` : "";
-      pushToast({
-        title: "Cleanup applied",
-        message: `Deleted ${deleted}, archived ${archived}${failed ? `; ${failed} failed.${errHint}` : "."}`,
-        tone: failed ? "neutral" : "success",
+      const succeeded = results.filter((row) => row.ok).length;
+
+      setCleanupSummary({
+        deleted,
+        archived,
+        failed,
+        attempted: items.length,
+        succeeded,
       });
+
+      const remaining: CleanupSuggestion[] = [];
+      const failedKeys = new Set<string>();
+      for (const s of cleanupSuggestions) {
+        const key = cleanupKey(s);
+        if (!cleanupSelected.has(key) || s.action === "keep") {
+          remaining.push(s);
+          continue;
+        }
+        const row = resultByKey.get(key);
+        if (row?.ok) continue;
+        const applyError = row?.error ?? errors[0];
+        remaining.push({ ...s, applyError });
+        failedKeys.add(key);
+      }
+      setCleanupSuggestions(remaining);
+      setCleanupSelected(failedKeys);
+      setCleanupOpen(true);
+      await loadInbox(selectedAccountId);
+
+      const errHint = errors[0] ? ` ${errors[0]}` : "";
+      if (failed > 0 && succeeded === 0) {
+        pushToast({
+          title: "Cleanup failed",
+          message: `None of ${items.length} message(s) were updated.${errHint}`,
+          tone: "error",
+        });
+      } else {
+        pushToast({
+          title: failed > 0 ? "Cleanup partly applied" : "Cleanup applied",
+          message:
+            succeeded > 0
+              ? `${succeeded} removed from inbox (${deleted} deleted, ${archived} archived).${
+                  failed > 0 ? ` ${failed} still listed below.${errHint}` : ""
+                }`
+              : `No changes were made.${errHint}`,
+          tone: failed > 0 ? "neutral" : "success",
+        });
+      }
     } catch (err: unknown) {
       pushToast({ title: "Cleanup failed", message: apiErrorMessage(err), tone: "error" });
     } finally {
@@ -672,10 +768,10 @@ export const MailPage = () => {
             className="btn-ghost btn-sm mail-toolbar-btn"
             onClick={() => void scanBacklog()}
             disabled={cleanupScanning || accounts.length === 0}
-            title="Scan inbox backlog and suggest messages to delete or archive"
+            title="Scan inbox, review suggestions, then Apply to change your real mailbox"
           >
             <Trash2 size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
-            {cleanupScanning ? "Scanning…" : "Clean backlog"}
+            {cleanupScanning ? "Scanning…" : "Scan backlog"}
           </button>
           <button
             className="btn-ghost btn-sm mail-toolbar-btn"
@@ -701,34 +797,72 @@ export const MailPage = () => {
         </div>
       </div>
 
-      {cleanupOpen && cleanupSuggestions.length > 0 && (
+      {cleanupOpen && (cleanupSuggestions.length > 0 || cleanupSummary) && (
         <section className="mail-cleanup-panel" aria-label="Backlog cleanup suggestions">
+          {cleanupSummary && (
+            <div
+              className={`mail-cleanup-summary${cleanupSummary.failed > 0 ? " mail-cleanup-summary--warn" : " mail-cleanup-summary--ok"}`}
+              role="status"
+            >
+              {cleanupSummary.succeeded > 0 ? (
+                <p>
+                  <strong>{cleanupSummary.succeeded}</strong> of {cleanupSummary.attempted} removed from your mailbox
+                  ({cleanupSummary.deleted} deleted, {cleanupSummary.archived} archived).
+                </p>
+              ) : (
+                <p>No messages were updated in your mailbox.</p>
+              )}
+              {cleanupSummary.failed > 0 && (
+                <p className="mail-cleanup-summary-fail">
+                  {cleanupSummary.failed} could not be applied
+                  {cleanupSuggestions.length > 0 ? " — fix or retry the items below." : "."}
+                </p>
+              )}
+            </div>
+          )}
           <div className="mail-cleanup-header">
             <div>
-              <h2 className="mail-cleanup-title">Suggested cleanup</h2>
+              <h2 className="mail-cleanup-title">
+                {cleanupSuggestions.length > 0 ? "Suggested cleanup" : "Cleanup complete"}
+              </h2>
               <p className="mail-cleanup-sub">
-                These actions apply in Gmail or Outlook — review before confirming.
+                {cleanupSuggestions.length > 0
+                  ? "Scan only lists suggestions — click Apply to delete or archive in Gmail/Outlook."
+                  : "All selected messages were processed. Scan again for more suggestions."}
               </p>
             </div>
             <div className="mail-cleanup-actions">
-              <button type="button" className="btn-ghost btn-sm" onClick={() => setCleanupOpen(false)}>
-                Dismiss
-              </button>
               <button
                 type="button"
-                className="btn-primary btn-sm"
-                disabled={cleanupApplying || cleanupSelected.size === 0}
-                onClick={() => void applyCleanup()}
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  setCleanupOpen(false);
+                  setCleanupSummary(null);
+                }}
               >
-                {cleanupApplying ? "Applying…" : `Apply (${cleanupSelected.size})`}
+                Dismiss
               </button>
+              {cleanupSuggestions.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  disabled={cleanupApplying || cleanupSelected.size === 0}
+                  onClick={() => void applyCleanup()}
+                >
+                  {cleanupApplying ? "Applying…" : `Apply (${cleanupSelected.size})`}
+                </button>
+              )}
             </div>
           </div>
-          <ul className="mail-cleanup-list">
+          {cleanupSuggestions.length > 0 && (
+            <ul className="mail-cleanup-list">
             {cleanupSuggestions.map((s) => {
               const key = cleanupKey(s);
               return (
-                <li key={key} className="mail-cleanup-item">
+                <li
+                  key={key}
+                  className={`mail-cleanup-item${s.applyError ? " mail-cleanup-item--failed" : ""}`}
+                >
                   <label className="mail-cleanup-row">
                     <input
                       type="checkbox"
@@ -741,12 +875,18 @@ export const MailPage = () => {
                       <span className="mail-cleanup-reason">
                         {s.action === "delete" ? "Delete" : "Archive"} — {s.reason}
                       </span>
+                      {s.applyError && (
+                        <span className="mail-cleanup-apply-error" role="alert">
+                          Failed: {s.applyError}
+                        </span>
+                      )}
                     </span>
                   </label>
                 </li>
               );
             })}
           </ul>
+          )}
         </section>
       )}
 
@@ -927,6 +1067,13 @@ export const MailPage = () => {
                 </div>
               );
             })
+          )}
+          {!loading && messages.length > 0 && inboxLimit < INBOX_LIMIT_MAX && (
+            <div className="mail-load-more">
+              <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={loadMoreInbox}>
+                Load more ({inboxLimit} of up to {INBOX_LIMIT_MAX})
+              </button>
+            </div>
           )}
         </div>
 

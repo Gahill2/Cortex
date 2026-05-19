@@ -1,0 +1,8 @@
+{
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "one-at-a-time",
+  "shellPath": "C:\\Program Files\\Git\\bin\\bash.exe",
+  "packages": [
+    "npm:pi-mcp-adapter"
+  ]
+}

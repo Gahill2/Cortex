@@ -1,6 +1,9 @@
+# Root compose — optional services only. App Postgres runs via InsForge hub (see docs/insforge-tailscale.md).
+#
+#   npm run hub:up          # Postgres + InsForge (+ optional Cortex API/web) on :5432, :7130, …
+#   docker compose up -d n8n   # automation only
+
 services:
-  # Self-hosted n8n — automation layer for Cortex (Spotify/Gmail/Notion/Firestore flows)
-  # UI: http://localhost:5678  |  docs: docs/n8n-setup.md
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: cortex-n8n
@@ -18,22 +21,7 @@ services:
     volumes:
       - cortex_n8n_data:/home/node/.n8n
     extra_hosts:
-      # Lets n8n HTTP Request nodes call Cortex API on the Windows/Mac host
       - "host.docker.internal:host-gateway"
 
-  postgres:
-    image: postgres:16
-    container_name: launchpad-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: launchpad
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - launchpad_pg_data:/var/lib/postgresql/data
-
 volumes:
-  launchpad_pg_data:
   cortex_n8n_data:

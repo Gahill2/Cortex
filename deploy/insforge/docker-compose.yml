@@ -1,0 +1,18 @@
+# Cortex + InsForge — full InsForge platform with a dedicated `cortex` database.
+#
+# Prerequisites:
+#   npm run insforge:sync   # clones github.com/InsForge/InsForge → vendor/insforge
+#
+# Usage:
+#   cp deploy/insforge/.env.example deploy/insforge/.env
+#   npm run insforge:up
+#
+# Cortex backend:
+#   DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/cortex
+
+name: cortex-insforge
+
+include:
+  - path: ../../vendor/insforge/docker-compose.prod.yml
+    env_file:
+      - .env

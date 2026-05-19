@@ -65,7 +65,7 @@ app.use(
   cortexBillingWebhookRouter
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 
 app.use("/api", cortexRouter);
 app.use(notFoundHandler);

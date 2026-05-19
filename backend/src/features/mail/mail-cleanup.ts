@@ -6,8 +6,39 @@ import {
   patchHubMessage,
   type HubMessage
 } from "./mail-hub.js";
-import { listMailAccounts } from "./mail-account-store.js";
+import { listMailAccounts, resolveMailAccountId } from "./mail-account-store.js";
 import { prisma } from "../../db/prisma.js";
+
+function matchMessageFromAiRow(
+  row: Record<string, unknown>,
+  messages: HubMessage[],
+  sample: HubMessage[]
+): HubMessage | null {
+  const rawId = String(row.id ?? row.messageId ?? "").trim();
+  let accountId = String(row.accountId ?? row.account_id ?? "").trim();
+
+  if (/^\d+$/.test(rawId)) {
+    const idx = parseInt(rawId, 10) - 1;
+    if (idx >= 0 && idx < sample.length) return sample[idx];
+  }
+
+  if (rawId) {
+    if (accountId) {
+      const exact = messages.find((m) => m.id === rawId && m.accountId === accountId);
+      if (exact) return exact;
+      if (accountId.includes("@")) {
+        const byEmail = messages.find(
+          (m) => m.id === rawId && m.accountEmail.toLowerCase() === accountId.toLowerCase()
+        );
+        if (byEmail) return byEmail;
+      }
+    }
+    const byId = messages.find((m) => m.id === rawId);
+    if (byId) return byId;
+  }
+
+  return null;
+}
 
 export type CleanupSuggestion = {
   messageId: string;
@@ -114,14 +145,15 @@ ${emailList}`;
     const byKey = new Map<string, CleanupSuggestion>();
     for (const row of parsed) {
       const r = row as Record<string, unknown>;
-      const id = r.id != null ? String(r.id) : "";
-      const accountId = r.accountId != null ? String(r.accountId) : "";
       const actionRaw = r.action != null ? String(r.action) : "keep";
       const action =
         actionRaw === "delete" || actionRaw === "archive" || actionRaw === "keep" ? actionRaw : "keep";
-      if (!id || !accountId || action === "keep") continue;
-      const src = messages.find((m) => m.id === id && m.accountId === accountId);
+      if (action === "keep") continue;
+
+      const src = matchMessageFromAiRow(r, messages, sample);
       if (!src) continue;
+      const id = src.id;
+      const accountId = src.accountId;
       const confRaw = r.confidence != null ? String(r.confidence) : "medium";
       const confidence =
         confRaw === "high" || confRaw === "medium" || confRaw === "low" ? confRaw : "medium";
@@ -194,41 +226,63 @@ export async function applyMailboxOrganize(
   return { archived, markedRead: 0, categorized: total, failed };
 }
 
+export type CleanupApplyItemResult = {
+  accountId: string;
+  messageId: string;
+  action: "delete" | "archive";
+  ok: boolean;
+  error?: string;
+};
+
 export async function applyCleanupActions(
   userId: string,
   items: Array<{ accountId: string; messageId: string; action: "delete" | "archive" }>
-): Promise<{ deleted: number; archived: number; failed: number; errors: string[] }> {
-  const toDelete = items.filter((i) => i.action === "delete");
-  const toArchive = items.filter((i) => i.action === "archive");
-
+): Promise<{
+  deleted: number;
+  archived: number;
+  failed: number;
+  errors: string[];
+  results: CleanupApplyItemResult[];
+}> {
   let deleted = 0;
   let archived = 0;
   let failed = 0;
   const errors: string[] = [];
+  const results: CleanupApplyItemResult[] = [];
 
-  if (toDelete.length) {
-    const r = await deleteHubMessages(
-      userId,
-      toDelete.map((i) => ({ accountId: i.accountId, messageId: i.messageId }))
-    );
-    deleted = r.deleted;
-    failed += r.failed;
-    if (r.failed > 0) {
-      errors.push(`${r.failed} message(s) could not be deleted (check mail permissions).`);
-    }
-  }
-
-  for (const item of toArchive) {
+  for (const item of items) {
     try {
-      await patchHubMessage(userId, item.accountId, item.messageId, { archived: true });
-      archived++;
+      const accountId = (await resolveMailAccountId(userId, item.accountId)) ?? item.accountId;
+      const normalized = { ...item, accountId };
+
+      if (item.action === "delete") {
+        const r = await deleteHubMessages(userId, [
+          { accountId: normalized.accountId, messageId: normalized.messageId },
+        ]);
+        if (r.deleted > 0) {
+          deleted++;
+          results.push({ ...normalized, ok: true });
+        } else {
+          failed++;
+          const err =
+            r.lastError ??
+            "Could not delete — reconnect Gmail/Outlook with mail permissions (gmail.modify).";
+          if (!errors.includes(err)) errors.push(err);
+          results.push({ ...normalized, ok: false, error: err });
+        }
+      } else {
+        await patchHubMessage(userId, normalized.accountId, normalized.messageId, { archived: true });
+        archived++;
+        results.push({ ...normalized, ok: true });
+      }
     } catch (err) {
       failed++;
       const msg = err instanceof Error ? err.message : String(err);
       if (!errors.includes(msg)) errors.push(msg);
-      console.warn("[mail] cleanup archive failed", item.accountId, item.messageId, err);
+      console.warn("[mail] cleanup apply failed", item.accountId, item.messageId, err);
+      results.push({ ...item, ok: false, error: msg });
     }
   }
 
-  return { deleted, archived, failed, errors };
+  return { deleted, archived, failed, errors, results };
 }

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { Tab } from "../App";
+import type { Tab } from "../tab";
 import { CORTEX_MOBILE_DRAWER_NAV } from "../navigation";
 import { NavIcon } from "./NavIcon";
 import { CortexBrand } from "./brand/CortexBrand";

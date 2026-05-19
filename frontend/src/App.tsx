@@ -15,12 +15,13 @@ import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/cl
 import { useWallpaper } from "./hooks/useWallpaper";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { TAB_SCREEN_TITLES } from "./navigation";
+import type { Tab } from "./tab";
+import { TasksCalendarPage } from "./pages/TasksCalendarPage";
+
+export type { Tab } from "./tab";
 
 const HomePage = lazy(() =>
   import("./pages/HomePage").then((m) => ({ default: m.HomePage }))
-);
-const TasksPage = lazy(() =>
-  import("./pages/TasksPage").then((m) => ({ default: m.TasksPage }))
 );
 const AIPage = lazy(() => import("./pages/AIPage").then((m) => ({ default: m.AIPage })));
 const SettingsPage = lazy(() =>
@@ -32,22 +33,9 @@ const MailPage = lazy(() =>
 const SpotifyPage = lazy(() =>
   import("./pages/SpotifyPage").then((m) => ({ default: m.SpotifyPage }))
 );
-const CalendarPage = lazy(() =>
-  import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage }))
-);
 const NotesPage = lazy(() =>
   import("./pages/NotesPage").then((m) => ({ default: m.NotesPage }))
 );
-export type Tab =
-  | "home"
-  | "tasks"
-  | "ai"
-  | "notes"
-  | "settings"
-  | "spotify"
-  | "mail"
-  | "calendar";
-
 /** Renderer idle lock — must match server expectations for `/auth/lock` */
 const IDLE_LOCK_MS = 15 * 60 * 1000;
 
@@ -423,33 +411,36 @@ export default function App() {
 
         <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
           <div className="container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap cortex-animate-in">
-            <Suspense fallback={<PageLoading />}>
-              {tab === "home" && <HomePage onNavigate={goTab} />}
-              {tab === "tasks" && <TasksPage />}
-              {tab === "ai" && <AIPage />}
-              {tab === "notes" && <NotesPage />}
-              {tab === "settings" && (
-                <SettingsPage
-                  onLogout={() => {
-                    setAuthToken(null);
-                    setToken(null);
-                    setTab("home");
-                  }}
-                  onLockSession={async () => {
-                    try {
-                      await api.post("/auth/lock", { lockReason: "manual" });
-                    } catch {
-                      /* still show gate */
-                    }
-                    setPinGateReason("manual");
-                    setSessionUnlocked(false);
-                  }}
-                />
-              )}
-              {tab === "mail" && <MailPage />}
-              {tab === "spotify" && <SpotifyPage />}
-              {tab === "calendar" && <CalendarPage />}
-            </Suspense>
+            {(tab === "tasks" || tab === "calendar") && (
+              <TasksCalendarPage activeTab={tab} onNavigate={goTab} />
+            )}
+            {tab !== "tasks" && tab !== "calendar" && (
+              <Suspense fallback={<PageLoading />}>
+                {tab === "home" && <HomePage onNavigate={goTab} />}
+                {tab === "ai" && <AIPage />}
+                {tab === "notes" && <NotesPage />}
+                {tab === "settings" && (
+                  <SettingsPage
+                    onLogout={() => {
+                      setAuthToken(null);
+                      setToken(null);
+                      setTab("home");
+                    }}
+                    onLockSession={async () => {
+                      try {
+                        await api.post("/auth/lock", { lockReason: "manual" });
+                      } catch {
+                        /* still show gate */
+                      }
+                      setPinGateReason("manual");
+                      setSessionUnlocked(false);
+                    }}
+                  />
+                )}
+                {tab === "mail" && <MailPage />}
+                {tab === "spotify" && <SpotifyPage />}
+              </Suspense>
+            )}
           </div>
         </main>
         {isMobileLayout && <MobileTabBar active={tab} onChange={goTab} />}

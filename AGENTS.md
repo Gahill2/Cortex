@@ -18,6 +18,7 @@ Key routing rules:
 - Ship/deploy/PR → invoke /ship or /land-and-deploy
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
+- Terminal coding agent (Pi CLI on this repo) → `npm run pi:install` then `npm run pi`; see `docs/pi-coding-agent.md`
 
 ## OpenClaw as primary host
 
@@ -57,13 +58,23 @@ Use this when several agents (or parallel chats) touch the same codebase so work
 
 | Service | Port | Start command |
 |---------|------|---------------|
-| PostgreSQL 16 | 5432 | `docker compose up -d postgres` (from repo root) |
+| **Postgres (InsForge hub)** | 5432 | On hub: `npm run hub:up` (or postgres-only step in `docs/insforge-tailscale.md`) — DB name `launchpad` |
+| InsForge API / Auth | 7130 / 7131 | Same hub stack after full `npm run hub:up` |
+| Cortex API / Web (optional on hub) | 4000 / 8080 | `deploy/tailscale-hub/` — see `docs/insforge-tailscale.md` |
 | Backend API (Express) | 4000 | `npm run dev:backend` (from repo root) |
 | Frontend (Vite/React) | 5173 | `npm run dev:frontend` (from repo root) |
 
+### RAM-conscious local dev
+
+Default `npm run dev` is **lite mode** (skips Prisma on every restart, lighter Vite). See [docs/dev-resources.md](docs/dev-resources.md). After schema changes: `npm run db:migrate`. Full stack: `npm run dev:full`.
+
+### Browser / Cursor IDE
+
+Do **not** open the Cortex dev UI in **Cursor Simple Browser** (port preview) — it can crash the IDE on heavy pages (Tasks & Calendar, canvas home). Use **Chrome**: `npm run open` or `http://localhost:5173` in an external browser. See `docs/dev-resources.md`.
+
 ### Running the backend
 
-The backend's `prisma-deploy.mjs` script (runs as part of `npm run dev`) requires `DATABASE_URL` in the shell environment — it does **not** load `.env` itself. Use:
+`npm run dev:backend` / lite uses `backend/.env` via dotenv. For Cloud Agent shells without auto-load, use:
 
 ```bash
 cd /workspace/backend

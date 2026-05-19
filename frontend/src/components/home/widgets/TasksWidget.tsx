@@ -30,7 +30,11 @@ export function TasksWidget({
   return (
     <div
       className="widget widget--tasks"
-      onClick={() => onNavigate("tasks")}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onNavigate("tasks");
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

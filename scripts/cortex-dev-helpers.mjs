@@ -2,6 +2,7 @@
  * Shared probes for Cortex dev servers (backend health + Vite on 5173–5190).
  */
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import http from "node:http";
 
 export function httpOk(url) {
@@ -84,18 +85,47 @@ export async function waitFor(fn, label, timeoutMs = 300_000) {
   }
 }
 
+function resolveChromeExecutable() {
+  const fromEnv = process.env.CORTEX_CHROME_PATH?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+
+  const candidates = [];
+  if (process.platform === "win32") {
+    const pf = process.env.ProgramFiles;
+    const pfx86 = process.env["ProgramFiles(x86)"];
+    const local = process.env.LOCALAPPDATA;
+    if (pf) candidates.push(`${pf}\\Google\\Chrome\\Application\\chrome.exe`);
+    if (pfx86) candidates.push(`${pfx86}\\Google\\Chrome\\Application\\chrome.exe`);
+    if (local) candidates.push(`${local}\\Google\\Chrome\\Application\\chrome.exe`);
+  } else if (process.platform === "darwin") {
+    candidates.push("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
+  } else {
+    candidates.push("/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium-browser");
+  }
+  return candidates.find((p) => p && existsSync(p)) ?? null;
+}
+
+/**
+ * Open Cortex in Google Chrome only (never the OS default browser).
+ * Set CORTEX_OPEN_BROWSER=0 to skip. Set CORTEX_CHROME_PATH if Chrome is non-standard.
+ */
 export function openBrowser(url) {
+  openCortexInChrome(url);
+}
+
+export function openCortexInChrome(url) {
   if (process.env.CORTEX_OPEN_BROWSER === "0") return;
-  const platform = process.platform;
-  if (platform === "win32") {
-    spawnDetached("cmd", ["/c", "start", "", url]);
+
+  const chrome = resolveChromeExecutable();
+  if (!chrome) {
+    console.warn(
+      "[cortex] Google Chrome not found — install Chrome or set CORTEX_CHROME_PATH to chrome.exe"
+    );
+    console.warn(`[cortex] Open manually: ${url}`);
     return;
   }
-  if (platform === "darwin") {
-    spawnDetached("open", [url]);
-    return;
-  }
-  spawnDetached("xdg-open", [url]);
+
+  spawnDetached(chrome, [url]);
 }
 
 function spawnDetached(cmd, args) {

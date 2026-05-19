@@ -1,4 +1,4 @@
-import type { Tab } from "../App";
+import type { Tab } from "../tab";
 import { CORTEX_MOBILE_TAB_NAV } from "../navigation";
 import { NavIcon } from "./NavIcon";
 

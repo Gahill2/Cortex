@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { Tab } from "../App";
+import type { Tab } from "../tab";
 import { TAB_SCREEN_TITLES } from "../navigation";
 import { cortexIconSrc } from "./brand/assets";
 

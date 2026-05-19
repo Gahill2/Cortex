@@ -4,7 +4,8 @@
   "description": "Launchpad API server",
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "node scripts/prisma-deploy.mjs && tsx watch src/server.ts",
+    "dev": "node scripts/dev-start.mjs",
+    "dev:lite": "tsx watch src/server.ts",
     "build": "npx prisma generate && npx -p typescript tsc -p tsconfig.json",
     "start": "node scripts/railway-start.mjs",
     "lint": "tsc --noEmit",

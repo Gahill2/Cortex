@@ -1,7 +1,6 @@
 import { prisma } from "../../db/prisma.js";
 import {
   getGmailMessage,
-  listInbox,
   listInboxUpTo,
   modifyMessageLabels,
   trashGmailMessage,
@@ -14,7 +13,12 @@ import {
   listOutlookInbox,
   markOutlookRead
 } from "../microsoft/microsoft-service.js";
-import { getMailAccountTokens, listMailAccounts, type MailAccountRow } from "./mail-account-store.js";
+import {
+  getMailAccountTokens,
+  listMailAccounts,
+  resolveMailAccountId,
+  type MailAccountRow
+} from "./mail-account-store.js";
 
 export type HubMessage = {
   id: string;
@@ -75,7 +79,7 @@ export async function listUnifiedInbox(
     if (account.provider === "gmail") {
       const tok = await getMailAccountTokens(userId, account.id);
       if (!tok) continue;
-      const { messages } = await listInbox(userId, perAccount, q, tok.tokens);
+      const { messages } = await listInboxUpTo(userId, perAccount, q, tok.tokens);
       merged.push(...messages.map((m) => toHub(account, m)));
     } else if (account.provider === "microsoft") {
       try {
@@ -129,7 +133,7 @@ export async function listAccountInbox(
   if (account.provider === "gmail") {
     const tok = await getMailAccountTokens(userId, account.id);
     if (!tok) return { connected: false, messages: [], accountId };
-    const { connected, messages } = await listInbox(userId, maxResults, q, tok.tokens);
+    const { connected, messages } = await listInboxUpTo(userId, maxResults, q, tok.tokens);
     return {
       connected,
       accountId,
@@ -226,7 +230,8 @@ export async function patchHubMessage(
   messageId: string,
   patch: { read?: boolean; archived?: boolean }
 ): Promise<void> {
-  const account = await accountRow(userId, accountId);
+  const resolvedId = (await resolveMailAccountId(userId, accountId)) ?? accountId;
+  const account = await accountRow(userId, resolvedId);
   if (!account) throw new Error("Account not found");
 
   if (account.provider === "gmail") {
@@ -255,21 +260,25 @@ export async function patchHubMessage(
 export async function deleteHubMessages(
   userId: string,
   items: Array<{ accountId: string; messageId: string }>
-): Promise<{ deleted: number; failed: number }> {
+): Promise<{ deleted: number; failed: number; lastError?: string }> {
   let deleted = 0;
   let failed = 0;
+  let lastError: string | undefined;
 
   for (const { accountId, messageId } of items) {
     try {
-      const account = await accountRow(userId, accountId);
+      const resolvedId = (await resolveMailAccountId(userId, accountId)) ?? accountId;
+      const account = await accountRow(userId, resolvedId);
       if (!account) {
         failed++;
+        lastError = "Mail account not found — try reconnecting Gmail/Outlook.";
         continue;
       }
       if (account.provider === "gmail") {
         const tok = await getMailAccountTokens(userId, account.id);
         if (!tok) {
           failed++;
+          lastError = "Gmail not connected for this account.";
           continue;
         }
         await trashGmailMessage(userId, messageId, tok.tokens);
@@ -279,13 +288,15 @@ export async function deleteHubMessages(
         deleted++;
       } else {
         failed++;
+        lastError = "Delete is not supported for this mail provider.";
       }
-    } catch {
+    } catch (err) {
       failed++;
+      lastError = err instanceof Error ? err.message : String(err);
     }
   }
 
-  return { deleted, failed };
+  return { deleted, failed, lastError };
 }
 
 export async function listInboxMessagesForAccount(

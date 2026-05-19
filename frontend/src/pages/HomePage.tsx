@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
-import type { Tab } from "../App";
+import type { Tab } from "../tab";
 import { CanvasDashboard } from "../components/canvas/CanvasDashboard";
 import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
 import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";

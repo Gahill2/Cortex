@@ -13,17 +13,6 @@ const backendRoot = join(__dirname, '..');
 
 loadEnv({ path: join(backendRoot, '.env') });
 
-// #region agent log
-console.log('[prisma-deploy] bootstrap', {
-  hypothesisId: 'H1-H3',
-  cwd: process.cwd(),
-  backendRoot,
-  scriptPath: fileURLToPath(import.meta.url),
-  scriptsDirExists: existsSync(join(backendRoot, 'scripts')),
-  prismaDirExists: existsSync(join(backendRoot, 'prisma')),
-});
-// #endregion
-
 const BASELINE_MIGRATION = '20260517200000_postgres_init';
 const P3005_MARKERS = ['P3005', 'schema is not empty'];
 

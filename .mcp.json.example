@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cortex": {
+      "url": "http://127.0.0.1:3001/mcp",
+      "lifecycle": "lazy",
+      "idleTimeout": 30,
+      "directTools": [
+        "get_cortex_status",
+        "list_available_cortex_tools",
+        "create_task_note"
+      ]
+    }
+  }
+}
