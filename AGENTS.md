@@ -89,6 +89,10 @@ The login flow uses OTP by default in the frontend. In dev (no SMTP), the backen
 - The `firebase-status.test.ts` test expects Firebase credentials; it will fail without them (expected in Cloud Agent).
 - The Obsidian vault watcher throws unhandled rejections on the Windows path — clear `OBSIDIAN_VAULT_PATH` to avoid test noise.
 
+### .env setup gotcha
+
+Line 73 of `backend/.env.example` has a missing `#` comment prefix (the "Option A — Internal integration…" line). When copying to `.env`, add `#` or `source .env` will fail with a syntax error about an unexpected `(` token.
+
 ### Seed data
 
 `prisma/seed.ts` references a non-existent `TaskStatus` enum export. To seed, either use raw SQL or invoke Prisma directly with string values (`"TODO"`, `"IN_PROGRESS"`, `"DONE"`).
