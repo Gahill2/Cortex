@@ -64,6 +64,21 @@ Use this when several agents (or parallel chats) touch the same codebase so work
 | Backend API (Express) | 4000 | `npm run dev:backend` (from repo root) |
 | Frontend (Vite/React) | 5173 | `npm run dev:frontend` (from repo root) |
 
+### Cloud Agent: Docker & Postgres startup
+
+The `npm run hub:up` script requires PowerShell (not available in Cloud VMs). Instead start Postgres directly:
+
+```bash
+sudo dockerd &>/tmp/dockerd.log &
+sleep 3
+sudo chmod 666 /var/run/docker.sock
+docker run -d --name cortex-postgres \
+  -e POSTGRES_DB=launchpad -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 postgres:16-alpine
+```
+
+Then create `/workspace/backend/.env` (and optionally `/workspace/.env`) from `backend/.env.example` with `DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/launchpad"` and run `cd backend && npx prisma migrate deploy`.
+
 ### RAM-conscious local dev
 
 Default `npm run dev` is **lite mode** (skips Prisma on every restart, lighter Vite). See [docs/dev-resources.md](docs/dev-resources.md). After schema changes: `npm run db:migrate`. Full stack: `npm run dev:full`.
