@@ -6,10 +6,12 @@ export function TasksWidget({
   onNavigate,
   tasks,
   loading,
+  previewLimit = 4,
 }: {
   onNavigate: (t: Tab) => void;
   tasks: HomeBoardTask[];
   loading?: boolean;
+  previewLimit?: number;
 }) {
   const todo = tasks.filter((t) => t.status === "TODO");
   const inProg = tasks.filter((t) => t.status === "IN_PROGRESS");
@@ -50,7 +52,7 @@ export function TasksWidget({
       )}
       <ul className="widget-task-list">
         {!loading &&
-          [...inProg, ...todo].slice(0, 4).map((t) => (
+          [...inProg, ...todo].slice(0, previewLimit).map((t) => (
             <li
               key={t.id}
               className={`widget-task-item ${t.status === "IN_PROGRESS" ? "widget-task-item--active" : ""}`}

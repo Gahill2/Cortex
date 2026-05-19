@@ -1,19 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Tab } from "../App";
 import { CanvasDashboard } from "../components/canvas/CanvasDashboard";
 import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
-import {
-  AIWidget,
-  MailWidget,
-  SpotifyWidget,
-  TasksWidget,
-  WeatherWidget,
-} from "../components/home/widgets";
-import { PomodoroWidget } from "../components/canvas/widgets/PomodoroWidget";
-import { WorldClockWidget } from "../components/canvas/widgets/WorldClockWidget";
-import { HabitTrackerWidget } from "../components/canvas/widgets/HabitTrackerWidget";
-import { QuoteWidget } from "../components/canvas/widgets/QuoteWidget";
+import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -43,17 +33,10 @@ export const HomePage = ({ onNavigate }: Props) => {
     };
   }, []);
 
-  const widgets: Record<string, React.ReactNode> = {
-    weather: <WeatherWidget />,
-    tasks: <TasksWidget onNavigate={onNavigate} tasks={boardTasks} loading={boardDataLoading} />,
-    mail: <MailWidget onNavigate={onNavigate} compact />,
-    spotify: <SpotifyWidget onNavigate={onNavigate} />,
-    ai: <AIWidget onNavigate={onNavigate} />,
-    pomodoro: <PomodoroWidget />,
-    clock: <WorldClockWidget />,
-    habits: <HabitTrackerWidget />,
-    quote: <QuoteWidget />,
-  };
+  const renderWidget = useMemo(
+    () => createCanvasWidgetRenderer(onNavigate, boardTasks, boardDataLoading),
+    [onNavigate, boardTasks, boardDataLoading],
+  );
 
-  return <CanvasDashboard onNavigate={onNavigate} widgets={widgets} />;
+  return <CanvasDashboard onNavigate={onNavigate} renderWidget={renderWidget} />;
 };

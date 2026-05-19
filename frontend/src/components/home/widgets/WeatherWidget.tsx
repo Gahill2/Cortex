@@ -7,7 +7,16 @@ const SAVED_LOC_KEY = "cortex_weather_location";
 
 interface SavedLocation { lat: number; lon: number; name: string }
 
-export function WeatherWidget() {
+export interface WeatherWidgetProps {
+  /** standard | hero | minimal | gradient */
+  display?: string;
+  layout?: "compact" | "default" | "expanded";
+}
+
+export function WeatherWidget({ display = "standard", layout = "default" }: WeatherWidgetProps) {
+  const compact = layout === "compact";
+  const showForecast = display !== "minimal" && !compact;
+  const heroLayout = display === "hero" || display === "gradient";
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +105,9 @@ export function WeatherWidget() {
   const sym = units === "fahrenheit" ? "°F" : "°C";
 
   return (
-    <div className="widget widget--weather">
+    <div
+      className={`widget widget--weather${heroLayout ? " weather-hero-ios" : ""} widget-display--${display}`}
+    >
       <div className="widget-label-row">
         <span className="widget-label widget-label--icon">
           <Cloud size={16} strokeWidth={1.75} aria-hidden />
@@ -155,8 +166,9 @@ export function WeatherWidget() {
               </span>
             </div>
           </div>
+          {showForecast ? (
           <div className="weather-forecast">
-            {data.forecast.slice(0, 5).map((day) => {
+            {data.forecast.slice(0, compact ? 3 : 5).map((day) => {
               const label = new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
               return (
                 <div key={day.date} className="weather-day-stacked">
@@ -170,6 +182,8 @@ export function WeatherWidget() {
               );
             })}
           </div>
+          ) : null}
+          {!compact ? (
           <form className="weather-city-form weather-city-form--inline" onSubmit={(e) => void searchCity(e)}>
             <div className="weather-city-row">
               <input className="weather-city-input" value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="Change city…" />
@@ -179,6 +193,7 @@ export function WeatherWidget() {
             </div>
             {searchError && <p className="weather-search-error">{searchError}</p>}
           </form>
+          ) : null}
         </>
       )}
     </div>

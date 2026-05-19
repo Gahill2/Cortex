@@ -6,9 +6,12 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, '..');
+
+loadEnv({ path: join(backendRoot, '.env') });
 
 // #region agent log
 console.log('[prisma-deploy] bootstrap', {

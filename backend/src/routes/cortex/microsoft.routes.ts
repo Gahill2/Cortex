@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { env } from "../../config/env.js";
+import { z } from "zod";
+import { resolveOAuthFrontendBase } from "../../features/oauth/oauth-frontend-redirect.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
@@ -22,36 +23,51 @@ cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), 
   if (!isMicrosoftConfigured()) {
     throw new HttpError(503, "Microsoft OAuth not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.");
   }
-  const isDesktop = req.body?.desktop === true;
-  const state = signMicrosoftState(req.auth!.userId, isDesktop);
+  const body = z
+    .object({
+      desktop: z.boolean().optional(),
+      returnOrigin: z.string().max(500).optional()
+    })
+    .parse(req.body ?? {});
+  const state = signMicrosoftState(req.auth!.userId, {
+    desktop: body.desktop === true,
+    returnOrigin: body.returnOrigin
+  });
   const url = buildMicrosoftAuthUrl(state);
   sendSuccess(res, { url });
 });
 
 // ── OAuth callback ────────────────────────────────────────────────────────────
 cortexMicrosoftRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
-  const frontend = env.CORTEX_FRONTEND_URL || "http://localhost:5173";
   const stateParam = typeof req.query.state === "string" ? req.query.state : "";
 
-  let isDesktop = frontend.startsWith("cortex://");
+  let msState: { userId: string; desktop: boolean; returnOrigin?: string };
   try {
-    const { desktop } = verifyMicrosoftState(stateParam);
-    isDesktop = isDesktop || desktop;
-  } catch { /* ignore */ }
+    msState = verifyMicrosoftState(stateParam);
+  } catch {
+    const frontend = resolveOAuthFrontendBase();
+    res.redirect(`${frontend}/?microsoft_error=oauth_failed`);
+    return;
+  }
 
-  const ok = (email: string) => isDesktop
-    ? `cortex://oauth/microsoft?connected=1&email=${encodeURIComponent(email)}`
-    : `${frontend}/?microsoft_connected=1&email=${encodeURIComponent(email)}`;
-  const err = (msg: string) => isDesktop
-    ? `cortex://oauth/microsoft?error=${encodeURIComponent(msg)}`
-    : `${frontend}/?microsoft_error=${encodeURIComponent(msg)}`;
+  const frontend = resolveOAuthFrontendBase(msState.returnOrigin);
+  const isDesktop = frontend.startsWith("cortex://") || msState.desktop;
+
+  const ok = (email: string) =>
+    isDesktop
+      ? `cortex://oauth/microsoft?connected=1&email=${encodeURIComponent(email)}`
+      : `${frontend}/?mail_connected=1&provider=microsoft&email=${encodeURIComponent(email)}`;
+  const err = (msg: string) =>
+    isDesktop
+      ? `cortex://oauth/microsoft?error=${encodeURIComponent(msg)}`
+      : `${frontend}/?mail_error=${encodeURIComponent(msg)}`;
 
   try {
     if (typeof req.query.error === "string") { res.redirect(err(req.query.error)); return; }
     const code = req.query.code;
     if (typeof code !== "string") { res.redirect(err("missing_code")); return; }
 
-    const { userId } = verifyMicrosoftState(stateParam);
+    const { userId } = msState;
     const tokens = await exchangeMicrosoftCode(code);
 
     // Get the user's email from Microsoft Graph

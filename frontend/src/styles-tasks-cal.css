@@ -263,6 +263,153 @@
   color: #00bcd4;
 }
 
+/* ── Calendar layout + sidebar ───────────────────────────────────────────── */
+.cal-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 280px);
+  gap: 16px;
+  margin-top: 12px;
+  align-items: start;
+}
+@media (max-width: 991.98px) {
+  .cal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.cal-main {
+  min-width: 0;
+}
+.cal-sidebar {
+  background: var(--bg-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(70vh, 640px);
+  position: sticky;
+  top: 12px;
+}
+.cal-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cal-sidebar-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text, #fff);
+}
+.cal-sidebar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.cal-sidebar-event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  background: var(--bg-3, rgba(255,255,255,0.06));
+  cursor: pointer;
+}
+.cal-sidebar-event:hover {
+  border-color: var(--accent, #5b8dff);
+}
+.cal-sidebar-event--google {
+  border-left: 3px solid #4285f4;
+}
+.cal-sidebar-event--microsoft {
+  border-left: 3px solid #00bcd4;
+}
+.cal-sidebar-event-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent, #5b8dff);
+}
+.cal-sidebar-event-title {
+  font-size: 13px;
+  color: var(--text, #fff);
+  line-height: 1.3;
+}
+.cal-sidebar-event-loc {
+  font-size: 11px;
+  color: var(--text-3, #888);
+}
+.cal-sidebar-empty,
+.cal-sidebar-foot {
+  font-size: 12px;
+  color: var(--text-3, #888);
+  margin: 0;
+}
+.cal-connect-banner {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-2, #ccc);
+  background: color-mix(in srgb, var(--accent, #5b8dff) 12%, var(--bg-2, #1a1a1a));
+  border: 1px solid color-mix(in srgb, var(--accent, #5b8dff) 35%, transparent);
+}
+.cal-cell--pad {
+  min-height: 48px;
+  opacity: 0.35;
+}
+.cal-cell--focus {
+  outline: 2px solid var(--accent, #5b8dff);
+  outline-offset: -2px;
+  z-index: 1;
+}
+.cal-day-num-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3, #888);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.cal-day-num-btn:hover {
+  color: var(--text, #fff);
+  background: var(--bg-3, rgba(255,255,255,0.08));
+}
+.cal-week-day-header {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  padding: 0;
+}
+.cal-week-day--focus {
+  box-shadow: inset 0 0 0 2px var(--accent, #5b8dff);
+}
+.cal-event-chip--colored,
+.cal-event-pill--colored {
+  background: color-mix(in srgb, var(--cal-event-color, #5b8dff) 22%, var(--bg-2, #1a1a1a)) !important;
+  color: var(--cal-event-color, #5b8dff) !important;
+}
+.cal-list-loc {
+  font-size: 11px;
+  color: var(--text-3, #888);
+}
+
 /* ── Kanban drag overlay (smooth ghost card) ──────────────────────────────── */
 .kanban-card--overlay {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(91, 141, 255, 0.2);

@@ -1708,6 +1708,16 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .settings-col { flex: 1; max-width: 560px; display: flex; flex-direction: column; gap: 24px; }
 .settings-section { display: flex; flex-direction: column; gap: 6px; }
 .settings-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+.settings-oauth-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--danger, #f87171);
+  background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
+}
 .settings-item {
   display: flex;
   align-items: center;
@@ -3819,7 +3829,7 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 200;
+  z-index: 1100;
   -webkit-app-region: drag;
 }
 
@@ -3871,13 +3881,13 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   letter-spacing: 0.02em;
 }
 
-/* Drawer overlay */
+/* Drawer overlay — GPU-friendly open/close (matches canvas motion) */
 .burger-drawer-root {
   position: fixed;
   inset: 0;
-  z-index: 500;
+  z-index: 12000;
   display: flex;
-  animation: burger-root-in 0.05s ease-out;
+  contain: layout style;
 }
 
 .burger-drawer-backdrop {
@@ -3885,10 +3895,16 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   inset: 0;
   border: none;
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
-  animation: burger-backdrop-in 0.25s ease-out forwards;
+  opacity: 0;
+  will-change: opacity;
+  animation: burger-backdrop-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.burger-drawer-root--closing .burger-drawer-backdrop {
+  animation: burger-backdrop-out 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes burger-backdrop-in {
@@ -3896,15 +3912,15 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   to { opacity: 1; }
 }
 
-@keyframes burger-root-in {
-  from { visibility: hidden; }
-  to { visibility: visible; }
+@keyframes burger-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* Sidebar as drawer panel */
 .sidebar.sidebar--drawer {
   position: relative;
-  z-index: 501;
+  z-index: 12001;
   width: 280px;
   max-width: 85vw;
   height: 100%;
@@ -3912,13 +3928,38 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   background: var(--bg-2);
   border-right: 1px solid var(--border-2);
   box-shadow: 8px 0 32px rgba(0, 0, 0, 0.5);
-  animation: burger-panel-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
   overflow-y: auto;
+  overflow-x: hidden;
+  transform: translate3d(-100%, 0, 0);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: burger-panel-slide-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.burger-drawer-root--closing .sidebar.sidebar--drawer {
+  animation: burger-panel-slide-out 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes burger-panel-slide-in {
-  from { transform: translateX(-100%); opacity: 0.5; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.4;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes burger-panel-slide-out {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0;
+  }
 }
 
 .sidebar--drawer .sidebar-close-btn {
@@ -3945,17 +3986,26 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 /* Staggered nav item entrance */
 .sidebar-nav-item--animated {
-  animation: nav-item-fade-in 0.3s ease-out both;
+  opacity: 0;
+  transform: translate3d(-10px, 0, 0);
+  will-change: transform, opacity;
+  animation: nav-item-fade-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.burger-drawer-root--closing .sidebar-nav-item--animated {
+  animation: none;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 @keyframes nav-item-fade-in {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translate3d(-10px, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 

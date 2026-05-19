@@ -17,6 +17,7 @@
     "dev:backend": "npm --prefix backend run dev",
     "dev:mcp": "npm --prefix backend run mcp:dev",
     "dev:frontend": "npm --prefix frontend run dev",
+    "dev:mobile": "npm --prefix mobile run start",
     "dev:electron": "node scripts/wait-cortex-dev.mjs",
     "build": "npm run build:backend && npm run build:frontend && npm run build:electron",
     "build:backend": "npm install --prefix backend --include=dev && npm --prefix backend run build",

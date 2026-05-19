@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-
-type ElectronWindow = Window & {
-  electron?: { isElectron?: boolean; openExternal?: (url: string) => Promise<void> };
-};
+import { startOAuthFlow } from "../lib/oauth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,21 +71,15 @@ function NowPlayingSection() {
     }
   };
 
-  const openConnect = async () => {
-    if (!connectUrl) return;
-    const win = window as ElectronWindow;
-    if (win.electron?.openExternal) {
-      await win.electron.openExternal(connectUrl);
-    } else {
-      window.open(connectUrl, "_blank");
-    }
+  const openConnect = () => {
+    startOAuthFlow(connectUrl);
   };
 
   // Re-connect after OAuth completes
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ provider: string }>).detail;
-      if (detail?.provider === "spotify") void load();
+      if (detail?.provider === "spotify" || detail?.provider === "refresh") void load();
     };
     window.addEventListener("oauth-connected", handler);
     return () => window.removeEventListener("oauth-connected", handler);

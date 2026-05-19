@@ -80,12 +80,20 @@ cortexMailRouter.get("/accounts", requireAuth, routeRateLimit(30, 60_000), async
   sendSuccess(res, { accounts }, "live");
 });
 
+const mailConnectBodySchema = z.object({
+  desktop: z.boolean().optional(),
+  returnOrigin: z.string().max(500).optional()
+});
+
 cortexMailRouter.post("/accounts/gmail/connect", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
   if (!isGmailConfigured()) {
     throw new HttpError(503, "Gmail OAuth not configured on the server.");
   }
-  const isDesktop = req.body?.desktop === true;
-  const state = signMailOAuthState(req.auth!.userId, isDesktop);
+  const body = mailConnectBodySchema.parse(req.body ?? {});
+  const state = signMailOAuthState(req.auth!.userId, {
+    desktop: body.desktop === true,
+    returnOrigin: body.returnOrigin
+  });
   sendSuccess(res, { url: buildGmailAuthUrl(state) }, "live");
 });
 

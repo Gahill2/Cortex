@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "../api/client";
+import { startOAuthFlow } from "../lib/oauth";
 import { useToastStore } from "../stores/toastStore";
 
 const MAIL_ICON_SIZE = 18;
@@ -353,6 +354,13 @@ export const MailPage = () => {
     finally { setLoading(false); }
   }, []);
 
+  useEffect(() => {
+    const err = sessionStorage.getItem("cortex_oauth_error");
+    if (!err) return;
+    sessionStorage.removeItem("cortex_oauth_error");
+    pushToast({ title: "Mail connection failed", message: err, tone: "error" });
+  }, [pushToast]);
+
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
@@ -392,7 +400,12 @@ export const MailPage = () => {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ provider: string }>).detail;
-      if (detail?.provider === "mail" || detail?.provider === "microsoft") {
+      if (
+        detail?.provider === "mail" ||
+        detail?.provider === "microsoft" ||
+        detail?.provider === "gmail" ||
+        detail?.provider === "refresh"
+      ) {
         void loadAccounts().then(() => loadInbox(selectedAccountId));
       }
     };
@@ -590,16 +603,28 @@ export const MailPage = () => {
   // ── Account add/remove ─────────────────────────────────────────────────────
   const addGmailAccount = async () => {
     try {
-      const r = await api.post<{ data?: { url: string } }>("/mail/accounts/gmail/connect", { desktop: isElectron() });
-      if (r.data?.data?.url) await openUrl(r.data.data.url);
-    } catch { /* ignore */ }
+      const r = await api.post<{ data?: { url: string } }>("/mail/accounts/gmail/connect", {
+        desktop: isElectron(),
+        returnOrigin: window.location.origin
+      });
+      if (r.data?.data?.url) startOAuthFlow(r.data.data.url);
+      else pushToast({ title: "Gmail connect failed", message: "No authorization URL returned.", tone: "error" });
+    } catch (err: unknown) {
+      pushToast({ title: "Gmail connect failed", message: apiErrorMessage(err), tone: "error" });
+    }
   };
 
   const addOutlookAccount = async () => {
     try {
-      const r = await api.post<{ data?: { url: string } }>("/microsoft/connect", { desktop: isElectron() });
-      if (r.data?.data?.url) await openUrl(r.data.data.url);
-    } catch { /* ignore */ }
+      const r = await api.post<{ data?: { url: string } }>("/microsoft/connect", {
+        desktop: isElectron(),
+        returnOrigin: window.location.origin
+      });
+      if (r.data?.data?.url) startOAuthFlow(r.data.data.url);
+      else pushToast({ title: "Outlook connect failed", message: "No authorization URL returned.", tone: "error" });
+    } catch (err: unknown) {
+      pushToast({ title: "Outlook connect failed", message: apiErrorMessage(err), tone: "error" });
+    }
   };
 
   const removeAccount = async (accountId: string) => {

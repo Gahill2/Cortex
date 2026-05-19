@@ -5,6 +5,7 @@ import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
 import { clearCortexUiPreferences } from "../lib/cortexUiStorageKeys";
+import { startOAuthFlow } from "../lib/oauth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { MemoryPage } from "./MemoryPage";
 import { McpLinkPage } from "./McpLinkPage";
@@ -166,6 +167,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   const [canvaUrl, setCanvaUrl] = useState<string | null>(null);
   const [canvaLoading, setCanvaLoading] = useState(true);
   const [canvaOauthBanner, setCanvaOauthBanner] = useState<string | null>(null);
+  const [oauthErrorBanner, setOauthErrorBanner] = useState<string | null>(null);
 
   const isElectron = !!(window as ElectronWindow).electron?.isElectron;
 
@@ -237,6 +239,14 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   }, []);
 
   useEffect(() => {
+    const err = sessionStorage.getItem("cortex_oauth_error");
+    if (!err) return;
+    sessionStorage.removeItem("cortex_oauth_error");
+    setOauthErrorBanner(`Connection failed: ${err}`);
+    onSectionChange("integrations");
+  }, []);
+
+  useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     let changed = false;
     if (p.get("canva_oauth") === "connected") {
@@ -275,7 +285,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   useEffect(() => {
     const handler = (e: Event) => {
       const provider = (e as CustomEvent<{ provider: string }>).detail?.provider;
-      if (provider === "spotify") void loadSpotify();
+      if (provider === "spotify" || provider === "refresh") void loadSpotify();
       if (provider === "notion") void loadNotion();
       if (provider === "canva") void loadCanva();
     };
@@ -284,12 +294,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   }, []);
 
   const openOAuth = (url: string | null) => {
-    if (!url) return;
-    if (isElectron) {
-      void (window as ElectronWindow).electron!.openExternal!(url);
-    } else {
-      window.open(url, "_blank");
-    }
+    startOAuthFlow(url);
   };
 
   const disconnectSpotify = async () => {
@@ -546,6 +551,12 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
 
           <section className="settings-section" id="settings-integrations">
             <h2 className="settings-section-title">Integrations</h2>
+
+            {oauthErrorBanner && (
+              <p className="settings-oauth-error" role="alert">
+                {oauthErrorBanner}
+              </p>
+            )}
 
             <div className="settings-item">
               <div className="settings-item-left">

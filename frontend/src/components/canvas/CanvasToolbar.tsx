@@ -1,37 +1,56 @@
 import { useRef, useState } from "react";
-import { NavIcon } from "../NavIcon";
+import type { CanvasBackground } from "./canvasBackground";
+import {
+  CANVAS_GRADIENT_PRESETS,
+  CANVAS_SOLID_PRESETS,
+  DEFAULT_CANVAS_BACKGROUND,
+} from "./canvasBackground";
+import { WidgetStylePicker } from "./WidgetStylePicker";
+import { getDefaultWidgetStyle } from "./widgetDefaultStyle";
+import { CANVAS_WIDGET_TYPES, type WidgetSizeVariant } from "./widgetVariants";
+import type { WidgetSkin } from "./widgetSkins";
 
 interface Props {
   zoom: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
-  onAddWidget: (key: string) => void;
+  onAddWidget: (key: string, variant: WidgetSizeVariant, skin: WidgetSkin, display: string) => void;
   onAddImage: (url: string) => void;
   onAddNote: () => void;
   onAddCustom: (title: string, content: string, color: string) => void;
   onAddEmbed: (url: string, title?: string) => void;
+  onAddBackdrop: (color?: string) => void;
+  background: CanvasBackground;
+  onBackgroundChange: (bg: CanvasBackground) => void;
 }
-
-const AVAILABLE_WIDGETS = [
-  { key: "weather", label: "Weather", icon: "☀️" },
-  { key: "tasks", label: "Tasks", icon: "✓" },
-  { key: "mail", label: "Mail", icon: "✉" },
-  { key: "spotify", label: "Music", icon: "♫" },
-  { key: "ai", label: "AI Chat", icon: "🤖" },
-  { key: "pomodoro", label: "Focus Timer", icon: "⏱️" },
-  { key: "clock", label: "World Clock", icon: "🕐" },
-  { key: "habits", label: "Habit Tracker", icon: "📊" },
-  { key: "quote", label: "Daily Quote", icon: "💬" },
-];
 
 const COLORS = ["#5b8dff", "#3be8ad", "#f5a623", "#ff5f5f", "#a855f7", "#ec4899", "#06b6d4", "#84cc16"];
 
-export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWidget, onAddImage, onAddNote, onAddCustom, onAddEmbed }: Props) {
+export function CanvasToolbar({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
+  onAddWidget,
+  onAddImage,
+  onAddNote,
+  onAddCustom,
+  onAddEmbed,
+  onAddBackdrop,
+  background,
+  onBackgroundChange,
+}: Props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showBgMenu, setShowBgMenu] = useState(false);
+  const [pickingWidgetKey, setPickingWidgetKey] = useState<string | null>(null);
+  const [pickVariant, setPickVariant] = useState<WidgetSizeVariant>("medium");
+  const [pickSkin, setPickSkin] = useState<WidgetSkin>("cortex");
+  const [pickDisplay, setPickDisplay] = useState("standard");
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,6 +74,36 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
     setShowAddMenu(false);
   };
 
+  const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        onBackgroundChange({
+          kind: "image",
+          value: `url("${reader.result}")`,
+          presetId: "custom",
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+    setShowBgMenu(false);
+  };
+
+  const handleBgImageUrl = () => {
+    const url = prompt("Paste wallpaper image URL:");
+    if (url?.trim()) {
+      onBackgroundChange({
+        kind: "image",
+        value: url.trim().startsWith("url(") ? url.trim() : `url("${url.trim()}")`,
+        presetId: "custom",
+      });
+    }
+    setShowBgMenu(false);
+  };
+
   return (
     <div className="canvas-toolbar">
       <div className="canvas-toolbar__group">
@@ -71,11 +120,110 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
 
       <div className="canvas-toolbar__divider" />
 
+      <div className="canvas-toolbar__group canvas-toolbar__group--bg">
+        <button
+          type="button"
+          className="canvas-toolbar__btn"
+          onClick={() => { setShowBgMenu(!showBgMenu); setShowAddMenu(false); }}
+          title="Canvas background"
+        >
+          <span className="canvas-toolbar__icon">🎨</span>
+        </button>
+        {showBgMenu && (
+          <div className="canvas-add-menu canvas-bg-menu">
+            <div className="canvas-add-menu__section">
+              <p className="canvas-add-menu__heading">Solid</p>
+              <div className="canvas-bg-swatch-grid">
+                {CANVAS_SOLID_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`canvas-bg-swatch${background.presetId === preset.id && background.kind !== "gradient" && background.kind !== "image" ? " canvas-bg-swatch--active" : ""}`}
+                    style={{ background: preset.value || "var(--bg)" }}
+                    title={preset.label}
+                    onClick={() => {
+                      if (preset.id === "default") {
+                        onBackgroundChange(DEFAULT_CANVAS_BACKGROUND);
+                      } else {
+                        onBackgroundChange({ kind: "solid", value: preset.value, presetId: preset.id });
+                      }
+                      setShowBgMenu(false);
+                    }}
+                  >
+                    {background.presetId === preset.id && background.kind !== "gradient" && background.kind !== "image" && (
+                      <span className="canvas-bg-swatch-check">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="canvas-add-menu__divider" />
+            <div className="canvas-add-menu__section">
+              <p className="canvas-add-menu__heading">Gradients</p>
+              <div className="canvas-bg-swatch-grid">
+                {CANVAS_GRADIENT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`canvas-bg-swatch${background.presetId === preset.id && background.kind === "gradient" ? " canvas-bg-swatch--active" : ""}`}
+                    style={{ background: preset.value }}
+                    title={preset.label}
+                    onClick={() => {
+                      onBackgroundChange({ kind: "gradient", value: preset.value, presetId: preset.id });
+                      setShowBgMenu(false);
+                    }}
+                  >
+                    {background.presetId === preset.id && background.kind === "gradient" && (
+                      <span className="canvas-bg-swatch-check">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="canvas-add-menu__divider" />
+            <div className="canvas-add-menu__section">
+              <p className="canvas-add-menu__heading">Wallpaper</p>
+              <button type="button" className="canvas-add-menu__item" onClick={() => bgFileRef.current?.click()}>
+                <span className="canvas-add-menu__icon">📁</span>
+                <span>Upload image</span>
+              </button>
+              <button type="button" className="canvas-add-menu__item" onClick={handleBgImageUrl}>
+                <span className="canvas-add-menu__icon">🔗</span>
+                <span>Image from URL</span>
+              </button>
+              {background.kind === "image" && (
+                <button
+                  type="button"
+                  className="canvas-add-menu__item canvas-add-menu__item--muted"
+                  onClick={() => { onBackgroundChange(DEFAULT_CANVAS_BACKGROUND); setShowBgMenu(false); }}
+                >
+                  <span className="canvas-add-menu__icon">✕</span>
+                  <span>Remove wallpaper</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <input
+          ref={bgFileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleBgUpload}
+        />
+      </div>
+
+      <div className="canvas-toolbar__divider" />
+
       <div className="canvas-toolbar__group canvas-toolbar__group--add">
         <button
           type="button"
           className="canvas-toolbar__btn canvas-toolbar__btn--primary"
-          onClick={() => setShowAddMenu(!showAddMenu)}
+          onClick={() => {
+            setShowAddMenu(!showAddMenu);
+            setShowBgMenu(false);
+            if (showAddMenu) setPickingWidgetKey(null);
+          }}
           title="Add to canvas"
         >
           <span className="canvas-toolbar__icon">+</span>
@@ -83,20 +231,71 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
         </button>
 
         {showAddMenu && (
-          <div className="canvas-add-menu">
+          <div className={`canvas-add-menu${pickingWidgetKey ? " canvas-add-menu--variant" : ""}`}>
+            {pickingWidgetKey ? (
+              <div className="canvas-add-menu__section canvas-add-menu__section--variant">
+                <button type="button" className="canvas-add-menu__back" onClick={() => setPickingWidgetKey(null)}>
+                  ← Widgets
+                </button>
+                <p className="canvas-add-menu__heading">
+                  {CANVAS_WIDGET_TYPES.find((w) => w.key === pickingWidgetKey)?.label ?? "Widget"} style
+                </p>
+                <WidgetStylePicker
+                  variant="panel"
+                  widgetKey={pickingWidgetKey}
+                  size={pickVariant}
+                  skin={pickSkin}
+                  display={pickDisplay}
+                  onSize={setPickVariant}
+                  onSkin={setPickSkin}
+                  onDisplay={setPickDisplay}
+                />
+                <button
+                  type="button"
+                  className="canvas-add-menu__confirm"
+                  onClick={() => {
+                    onAddWidget(pickingWidgetKey, pickVariant, pickSkin, pickDisplay);
+                    setShowAddMenu(false);
+                    setPickingWidgetKey(null);
+                  }}
+                >
+                  Add to canvas
+                </button>
+              </div>
+            ) : (
+            <>
             <div className="canvas-add-menu__section">
               <p className="canvas-add-menu__heading">Widgets</p>
-              {AVAILABLE_WIDGETS.map((w) => (
+              {CANVAS_WIDGET_TYPES.map((w) => (
                 <button
                   key={w.key}
                   type="button"
                   className="canvas-add-menu__item"
-                  onClick={() => { onAddWidget(w.key); setShowAddMenu(false); }}
+                  onClick={() => {
+                    const defaults = getDefaultWidgetStyle(w.key);
+                    setPickingWidgetKey(w.key);
+                    setPickVariant(defaults.variant);
+                    setPickSkin(defaults.skin);
+                    setPickDisplay(defaults.display);
+                  }}
                 >
                   <span className="canvas-add-menu__icon">{w.icon}</span>
                   <span>{w.label}</span>
+                  <span className="canvas-add-menu__chevron" aria-hidden>›</span>
                 </button>
               ))}
+            </div>
+            <div className="canvas-add-menu__divider" />
+            <div className="canvas-add-menu__section">
+              <p className="canvas-add-menu__heading">Layout</p>
+              <button
+                type="button"
+                className="canvas-add-menu__item"
+                onClick={() => { onAddBackdrop(); setShowAddMenu(false); }}
+              >
+                <span className="canvas-add-menu__icon">▢</span>
+                <span>Color panel</span>
+              </button>
             </div>
             <div className="canvas-add-menu__divider" />
             <div className="canvas-add-menu__section">
@@ -126,6 +325,8 @@ export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onZoomReset, onAddWid
                 <span>Web Embed</span>
               </button>
             </div>
+            </>
+            )}
           </div>
         )}
         <input

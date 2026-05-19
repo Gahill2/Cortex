@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Cortex",
+    "slug": "cortex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "cortex",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cortex.app"
+    },
+    "android": {
+      "package": "com.cortex.app"
+    }
+  }
+}

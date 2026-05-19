@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import type { AxiosError } from "axios";
 import { LoginPage } from "./pages/LoginPage";
 import { SessionPinGate } from "./components/SessionPinGate";
@@ -76,6 +77,8 @@ export default function App() {
   const prevTokenRef = useRef<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
+  const [navDrawerClosing, setNavDrawerClosing] = useState(false);
+  const navDrawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMobileLayout = useMediaQuery("(max-width: 768px)");
   const [tokenReady, setTokenReady] = useState(() => !isElectronEnv);
 
@@ -240,22 +243,76 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has("mail_connected")) {
+    if (params.has("mail_connected") || params.has("microsoft_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
+      const providerParam = params.get("provider");
+      const provider =
+        providerParam === "microsoft" || params.has("microsoft_connected")
+          ? "microsoft"
+          : "mail";
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider } }));
       setTab("mail");
     } else if (params.has("spotify_connected") || params.has("gmail_connected")) {
       sessionStorage.removeItem("cortex_oauth_auto_spotify");
       sessionStorage.removeItem("cortex_oauth_auto_gmail");
       window.history.replaceState({}, "", window.location.pathname);
-      if (params.has("gmail_connected")) setTab("mail");
-      else {
+      if (params.has("gmail_connected")) {
+        window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "gmail" } }));
+        setTab("mail");
+      } else {
+        window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "spotify" } }));
         sessionStorage.setItem("cortex_settings_section", "integrations");
         setTab("settings");
       }
     } else if (params.has("notion_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "notion" } }));
       setTab("notes");
+    } else if (
+      params.has("spotify_error") ||
+      params.has("gmail_error") ||
+      params.has("mail_error") ||
+      params.has("microsoft_error")
+    ) {
+      const errKey = params.has("spotify_error")
+        ? "spotify_error"
+        : params.has("gmail_error")
+          ? "gmail_error"
+          : params.has("microsoft_error")
+            ? "microsoft_error"
+            : "mail_error";
+      const errMsg = params.get(errKey) ?? "oauth_failed";
+      window.history.replaceState({}, "", window.location.pathname);
+      const mailOAuthErr = errKey === "mail_error" || errKey === "microsoft_error";
+      if (mailOAuthErr) {
+        sessionStorage.setItem("cortex_oauth_error", decodeURIComponent(errMsg));
+        setTab("mail");
+      } else {
+        sessionStorage.setItem("cortex_settings_section", "integrations");
+        sessionStorage.setItem("cortex_oauth_error", decodeURIComponent(errMsg));
+        setTab("settings");
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const refreshIntegrations = () => {
+      if (document.visibilityState !== "visible") return;
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "refresh" } }));
+    };
+    window.addEventListener("focus", refreshIntegrations);
+    document.addEventListener("visibilitychange", refreshIntegrations);
+    return () => {
+      window.removeEventListener("focus", refreshIntegrations);
+      document.removeEventListener("visibilitychange", refreshIntegrations);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    return () => {
+      if (navDrawerCloseTimerRef.current) clearTimeout(navDrawerCloseTimerRef.current);
+    };
   }, []);
 
   if (!tokenReady) {
@@ -290,9 +347,29 @@ export default function App() {
     );
   }
 
+  const closeNavDrawer = () => {
+    if (!navDrawerOpen || navDrawerClosing) return;
+    setNavDrawerClosing(true);
+    if (navDrawerCloseTimerRef.current) clearTimeout(navDrawerCloseTimerRef.current);
+    navDrawerCloseTimerRef.current = setTimeout(() => {
+      setNavDrawerOpen(false);
+      setNavDrawerClosing(false);
+      navDrawerCloseTimerRef.current = null;
+    }, 320);
+  };
+
+  const openNavDrawer = () => {
+    if (navDrawerCloseTimerRef.current) {
+      clearTimeout(navDrawerCloseTimerRef.current);
+      navDrawerCloseTimerRef.current = null;
+    }
+    setNavDrawerClosing(false);
+    setNavDrawerOpen(true);
+  };
+
   const goTab = (next: Tab) => {
     setTab(next);
-    setNavDrawerOpen(false);
+    closeNavDrawer();
   };
 
   return (
@@ -308,7 +385,7 @@ export default function App() {
           <button
             type="button"
             className="burger-appbar__btn"
-            onClick={() => setNavDrawerOpen(true)}
+            onClick={openNavDrawer}
             aria-label="Open menu"
           >
             <span className="burger-appbar__icon" aria-hidden>
@@ -320,17 +397,22 @@ export default function App() {
           <span className="burger-appbar__title">{TAB_SCREEN_TITLES[tab]}</span>
         </header>
 
-        {navDrawerOpen && (
-          <div className="burger-drawer-root" role="presentation">
-            <button
-              type="button"
-              className="burger-drawer-backdrop"
-              onClick={() => setNavDrawerOpen(false)}
-              aria-label="Close menu"
-            />
-            <Sidebar active={tab} onChange={goTab} mobileOpen onClose={() => setNavDrawerOpen(false)} />
-          </div>
-        )}
+        {(navDrawerOpen || navDrawerClosing) &&
+          createPortal(
+            <div
+              className={`burger-drawer-root${navDrawerClosing ? " burger-drawer-root--closing" : ""}`}
+              role="presentation"
+            >
+              <button
+                type="button"
+                className="burger-drawer-backdrop"
+                onClick={closeNavDrawer}
+                aria-label="Close menu"
+              />
+              <Sidebar active={tab} onChange={goTab} mobileOpen onClose={closeNavDrawer} />
+            </div>,
+            document.body,
+          )}
 
         <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
           <div className="container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap cortex-animate-in">

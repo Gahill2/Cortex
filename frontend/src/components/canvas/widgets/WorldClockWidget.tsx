@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnalogClockFace } from "./AnalogClockFace";
 
 const DEFAULT_ZONES = [
   { label: "Local", tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
@@ -17,7 +18,7 @@ function formatTime(tz: string): string {
       hour12: true,
     });
   } catch {
-    return "--:--:--";
+    return "--:--";
   }
 }
 
@@ -34,10 +35,18 @@ function formatDate(tz: string): string {
   }
 }
 
-export function WorldClockWidget() {
+export interface WorldClockWidgetProps {
+  /** list | digital-hero | analog | zones-grid */
+  display?: string;
+  layout?: "compact" | "default" | "expanded";
+}
+
+export function WorldClockWidget({ display = "list", layout = "default" }: WorldClockWidgetProps) {
   const [zones, setZones] = useState(DEFAULT_ZONES);
   const [times, setTimes] = useState<Record<string, string>>({});
   const [addInput, setAddInput] = useState("");
+  const primaryTz = zones[0]?.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const compact = layout === "compact";
 
   useEffect(() => {
     const update = () => {
@@ -67,6 +76,76 @@ export function WorldClockWidget() {
     setZones((prev) => prev.filter((z) => z.tz !== tz));
   };
 
+  const addForm = !compact ? (
+    <form className="worldclock-add" onSubmit={addZone}>
+      <input
+        className="worldclock-input"
+        value={addInput}
+        onChange={(e) => setAddInput(e.target.value)}
+        placeholder="Add timezone (e.g. US/Pacific)"
+        list="tz-suggestions"
+      />
+      <button type="submit" className="btn-ghost btn-sm">
+        +
+      </button>
+      <datalist id="tz-suggestions">
+        <option value="America/Los_Angeles" />
+        <option value="America/Chicago" />
+        <option value="Europe/Paris" />
+        <option value="Europe/Berlin" />
+        <option value="Asia/Shanghai" />
+        <option value="Australia/Sydney" />
+        <option value="Pacific/Auckland" />
+      </datalist>
+    </form>
+  ) : null;
+
+  if (display === "digital-hero") {
+    return (
+      <div className="worldclock-widget worldclock-widget--digital-hero">
+        <div className="worldclock-digital-hero">
+          <span className="worldclock-digital-hero__time">{times[primaryTz] ?? formatTime(primaryTz)}</span>
+          <span className="worldclock-digital-hero__date">{formatDate(primaryTz)}</span>
+          <span className="worldclock-label" style={{ opacity: 0.7 }}>
+            {zones[0]?.label ?? "Local"}
+          </span>
+        </div>
+        {addForm}
+      </div>
+    );
+  }
+
+  if (display === "analog") {
+    const size = compact ? 88 : layout === "expanded" ? 140 : 110;
+    return (
+      <div className="worldclock-widget worldclock-widget--analog">
+        <div className="worldclock-analog-wrap">
+          <AnalogClockFace size={size} timeZone={primaryTz} />
+          <span className="worldclock-label">{zones[0]?.label ?? "Local"}</span>
+          <span className="worldclock-date">{formatDate(primaryTz)}</span>
+        </div>
+        {addForm}
+      </div>
+    );
+  }
+
+  if (display === "zones-grid") {
+    const shown = compact ? zones.slice(0, 4) : zones;
+    return (
+      <div className="worldclock-widget worldclock-widget--grid">
+        <div className="worldclock-zones-grid">
+          {shown.map((z) => (
+            <div key={z.tz} className="worldclock-zone-card">
+              <div className="worldclock-zone-card__label">{z.label}</div>
+              <div className="worldclock-zone-card__time">{times[z.tz] ?? "--:--"}</div>
+            </div>
+          ))}
+        </div>
+        {addForm}
+      </div>
+    );
+  }
+
   return (
     <div className="worldclock-widget">
       <div className="worldclock-list">
@@ -78,30 +157,14 @@ export function WorldClockWidget() {
             </div>
             <span className="worldclock-time">{times[z.tz] ?? "--:--"}</span>
             {zones.length > 1 && (
-              <button className="worldclock-remove" onClick={() => removeZone(z.tz)} title="Remove">×</button>
+              <button className="worldclock-remove" onClick={() => removeZone(z.tz)} title="Remove" type="button">
+                ×
+              </button>
             )}
           </div>
         ))}
       </div>
-      <form className="worldclock-add" onSubmit={addZone}>
-        <input
-          className="worldclock-input"
-          value={addInput}
-          onChange={(e) => setAddInput(e.target.value)}
-          placeholder="Add timezone (e.g. US/Pacific)"
-          list="tz-suggestions"
-        />
-        <button type="submit" className="btn-ghost btn-sm">+</button>
-        <datalist id="tz-suggestions">
-          <option value="America/Los_Angeles" />
-          <option value="America/Chicago" />
-          <option value="Europe/Paris" />
-          <option value="Europe/Berlin" />
-          <option value="Asia/Shanghai" />
-          <option value="Australia/Sydney" />
-          <option value="Pacific/Auckland" />
-        </datalist>
-      </form>
+      {addForm}
     </div>
   );
 }
