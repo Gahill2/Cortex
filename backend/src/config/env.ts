@@ -126,7 +126,7 @@ const parsed = envSchema.parse(process.env);
 
 const isProd = parsed.NODE_ENV === "production";
 const demoEmail = parsed.CORTEX_DEMO_USER_EMAIL ?? (isProd ? undefined : "grey@cortex.local");
-const demoPassword = parsed.CORTEX_DEMO_USER_PASSWORD ?? (isProd ? undefined : "ChangeMe123!");
+const demoPassword = parsed.CORTEX_DEMO_USER_PASSWORD ?? (isProd ? undefined : "Ctx-D3m0!Secure8x");
 const demoPin = parsed.CORTEX_DEMO_USER_PIN ?? (isProd ? undefined : "1234");
 
 if (isProd) {
@@ -144,6 +144,6 @@ export const demoAuthEnabled =
 export const env = {
   ...parsed,
   CORTEX_DEMO_USER_EMAIL: demoEmail ?? (isProd ? "" : "grey@cortex.local"),
-  CORTEX_DEMO_USER_PASSWORD: demoPassword ?? (isProd ? "" : "ChangeMe123!"),
+  CORTEX_DEMO_USER_PASSWORD: demoPassword ?? (isProd ? "" : "Ctx-D3m0!Secure8x"),
   CORTEX_DEMO_USER_PIN: demoPin ?? (isProd ? "" : "1234")
 };

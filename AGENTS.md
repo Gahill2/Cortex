@@ -99,7 +99,7 @@ Setting `OBSIDIAN_VAULT_PATH=""` is required because the `.env.example` has a Wi
 
 The app uses **cortex auth** (not the v1 auth). Demo credentials (env defaults):
 - Email: `grey@cortex.local`
-- Password: `ChangeMe123!`
+- Password: `Ctx-D3m0!Secure8x`
 - PIN: `1234`
 
 The login flow uses OTP by default in the frontend. In dev (no SMTP), the backend returns the OTP code in the API response body (`devOtpCode` field).
