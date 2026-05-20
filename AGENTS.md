@@ -58,11 +58,22 @@ Use this when several agents (or parallel chats) touch the same codebase so work
 
 | Service | Port | Start command |
 |---------|------|---------------|
-| **Postgres (InsForge hub)** | 5432 | On hub: `npm run hub:up` (or postgres-only step in `docs/insforge-tailscale.md`) — DB name `launchpad` |
-| InsForge API / Auth | 7130 / 7131 | Same hub stack after full `npm run hub:up` |
-| Cortex API / Web (optional on hub) | 4000 / 8080 | `deploy/tailscale-hub/` — see `docs/insforge-tailscale.md` |
+| **PostgreSQL** | 5432 | Cloud Agent: `sudo pg_ctlcluster 16 main start` (local install). Hub: `npm run hub:up` — DB name `launchpad` |
+| InsForge API / Auth | 7130 / 7131 | Same hub stack after full `npm run hub:up` (optional) |
 | Backend API (Express) | 4000 | `npm run dev:backend` (from repo root) |
 | Frontend (Vite/React) | 5173 | `npm run dev:frontend` (from repo root) |
+
+### PostgreSQL (Cloud Agent local)
+
+When no remote DB is available, install PostgreSQL locally:
+
+```bash
+sudo pg_ctlcluster 16 main start
+# DB: launchpad, user: postgres, password: postgres
+# DATABASE_URL in backend/.env: postgresql://postgres:postgres@127.0.0.1:5432/launchpad
+```
+
+After starting Postgres, run `npm run db:migrate` (from repo root) to apply Prisma migrations.
 
 ### RAM-conscious local dev
 
