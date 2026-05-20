@@ -129,21 +129,35 @@ const demoEmail = parsed.CORTEX_DEMO_USER_EMAIL ?? (isProd ? undefined : "grey@c
 const demoPassword = parsed.CORTEX_DEMO_USER_PASSWORD ?? (isProd ? undefined : "ChangeMe123!");
 const demoPin = parsed.CORTEX_DEMO_USER_PIN ?? (isProd ? undefined : "1234");
 
+let safeDemoEmail = demoEmail;
+let safeDemoPassword = demoPassword;
+let safeDemoPin = demoPin;
+
 if (isProd) {
-  if (demoPassword && WEAK_DEMO_PASSWORDS.has(demoPassword)) {
-    throw new Error("CORTEX_DEMO_USER_PASSWORD is too weak for production — set a strong value or unset demo vars");
+  if (safeDemoPassword && WEAK_DEMO_PASSWORDS.has(safeDemoPassword)) {
+    console.warn(
+      "[cortex] CORTEX_DEMO_USER_PASSWORD is too weak for production — demo auth disabled. Set a strong value or unset demo vars."
+    );
+    safeDemoEmail = undefined;
+    safeDemoPassword = undefined;
+    safeDemoPin = undefined;
   }
-  if (demoPin === "1234") {
-    throw new Error("CORTEX_DEMO_USER_PIN must not be 1234 in production");
+  if (safeDemoPin === "1234") {
+    console.warn(
+      "[cortex] CORTEX_DEMO_USER_PIN must not be 1234 in production — demo auth disabled."
+    );
+    safeDemoEmail = undefined;
+    safeDemoPassword = undefined;
+    safeDemoPin = undefined;
   }
 }
 
 export const demoAuthEnabled =
-  !isProd || Boolean(demoEmail && demoPassword && demoPin);
+  !isProd || Boolean(safeDemoEmail && safeDemoPassword && safeDemoPin);
 
 export const env = {
   ...parsed,
-  CORTEX_DEMO_USER_EMAIL: demoEmail ?? (isProd ? "" : "grey@cortex.local"),
-  CORTEX_DEMO_USER_PASSWORD: demoPassword ?? (isProd ? "" : "ChangeMe123!"),
-  CORTEX_DEMO_USER_PIN: demoPin ?? (isProd ? "" : "1234")
+  CORTEX_DEMO_USER_EMAIL: safeDemoEmail ?? (isProd ? "" : "grey@cortex.local"),
+  CORTEX_DEMO_USER_PASSWORD: safeDemoPassword ?? (isProd ? "" : "ChangeMe123!"),
+  CORTEX_DEMO_USER_PIN: safeDemoPin ?? (isProd ? "" : "1234")
 };
