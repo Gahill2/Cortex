@@ -62,7 +62,7 @@ export function MailWidget({
         {unread > 0 && <span className="mail-unread-badge">{unread}</span>}
       </div>
       {loading ? (
-        <p className="widget-empty">Loading…</p>
+        <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>
       ) : loadError ? (
         <p className="widget-empty">{loadError}</p>
       ) : !hasAccounts ? (

@@ -14,6 +14,7 @@ import {
 } from "./widgetVariants";
 
 import { BACKDROP_COLORS, DEFAULT_BACKDROP_COLOR } from "./backdropColors";
+import { CanvasImage } from "./CanvasImage";
 
 export type BackdropStylePatch = Partial<
   Pick<
@@ -139,12 +140,9 @@ export function CanvasItem({
       case "image":
         return (
           <div className="canvas-item__image-wrap" onDragStart={(e) => e.preventDefault()}>
-            <img
-              src={node.imageUrl}
-              alt=""
+            <CanvasImage
+              imageUrl={node.imageUrl ?? ""}
               className="canvas-item__image"
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
             />
           </div>
         );

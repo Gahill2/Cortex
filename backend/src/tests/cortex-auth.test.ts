@@ -76,6 +76,26 @@ describe("cortex auth routes", () => {
     expect(sessionResponse.status).toBe(423);
   });
 
+  it("verifies OTP for demo email when Postgres is unavailable", async () => {
+    const sendResponse = await request(app)
+      .post("/api/auth/send-otp")
+      .send({ email: process.env.CORTEX_DEMO_USER_EMAIL });
+    expect(sendResponse.status).toBe(200);
+    const code = sendResponse.body.devOtpCode as string | undefined;
+    if (!code) {
+      // SMTP configured in CI — cannot assert code without inbox access
+      return;
+    }
+
+    const verifyResponse = await request(app).post("/api/auth/verify-otp").send({
+      email: process.env.CORTEX_DEMO_USER_EMAIL,
+      code
+    });
+    expect(verifyResponse.status).toBe(200);
+    expect(verifyResponse.body.token).toEqual(expect.any(String));
+    expect(verifyResponse.body.user.email).toBe(process.env.CORTEX_DEMO_USER_EMAIL);
+  });
+
   it("returns 429 for route-level login rate limit", async () => {
     const attemptResults: number[] = [];
     for (let index = 0; index < 6; index += 1) {

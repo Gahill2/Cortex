@@ -319,9 +319,11 @@ export const MailPage = () => {
   const [cleanupOpen, setCleanupOpen]       = useState(false);
   const [cleanupScanning, setCleanupScanning] = useState(false);
   const [cleanupApplying, setCleanupApplying] = useState(false);
+  const [cleanupConfirming, setCleanupConfirming] = useState(false);
   const [cleanupSuggestions, setCleanupSuggestions] = useState<CleanupSuggestion[]>([]);
   const [cleanupSelected, setCleanupSelected] = useState<Set<string>>(new Set());
   const [cleanupSummary, setCleanupSummary] = useState<CleanupApplySummary | null>(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
   const [inboxLimit, setInboxLimit] = useState(100);
   const INBOX_LIMIT_MAX = 500;
   const INBOX_LIMIT_STEP = 100;
@@ -544,9 +546,6 @@ export const MailPage = () => {
         action: s.action as "delete" | "archive",
       }));
     if (items.length === 0) return;
-    if (!confirm(`Apply cleanup to ${items.length} message(s) in your real mailbox? This cannot be undone for deletions.`)) {
-      return;
-    }
     setCleanupApplying(true);
     try {
       type ApplyPayload = {
@@ -724,7 +723,6 @@ export const MailPage = () => {
   };
 
   const removeAccount = async (accountId: string) => {
-    if (!confirm("Remove this mail account?")) return;
     try {
       await api.delete(`/mail/accounts/${accountId}`);
       await loadAccounts();
@@ -762,6 +760,9 @@ export const MailPage = () => {
           <h1 className="page-title">
             Mail {unreadTotal > 0 && <span className="gmail-unread-badge">{unreadTotal}</span>}
           </h1>
+          <p className="page-subtitle">
+            Unified inbox with AI folders, search, and compose — Gmail, Outlook, and IMAP in one surface.
+          </p>
         </div>
         <div className="page-actions">
           <button
@@ -845,11 +846,19 @@ export const MailPage = () => {
               {cleanupSuggestions.length > 0 && (
                 <button
                   type="button"
-                  className="btn-primary btn-sm"
+                  className={`btn-primary btn-sm${cleanupConfirming ? " confirm-pending" : ""}`}
                   disabled={cleanupApplying || cleanupSelected.size === 0}
-                  onClick={() => void applyCleanup()}
+                  onClick={() => {
+                    if (!cleanupConfirming) {
+                      setCleanupConfirming(true);
+                      setTimeout(() => setCleanupConfirming(false), 3000);
+                      return;
+                    }
+                    setCleanupConfirming(false);
+                    void applyCleanup();
+                  }}
                 >
-                  {cleanupApplying ? "Applying…" : `Apply (${cleanupSelected.size})`}
+                  {cleanupApplying ? "Applying…" : cleanupConfirming ? "Confirm?" : `Apply (${cleanupSelected.size})`}
                 </button>
               )}
             </div>
@@ -890,7 +899,8 @@ export const MailPage = () => {
         </section>
       )}
 
-      <div className="mail-layout">
+      <div className="mail-workbench page-workbench">
+        <div className="mail-layout">
         {/* ── Sidebar ── */}
         <aside className="mail-sidebar">
           <button className={`mail-sidebar-item ${!selectedFolder && selectedAccountId === "all" ? "active" : ""}`} onClick={() => { setSelectedAccountId("all"); selectFolder(null); void loadInbox("all"); }}>
@@ -939,7 +949,21 @@ export const MailPage = () => {
                 </span>
                 <span className="mail-sidebar-label mail-sidebar-label--truncate">{account.label}</span>
               </button>
-              <button type="button" className="mail-sidebar-remove" onClick={() => void removeAccount(account.id)} title="Remove account" aria-label="Remove account">
+              <button
+                type="button"
+                className={`mail-sidebar-remove${removeConfirmId === account.id ? " confirm-pending" : ""}`}
+                onClick={() => {
+                  if (removeConfirmId !== account.id) {
+                    setRemoveConfirmId(account.id);
+                    setTimeout(() => setRemoveConfirmId((id) => (id === account.id ? null : id)), 3000);
+                    return;
+                  }
+                  setRemoveConfirmId(null);
+                  void removeAccount(account.id);
+                }}
+                title={removeConfirmId === account.id ? "Click again to confirm" : "Remove account"}
+                aria-label={removeConfirmId === account.id ? "Click again to confirm removal" : "Remove account"}
+              >
                 <X size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
               </button>
             </div>
@@ -994,7 +1018,7 @@ export const MailPage = () => {
             </div>
           )}
           {loading ? (
-            <p className="page-loading">Loading…</p>
+            <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading…</span></div>
           ) : accounts.length === 0 ? (
             <div className="mail-empty-state">
               <Mail size={48} strokeWidth={1.5} className="mail-empty-state-icon" aria-hidden />
@@ -1021,7 +1045,8 @@ export const MailPage = () => {
               <p className="gmail-empty">No messages match your search</p>
             )
           ) : (
-            filteredMessages.map((msg) => {
+            <div className="mail-list-scroll">
+            {filteredMessages.map((msg) => {
               const av = senderAvatar(msg.from);
               const cat = msgCategory(msg.id);
               const unread = isUnread(msg);
@@ -1066,13 +1091,14 @@ export const MailPage = () => {
                   </div>
                 </div>
               );
-            })
-          )}
-          {!loading && messages.length > 0 && inboxLimit < INBOX_LIMIT_MAX && (
-            <div className="mail-load-more">
-              <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={loadMoreInbox}>
-                Load more ({inboxLimit} of up to {INBOX_LIMIT_MAX})
-              </button>
+            })}
+            {!loading && messages.length > 0 && inboxLimit < INBOX_LIMIT_MAX && (
+              <div className="mail-load-more">
+                <button type="button" className="btn-ghost btn-sm mail-toolbar-btn" onClick={loadMoreInbox}>
+                  Load more ({inboxLimit} of up to {INBOX_LIMIT_MAX})
+                </button>
+              </div>
+            )}
             </div>
           )}
         </div>
@@ -1149,7 +1175,7 @@ export const MailPage = () => {
               </div>
               <div className="gmail-preview-body mail-preview-body">
                 {msgLoading ? (
-                  <p className="page-loading">Loading…</p>
+                  <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading…</span></div>
                 ) : fullMessage?.body ? (
                   fullMessage.mimeType?.includes("html") ? (
                     <iframe className="mail-preview-iframe" srcDoc={fullMessage.body} sandbox="allow-same-origin" title="Email body" />
@@ -1164,6 +1190,7 @@ export const MailPage = () => {
           ) : (
             <div className="gmail-preview-empty"><p>Select an email to preview</p></div>
           )}
+        </div>
         </div>
       </div>
 

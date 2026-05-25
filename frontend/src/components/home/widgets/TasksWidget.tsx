@@ -48,7 +48,7 @@ export function TasksWidget({
         <CheckSquare size={16} strokeWidth={1.75} aria-hidden />
         <span>Tasks</span>
       </div>
-      {loading ? <p className="widget-empty">Loading…</p> : null}
+      {loading ? <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p> : null}
       {!loading && total > 0 && (
         <div className="task-progress-bar">
           <div className="task-progress-fill" style={{ width: `${progressPct}%` }} />

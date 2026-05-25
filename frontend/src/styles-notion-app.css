@@ -221,6 +221,34 @@ html.cortex-notion [data-ai-theme="true"] .widget {
   box-shadow: var(--widget-shadow) !important;
 }
 
+/* Home canvas board keeps Apple vibrancy even in Notion shell */
+html.cortex-notion .canvas-dashboard .canvas-widget-shell .widget {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  box-shadow: 0 4px 24px rgba(15, 15, 15, 0.08), 0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
+  border-radius: var(--radius-widget, 22px) !important;
+}
+
+html.cortex-notion[data-color-scheme="dark"] .canvas-dashboard .canvas-widget-shell .widget {
+  background: rgba(44, 44, 46, 0.58) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.06) inset !important;
+}
+
+html.cortex-notion .canvas-dashboard .canvas-toolbar {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+}
+
+html.cortex-notion[data-color-scheme="dark"] .canvas-dashboard .canvas-toolbar {
+  background: rgba(44, 44, 46, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 html.cortex-notion [data-wallpaper="true"] .widget[role="button"]:hover,
 html.cortex-notion [data-ai-theme="true"] .widget[role="button"]:hover {
   background: var(--bg-3) !important;
@@ -1105,4 +1133,83 @@ html.cortex-notion .home-hero-modal-foot-right {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+/* Tasks & Calendar — fit Notion main column (no bootstrap negative margin) */
+html.cortex-notion .desktop-main .tcc-page {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+html.cortex-notion .desktop-main .tcc-page.teams-surface {
+  gap: 8px;
+}
+
+html.cortex-notion .tcc-shell {
+  min-height: min(720px, calc(100vh - 11rem));
+  border-radius: var(--radius-lg);
+}
+
+html.cortex-notion .tcc-shell--no-rail .tcc-workspace {
+  padding: 14px 16px 16px;
+  gap: 10px;
+}
+
+html.cortex-notion .tcc-body--teams {
+  gap: 16px;
+  align-items: stretch;
+}
+
+html.cortex-notion .tcc-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+html.cortex-notion .tcc-task-panel-head {
+  margin-bottom: 0;
+}
+
+html.cortex-notion .tcc-sidebar-filters {
+  gap: 6px;
+}
+
+html.cortex-notion .tcc-cal-card--schedule,
+html.cortex-notion .tcc-cal-card--agenda {
+  min-height: min(520px, calc(100vh - 16rem));
+}
+
+html.cortex-notion .tcc-cal-card--month {
+  min-height: 400px;
+}
+
+html.cortex-notion .tcc-workspace {
+  min-height: 0;
+}
+
+html.cortex-notion .tcc-body--teams {
+  flex: 1;
+}
+
+html.cortex-notion .cal-command-bar {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+html.cortex-notion .cal-week-day-name,
+html.cortex-notion .cal-week-time-label,
+html.cortex-notion .cal-period-label {
+  color: var(--text);
+}
+
+@media (max-width: 1200px) {
+  html.cortex-notion .tcc-body--teams {
+    gap: 12px;
+  }
+
+  html.cortex-notion .tcc-sidebar {
+    max-height: none;
+  }
 }

@@ -1,6 +1,15 @@
 # Database (single source of truth)
 
-Cortex app data lives in **one PostgreSQL** instance — the **InsForge hub** on your Tailscale host.
+Cortex app data lives in **one PostgreSQL** instance. Pick **one** stack and point every device at it.
+
+| Setup | Command | DB location |
+|-------|---------|-------------|
+| **Homelab on this PC** | `npm run server:up` | Docker volume `deploy/homelab/data/postgres` — see [local-server-docker.md](./local-server-docker.md) |
+| **InsForge hub** (tailnet) | `npm run hub:up` | Hub host — see [insforge-tailscale.md](./insforge-tailscale.md) |
+
+### InsForge hub (Tailscale)
+
+Cortex app data on the **InsForge hub** on your Tailscale host:
 
 | Setting | Value (this setup) |
 |---------|-------------------|

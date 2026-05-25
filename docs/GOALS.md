@@ -1,7 +1,7 @@
 # Cortex Development Roadmap
 
-> Last updated: 2026-05-16  
-> Status: 57 of 142 goals complete  
+> Last updated: 2026-05-24  
+> Status: 90 of 176 goals complete  
 > **North star:** Unify `main` + `feat/firebase-dashboard-integrations`, put **all durable data online** (Firestore), ship via **public link** (hosted web + downloadable desktop) — App Store optional later.
 
 ## Legend
@@ -38,6 +38,8 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [ ] [M] Electron: shared production API URL; stop treating per-machine `cortex.db` as sole source of truth
 - [ ] [M] Firestore security rules: deny client on `cortex_config/**` and `integrations/**`
 - [ ] [S] Document recovery: export Firestore settings + optional SQLite one-time migration script
+- [x] [S] Tailscale hub compose + `npm run hub:up` / `hub:down` (`deploy/tailscale-hub/`, `docs/insforge-tailscale.md`, `docs/database.md`)
+- [x] [S] InsForge local Postgres path for single-machine dev (`npm run insforge:up`, `docs/insforge-migration.md`)
 
 ---
 
@@ -81,6 +83,28 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [ ] [M] System tray menu (lock, quit, settings) for packaged desktop
 - [ ] [L] True always-on-top overlay window policy
 - [ ] [M] Multi-monitor placement policy
+- [x] [S] Lite dev default (`npm run dev` skips migrate each restart; `docs/dev-resources.md`)
+
+---
+
+## Phase 2b — Tasks & Calendar hub
+
+> Unified command center (`TasksCalendarPage`) — replaces separate Tasks + Calendar nav targets
+
+- [x] [L] Hub shell: week/day schedule, grouped task list, focus panel (`frontend/src/pages/TasksCalendarPage.tsx`, `styles-tasks-cal.css`)
+- [x] [M] Nav routes `tasks` + `calendar` → hub (`navigation.ts`, `App.tsx`)
+- [x] [M] Live tasks: `GET /api/tasks`, create, toggle complete (`useTasksCalendarData.ts`, `plannerMappers.ts`)
+- [x] [M] Live calendar: `GET /api/calendar/events` with warnings + mail-account hint
+- [x] [M] Backend calendar PATCH for drag-reschedule (`PATCH /api/calendar/events`)
+- [x] [M] Teams-style command bar: Today, prev/next, Work week / Week / Day / Month / Agenda (`TasksCalendarCommandBar.tsx`)
+- [x] [M] Hub schedule: `CalendarWeekGrid` drag-move + resize → `PATCH /calendar/events` (`TasksCalendarSchedule.tsx`, `useTasksCalendarData.ts`)
+- [x] [M] Month view in hub (`TasksCalendarSchedule` month grid)
+- [x] [M] Agenda list drag-reschedule parity with week grid
+- [x] [M] Kanban board in hub (List / Board toggle, drag columns, column quick-add)
+- [x] [M] NL quick-add via `POST /ai/tasks/parse` (`TasksCalendarQuickAdd`)
+- [x] [M] Focus panel AI via `GET /ai/meeting-prep` + local gap heuristic fallback
+- [x] [S] Delete or fold legacy `TasksPage` / `CalendarPage` after feature parity
+- [x] [M] Hub uses shared `CalendarWeekGrid` + `CalendarListDnd` (legacy pages removed)
 
 ---
 
@@ -131,6 +155,9 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [ ] [M] Natural-language command bar → structured actions
 - [ ] [L] Voice loop (STT + TTS) for desktop
 - [ ] [XL] Constrained agent mode controlling Cortex actions safely
+- [x] [M] Agentmemory integration: `MemoryPage` embedded in Settings, `/api/memory` routes, smart search + remember via agentmemory client (`backend/src/features/agentmemory/`, `docs/agentmemory-setup.md`)
+- [x] [M] Obsidian context on chat when `includeWorkspaceContext` (`getObsidianContextForUser` in `ai.routes.ts`)
+- [x] [S] Chat exchanges append to vault (`ai-vault-log.ts`, `obsidianLogged` on `/ai/chat`, toast on `AIPage`)
 
 ---
 
@@ -151,13 +178,18 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 
 ## Phase 7 — Obsidian + Notion (Knowledge)
 
-- [x] [M] Obsidian vault registry + routes (`obsidian.routes.ts`, `obsidian-vaults.json`)
-- [x] [M] `NotesPage` for vault browsing
-- [x] [M] Notion OAuth + `/notion` router
-- [x] [S] `cortex-notion` root class + Notion-adjacent styles (`styles-notion-app.css`)
-- [ ] [L] Quick capture from command bar → daily note / Notion page
-- [ ] [L] Unified vault + Notion search in palette
-- [ ] [M] Backlinks / graph mini-view
+> **Grey Hill Brain vault:** `C:\Users\greyh\Documents\GitHub\greyhill_brain` (`OBSIDIAN_VAULT_PATH`, homelab mount at `/vault`)
+
+- [x] [M] Obsidian vault registry + routes (`obsidian.routes.ts`, `vault-store.ts`, `obsidian-vaults.json`)
+- [x] [L] Notes tab = vault **knowledge graph** (`GET /obsidian/graph`, `vault-graph.ts`, `ObsidianGraphCanvas.tsx`, graph-first `NotesPage.tsx`)
+- [x] [M] Vault file read/search/write + `obsidian://` open (`/obsidian/file`, `/obsidian/search`)
+- [x] [M] AI → vault append (`obsidian-cli.ts` + FS fallback, `Cortex/AI Log.md`, homelab bind-mount in `deploy/homelab/docker-compose.yml`)
+- [x] [M] Vault index + unified memory search (`vault-index.ts`, `MemoryPage` Obsidian hits)
+- [x] [M] Notion OAuth + `/notion` router (sync helpers; Notion UI removed from Notes tab)
+- [x] [S] `cortex-notion` styles retained for other surfaces (`styles-notion-app.css`)
+- [x] [L] Quick capture from command bar → daily note / inbox (`POST /obsidian/capture`, `QuickCaptureDialog`, ⌃K palette + ⌃⇧N)
+- [ ] [L] Unified vault + Notion search in command palette
+- [x] [M] Backlinks panel for selected graph node (outgoing + incoming wikilinks) (`GET /obsidian/backlinks`, Notes sidebar)
 - [ ] [L] Templater-style templates
 - [ ] [XL] AI summarization + suggested links across vault + Notion
 
@@ -172,6 +204,7 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [ ] [M] Clipboard manager
 - [ ] [L] Screenshot capture + filing
 - [ ] [L] Window manager / snap from command bar
+- [x] [M] n8n webhook forwarding: `/api/n8n` router, `triggerN8nWebhook` client, server-config indicator (`backend/src/features/n8n/`, `docs/n8n-setup.md`)
 
 ---
 
@@ -181,7 +214,7 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [x] [S] `useWallpaper` hook
 - [x] [M] `useTheme` AI gradient persistence
 - [x] [S] Reset Cortex UI preferences (`cortexUiStorageKeys.ts`)
-- [ ] [M] PIN change / security settings end-to-end
+- [x] [M] PIN change / security settings end-to-end (`POST /api/settings/change-pin`, `PinChangeForm` in `SettingsPage.tsx`)
 - [ ] [L] Module layout editor separate from home drag grid (if desired)
 - [ ] [M] JSON import/export of personalization (until Firestore owns it)
 - [ ] [L] Onboarding wizard across integrations
@@ -194,6 +227,13 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 
 - [ ] [M] Cold start budget for Electron + local backend bundle
 - [ ] [M] Offline degraded mode per module (optional local cache after cloud SoT)
+- [x] [S] Native alerts/confirms replaced with toasts + inline confirmations across all pages
+- [x] [S] Loading states: spinners replace plain text across 14+ surfaces
+- [x] [S] Empty states with iconography (Mail, Spotify, Calendar, Tasks)
+- [x] [S] prefers-reduced-motion support expanded from login-only to global
+- [x] [S] Button hover/active polish (color-mix instead of brightness filter)
+- [x] [M] Context menus on task cards (Radix — move status, delete)
+- [x] [S] Global focus-visible rings + text selection styling
 - [ ] [L] Micro-animations pass (home + settings)
 - [x] [S] Lazy-loaded heavy pages (`React.lazy` in `App.tsx`)
 - [ ] [M] Sentry or equivalent crash reporting
@@ -229,7 +269,7 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [ ] [M] `electron-updater` channel — stable/beta JSON feed on Releases or S3
 - [ ] [S] PWA / “Install app” from browser (manifest + service worker) for users who skip desktop
 - [ ] [L] Optional Microsoft Store / Mac App Store packages (wrap existing installer — not required for launch)
-- [ ] [XL] Stripe billing (freemium integrations) — partial design on feat branch `CortexProfile`
+- [~] [XL] Stripe billing (freemium integrations) — backend checkout + portal + webhook on main (`billing.routes.ts`, `features/billing/`); frontend billing UI + feature gates not yet wired
 - [ ] [XL] Public module API + marketplace (stretch)
 
 ---
@@ -239,7 +279,8 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 - [x] [M] `/microsoft` router
 - [x] [M] `/calendar` router
 - [x] [M] `/weather` router
-- [x] [M] `CalendarPage` in SPA
+- [x] [M] `CalendarPage` in SPA (legacy; superseded by Tasks & Calendar hub in nav)
+- [x] [M] `TasksCalendarPage` wired to Google/Microsoft calendar APIs
 - [ ] [M] Weather + calendar widgets polish (error states, units)
 - [ ] [L] Unified scheduling assistant (AI + calendar + mail)
 
@@ -261,25 +302,26 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 
 | Phase | Name | Done | Total | % |
 |-------|------|------|-------|---|
-| 0 | Unify + online data | 3 | 12 | 25% |
+| 0 | Unify + online data | 5 | 14 | 36% |
 | 1 | Foundation | 13 | 15 | 87% |
-| 2 | Shell Home | 9 | 13 | 69% |
+| 2 | Shell Home | 10 | 14 | 71% |
+| 2b | Tasks & Calendar hub | 12 | 13 | 92% |
 | 3 | Gmail + Mail | 3 | 9 | 33% |
 | 4 | Spotify | 4 | 10 | 40% |
-| 5 | AI Assistant | 4 | 9 | 44% |
+| 5 | AI Assistant | 7 | 12 | 58% |
 | 6 | Steam + Discord | 0 | 8 | 0% |
-| 7 | Obsidian + Notion | 4 | 9 | 44% |
-| 8 | Files + Automation | 1 | 7 | 14% |
-| 9 | Settings | 4 | 9 | 44% |
-| 10 | Performance | 1 | 8 | 13% |
+| 7 | Obsidian + Notion | 7 | 11 | 64% |
+| 8 | Files + Automation | 2 | 8 | 25% |
+| 9 | Settings | 5 | 9 | 56% |
+| 10 | Performance | 8 | 15 | 53% |
 | 11 | Teams | 0 | 5 | 0% |
 | 12 | Link-first ship | 1 | 11 | 9% |
-| 13 | M365 + Calendar | 4 | 6 | 67% |
+| 13 | M365 + Calendar | 5 | 7 | 71% |
 | 14 | Canva + MCP | 5 | 7 | 71% |
 
-**Totals:** 57 done, 85 remaining (**142** checklist lines; ≈ **40%** complete).
+**Totals:** 90 done, 86 remaining (**176** checklist lines; ≈ **51%** complete).
 
-**Runway (rough):** At one checkbox per day, **~87 days** — Phase 0 + 12 are the critical path for “same data everywhere” and “share a link to install.”
+**Runway (rough):** At one checkbox per day, **~90 days** — Phase 0 + 12 are the critical path for “same data everywhere” and “share a link to install.”
 
 Run `/goal` again anytime to re-verify checkboxes against the tree.
 
@@ -287,6 +329,8 @@ Run `/goal` again anytime to re-verify checkboxes against the tree.
 
 ## Recommended next actions (ordered)
 
-1. **Phase 0:** On each machine: set `FIREBASE_PROJECT_ID` + service account in `backend/.env`, then `npm run sync:env:pull`.
-2. **Phase 0:** Commit or stash `main` WIP, then merge integrations hub **in slices** (billing/memory UI → settings API → tasks).
-3. **Phase 12:** Pick production API host + publish `https://app…` and a GitHub Release with `npm run dist` artifact + short install README.
+1. **Phase 2b:** Agenda drag-reschedule; fold legacy `TasksPage` / `CalendarPage`; optional dedicated `POST /ai/planner/suggest`.
+2. **Phase 2b:** Add `POST /ai/planner/suggest` and replace focus-panel placeholder copy.
+3. **Phase 0:** On each machine: set `FIREBASE_PROJECT_ID` + service account in `backend/.env`, then `npm run sync:env:pull` — or use `npm run hub:up` on a Tailscale homelab (`docs/insforge-tailscale.md`).
+4. **Phase 3:** Dogfood refreshed `MailPage` (multi-account, reconnect, unread).
+5. **Phase 12:** Pick production API host + publish web URL + GitHub Release installer.

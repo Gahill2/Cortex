@@ -1,49 +1,68 @@
 import { useMemo, useState } from "react";
+import { CalendarX } from "lucide-react";
 import type { Tab } from "../tab";
+import { useToastStore } from "../stores/toastStore";
+import { TasksCalendarCommandBar } from "../components/tasks-calendar/TasksCalendarCommandBar";
 import { TasksCalendarFocusPanel } from "../components/tasks-calendar/TasksCalendarFocusPanel";
 import { TasksCalendarHeader } from "../components/tasks-calendar/TasksCalendarHeader";
-import { createMockEvents, createMockTasks } from "../components/tasks-calendar/mockData";
+import { TasksCalendarSchedule } from "../components/tasks-calendar/TasksCalendarSchedule";
+import { TasksCalendarKanban } from "../components/tasks-calendar/TasksCalendarKanban";
+import { TasksCalendarQuickAdd } from "../components/tasks-calendar/TasksCalendarQuickAdd";
 import { TasksCalendarTaskList } from "../components/tasks-calendar/TasksCalendarTaskList";
-import { TasksCalendarWeekView } from "../components/tasks-calendar/TasksCalendarWeekView";
-import type {
-  CalendarRangeView,
-  CategoryFilter,
-  PlannerEvent,
-  PlannerTask,
-} from "../components/tasks-calendar/types";
+import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
+import type { CalendarRangeView, CategoryFilter, PlannerTask } from "../components/tasks-calendar/types";
+
+type TaskViewMode = "list" | "board";
 
 const CATEGORY_FILTERS: CategoryFilter[] = ["All", "Work", "Personal", "School", "Fitness"];
-const CAL_VIEWS: { id: CalendarRangeView; label: string }[] = [
-  { id: "day", label: "Day" },
-  { id: "week", label: "Week" },
-  { id: "month", label: "Month" },
-];
 
 interface Props {
   activeTab: Tab;
   onNavigate: (tab: Tab) => void;
 }
 
-export function TasksCalendarPage(_props: Props) {
-  const [tasks, setTasks] = useState<PlannerTask[]>(() => createMockTasks());
-  const [events] = useState<PlannerEvent[]>(() => createMockEvents());
+export function TasksCalendarPage({ activeTab: _activeTab, onNavigate }: Props) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
-  const [calView, setCalView] = useState<CalendarRangeView>("week");
-  const [viewDate] = useState(() => new Date());
+  const [calView, setCalView] = useState<CalendarRangeView>("workweek");
+  const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [taskView, setTaskView] = useState<TaskViewMode>("list");
+
+  const {
+    tasks,
+    events,
+    loading,
+    busy,
+    calendarSaving,
+    tasksError,
+    eventsError,
+    calendarWarnings,
+    hasCalendarAccount,
+    refresh,
+    toggleTask,
+    createTask,
+    createTaskFromNl,
+    quickAddTask,
+    updateTaskStatus,
+    deleteTask,
+    rescheduleEvent,
+  } = useTasksCalendarData(viewDate, calView);
 
   const needle = search.trim().toLowerCase();
 
   const filteredTasks = useMemo(() => {
-    if (!needle) return tasks;
-    return tasks.filter(
+    let list =
+      categoryFilter === "All" ? tasks : tasks.filter((t) => t.category === categoryFilter);
+    if (!needle) return list;
+    return list.filter(
       (t) =>
         t.title.toLowerCase().includes(needle) ||
-        t.category.toLowerCase().includes(needle),
+        t.category.toLowerCase().includes(needle) ||
+        (t.projectName?.toLowerCase().includes(needle) ?? false),
     );
-  }, [tasks, needle]);
+  }, [tasks, needle, categoryFilter]);
 
   const filteredEvents = useMemo(() => {
     if (!needle) return events;
@@ -53,106 +72,179 @@ export function TasksCalendarPage(_props: Props) {
   const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const completed = !t.completed;
-        return {
-          ...t,
-          completed,
-          group: completed ? "completed" : t.group === "completed" ? "today" : t.group,
-        };
-      }),
-    );
+  const selectTask = (task: PlannerTask) => {
+    setSelectedTaskId(task.id);
+    setSelectedEventId(null);
   };
 
-  const onNewTask = () => {
-    const id = `t-${Date.now()}`;
-    setTasks((prev) => [
-      {
-        id,
-        title: "New task",
-        dueAt: new Date().toISOString(),
-        priority: "MEDIUM",
-        category: "Personal",
-        group: "today",
-        completed: false,
-      },
-      ...prev,
-    ]);
-    setSelectedTaskId(id);
+  const onNewTask = async () => {
+    const id = await createTask();
+    if (id) setSelectedTaskId(id);
   };
+
+  const onQuickAddNl = async (text: string) => {
+    const id = await createTaskFromNl(text);
+    if (id) {
+      setSelectedTaskId(id);
+      setTaskView("list");
+    }
+    return id;
+  };
+
+  const pushToast = useToastStore((s) => s.push);
 
   const onNewEvent = () => {
-    window.alert("New event — connect calendar API when ready.");
+    onNavigate("settings");
+    pushToast({
+      title: "Calendar connection required",
+      message:
+        "Google Calendar uses the same sign-in as Gmail. Open Mail → Connect Gmail (or reconnect to grant calendar access), then refresh Tasks & Calendar.",
+      tone: "neutral",
+      dismissMs: 6000,
+    });
   };
+
+  const statusMessage =
+    tasksError ??
+    eventsError ??
+    (hasCalendarAccount === false
+      ? "Connect Gmail or Microsoft in Mail to see your calendar (Gmail includes Google Calendar)."
+      : null);
+
+  const showSchedule = calView !== "agenda" || filteredEvents.length > 0 || loading;
 
   return (
     <div className="page tcc-page teams-surface">
-      <div className="tcc-shell tcc-shell--no-rail">
+      <TasksCalendarHeader
+        search={search}
+        onSearchChange={setSearch}
+        onNewTask={() => void onNewTask()}
+        onNewEvent={onNewEvent}
+        loading={loading}
+        busy={busy}
+        onRefresh={() => void refresh()}
+      />
+      <div className="tcc-shell tcc-shell--no-rail page-workbench">
         <div className="tcc-workspace">
-          <TasksCalendarHeader
-            search={search}
-            onSearchChange={setSearch}
-            onNewTask={onNewTask}
-            onNewEvent={onNewEvent}
+          <TasksCalendarCommandBar
+            viewDate={viewDate}
+            calView={calView}
+            onViewDateChange={setViewDate}
+            onCalViewChange={setCalView}
           />
-          <div className="tcc-toolbar">
-            <div className="tcc-filters" role="group" aria-label="Category filters">
-              {CATEGORY_FILTERS.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  className={`tcc-chip${categoryFilter === cat ? " tcc-chip--active" : ""}`}
-                  onClick={() => setCategoryFilter(cat)}
-                >
-                  {cat}
-                </button>
+          {statusMessage ? (
+            <p className="page-error tcc-status-banner" role="alert">
+              {statusMessage}
+            </p>
+          ) : null}
+          {calendarWarnings.length > 0 ? (
+            <div className="tcc-warnings" role="status">
+              {calendarWarnings.map((w) => (
+                <p key={w} className="tcc-warning-line">
+                  {w}
+                </p>
               ))}
             </div>
-            <div className="teams-segmented" role="group" aria-label="Calendar view">
-              {CAL_VIEWS.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className={calView === v.id ? "active" : ""}
-                  onClick={() => setCalView(v.id)}
-                >
-                  {v.label}
-                </button>
-              ))}
+          ) : null}
+          {loading && !calendarSaving ? (
+            <div className="tcc-loading-hint">
+              <span className="tcc-spinner" aria-hidden="true" />
+              <span>Loading calendar and tasks…</span>
             </div>
-          </div>
-          <div className="tcc-body">
-            <div className="tcc-main">
-              <TasksCalendarWeekView
-                view={calView}
-                viewDate={viewDate}
-                events={filteredEvents}
-                selectedEventId={selectedEventId}
-                onSelectEvent={(ev) => {
-                  setSelectedEventId(ev.id);
-                  setSelectedTaskId(null);
-                }}
-              />
-              <TasksCalendarTaskList
-                tasks={filteredTasks}
-                selectedTaskId={selectedTaskId}
-                categoryFilter={categoryFilter}
-                onSelectTask={(task) => {
-                  setSelectedTaskId(task.id);
-                  setSelectedEventId(null);
-                }}
-                onToggleTask={toggleTask}
-              />
+          ) : null}
+          <div className="tcc-body tcc-body--teams">
+            <div className="tcc-cal-main">
+              {showSchedule ? (
+                <TasksCalendarSchedule
+                  calView={calView}
+                  viewDate={viewDate}
+                  events={filteredEvents}
+                  selectedEventId={selectedEventId}
+                  saving={calendarSaving}
+                  onSelectEvent={(ev) => {
+                    setSelectedEventId(ev.id);
+                    setSelectedTaskId(null);
+                  }}
+                  onReschedule={(ev, start, end) => void rescheduleEvent(ev, start, end)}
+                />
+              ) : (
+                <div className="empty-state">
+                  <CalendarX size={32} strokeWidth={1.5} className="empty-state-icon" aria-hidden />
+                  <p className="empty-state-title">No events</p>
+                  <p className="empty-state-message">Nothing scheduled in this range.</p>
+                </div>
+              )}
             </div>
-            <TasksCalendarFocusPanel
-              selectedTask={selectedTask}
-              selectedEvent={selectedEvent}
-              tasks={tasks}
-              events={events}
-            />
+            <aside className="tcc-sidebar">
+              <div className="tcc-sidebar-toolbar">
+                <div className="tcc-task-panel-head">
+                  <span className="tcc-sidebar-label">Tasks</span>
+                  <div className="teams-segmented tcc-task-view-toggle" role="group" aria-label="Task view">
+                    <button
+                      type="button"
+                      className={taskView === "list" ? "active" : ""}
+                      onClick={() => setTaskView("list")}
+                    >
+                      List
+                    </button>
+                    <button
+                      type="button"
+                      className={taskView === "board" ? "active" : ""}
+                      onClick={() => setTaskView("board")}
+                    >
+                      Board
+                    </button>
+                  </div>
+                </div>
+                <TasksCalendarQuickAdd busy={busy} onAdd={onQuickAddNl} />
+                <div className="tcc-sidebar-filters" role="group" aria-label="Task category filters">
+                  {CATEGORY_FILTERS.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={`tcc-chip${categoryFilter === cat ? " tcc-chip--active" : ""}`}
+                      onClick={() => setCategoryFilter(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {taskView === "list" ? (
+                <TasksCalendarTaskList
+                  tasks={filteredTasks}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={selectTask}
+                  onToggleTask={(id) => void toggleTask(id)}
+                  onUpdateStatus={(id, status) => void updateTaskStatus(id, status)}
+                  onDeleteTask={(id) => {
+                    void deleteTask(id);
+                    if (selectedTaskId === id) setSelectedTaskId(null);
+                  }}
+                />
+              ) : (
+                <TasksCalendarKanban
+                  tasks={filteredTasks}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={selectTask}
+                  onUpdateStatus={(id, status) => void updateTaskStatus(id, status)}
+                  onDeleteTask={(id) => {
+                    void deleteTask(id);
+                    if (selectedTaskId === id) setSelectedTaskId(null);
+                  }}
+                  onQuickAdd={async (status, title) => {
+                    const id = await quickAddTask(status, title);
+                    if (id) setSelectedTaskId(id);
+                  }}
+                />
+              )}
+              <TasksCalendarFocusPanel
+                selectedTask={selectedTask}
+                selectedEvent={selectedEvent}
+                tasks={tasks}
+                events={events}
+              />
+            </aside>
           </div>
         </div>
       </div>

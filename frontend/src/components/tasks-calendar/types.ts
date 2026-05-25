@@ -13,6 +13,10 @@ export interface PlannerTask {
   group: TaskGroup;
   completed: boolean;
   notes?: string;
+  /** Cortex API fields (for PATCH). */
+  projectId?: string;
+  projectName?: string;
+  status?: "TODO" | "IN_PROGRESS" | "DONE";
 }
 
 export interface PlannerEvent {
@@ -23,8 +27,17 @@ export interface PlannerEvent {
   allDay: boolean;
   color?: string;
   category?: TaskCategory;
+  /** Provider metadata for calendar PATCH. */
+  source?: "google" | "microsoft";
+  providerEventId?: string;
+  calendarId?: string;
+  accountEmail?: string;
+  location?: string;
+  description?: string;
+  calendarName?: string;
 }
 
-export type CalendarRangeView = "day" | "week" | "month";
+/** Teams-style calendar range modes */
+export type CalendarRangeView = "workweek" | "week" | "day" | "month" | "agenda";
 
 export type CategoryFilter = "All" | TaskCategory;

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.env.kimi
 *.env.local
 .claude/
 .cursor/
@@ -18,6 +19,14 @@ vendor/pi/
 *.log
 **/prisma/dev.db
 backend/data/canvas-assets/
+backend/.cortex/
+backend/.env.tailscale
+.openclaw/
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
 .gstack/
 deploy/homelab/data/
 deploy/homelab/.env

@@ -130,7 +130,7 @@ export const MemoryPage = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
       )}
 
-      {loading && <p className="muted">Loading memory services…</p>}
+      {loading && <p className="muted"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading memory services…</p>}
       {error && <p className="error-text">{error}</p>}
 
       {status && (

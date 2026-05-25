@@ -30,7 +30,7 @@ interface Props {
 
 /** In-page rail — lucide only (no CortexBrand/NavIcon) to avoid lazy ↔ main chunk cycle. */
 export function TasksCalendarSidebar({ activeTab, onNavigate }: Props) {
-  const onPlanner = activeTab === "tasks" || activeTab === "calendar";
+  const onPlanner = activeTab === "tasks";
 
   return (
     <aside className="tcc-rail" aria-label="Cortex navigation">

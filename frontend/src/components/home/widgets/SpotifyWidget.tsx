@@ -46,7 +46,7 @@ export function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) 
         <span>Spotify</span>
       </div>
       {loading ? (
-        <p className="widget-empty">Checking…</p>
+        <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Checking…</p>
       ) : !connected ? (
         <div className="spotify-cta-card">
           <BrandIcon brand="spotify" size={32} className="spotify-cta-icon" />

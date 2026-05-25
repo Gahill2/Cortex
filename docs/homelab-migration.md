@@ -122,4 +122,5 @@ Cortex does not require Redis today; the profile reserves `./data/redis` for fut
 ## Related docs
 
 - Railway deploy: [railway-deploy.md](./railway-deploy.md)
-- Local Postgres (dev): root `docker-compose.yml` postgres service
+- **This PC as server (Windows Docker):** [local-server-docker.md](./local-server-docker.md) (`npm run server:up`)
+- Optional n8n only: root `docker-compose.yml`

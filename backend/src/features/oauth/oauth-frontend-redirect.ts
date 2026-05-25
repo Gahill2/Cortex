@@ -32,3 +32,16 @@ export function resolveOAuthFrontendBase(returnOrigin?: string): string {
   }
   return defaultFrontend();
 }
+
+/** OAuth redirect must match the browser origin that started connect (same host as returnOrigin). */
+export function resolveGmailOAuthRedirectUri(returnOrigin?: string): string {
+  const explicit = env.GOOGLE_REDIRECT_URI?.trim();
+  if (explicit && !returnOrigin?.trim()) return explicit;
+  return `${resolveOAuthFrontendBase(returnOrigin)}/api/gmail/oauth/callback`;
+}
+
+export function resolveMicrosoftOAuthRedirectUri(returnOrigin?: string): string {
+  const explicit = env.MICROSOFT_REDIRECT_URI?.trim();
+  if (explicit && !returnOrigin?.trim()) return explicit;
+  return `${resolveOAuthFrontendBase(returnOrigin)}/api/microsoft/oauth/callback`;
+}

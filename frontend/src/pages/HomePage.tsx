@@ -38,5 +38,11 @@ export const HomePage = ({ onNavigate }: Props) => {
     [onNavigate, boardTasks, boardDataLoading],
   );
 
-  return <CanvasDashboard onNavigate={onNavigate} renderWidget={renderWidget} />;
+  return (
+    <div className="page home-page home-page--canvas-full">
+      <div className="page-workbench home-page__canvas-wrap">
+        <CanvasDashboard onNavigate={onNavigate} renderWidget={renderWidget} />
+      </div>
+    </div>
+  );
 };

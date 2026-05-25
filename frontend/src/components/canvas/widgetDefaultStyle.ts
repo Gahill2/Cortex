@@ -17,7 +17,7 @@ export function getDefaultWidgetStyle(widgetKey: string): WidgetStyleChoice {
   const variant = normalizeWidgetVariant(widgetKey, def?.defaultVariant);
   return {
     variant,
-    skin: normalizeWidgetSkin(undefined),
+    skin: normalizeWidgetSkin("ios"),
     display: normalizeWidgetDisplay(widgetKey, undefined),
   };
 }

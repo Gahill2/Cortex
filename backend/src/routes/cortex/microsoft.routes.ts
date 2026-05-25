@@ -33,7 +33,7 @@ cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), 
     desktop: body.desktop === true,
     returnOrigin: body.returnOrigin
   });
-  const url = buildMicrosoftAuthUrl(state);
+  const url = buildMicrosoftAuthUrl(state, body.returnOrigin);
   sendSuccess(res, { url });
 });
 
@@ -68,7 +68,7 @@ cortexMicrosoftRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (
     if (typeof code !== "string") { res.redirect(err("missing_code")); return; }
 
     const { userId } = msState;
-    const tokens = await exchangeMicrosoftCode(code);
+    const tokens = await exchangeMicrosoftCode(code, msState.returnOrigin);
 
     // Get the user's email from Microsoft Graph
     const email = await getMicrosoftUserEmail(tokens.access_token);

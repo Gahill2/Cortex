@@ -33,11 +33,23 @@ CORTEX_DEV_FULL=1 npm run dev           # bash
 
 ## Avoid stacking these together
 
+- `npm run dev` **and** `npm run server:up` (both use API port **4000**)
 - `npm run dev:desktop` (Electron **and** Chrome ≈ two shells)
 - `npm run hub:up` / InsForge Docker (Postgres + more) unless you need the hub DB
 - `npm run dev:stack` (adds AgentMemory)
 - `npm run dev:mcp` unless testing MCP
 - Root `docker compose up` n8n unless you use n8n
+
+## Docker as local server (this PC)
+
+Use **`npm run server:up`** when this machine should behave like production (Postgres + API + UI in Docker). See [local-server-docker.md](./local-server-docker.md).
+
+Before switching between Docker server and `npm run dev`:
+
+```powershell
+npm run cleanup:processes
+npm run server:status    # when using Docker server mode
+```
 
 ## Do not use Cursor Simple Browser
 
@@ -55,7 +67,7 @@ Opening Cortex (especially **Tasks & Calendar** or the home canvas) in **Cursor�
 | `CORTEX_SKIP_PRISMA_DEPLOY=1` | Backend skips migrate (lite sets this) |
 | `CORTEX_VITE_LITE=1` | Lighter Vite (`npm run dev:frontend:lite`) |
 | `CORTEX_OPEN_BROWSER=0` | Do not auto-open Chrome |
-| `OBSIDIAN_VAULT_PATH=` | **Empty** — disables vault file watcher noise |
+| `OBSIDIAN_VAULT_PATH=` | **Empty** — disables vault file watcher noise. For Grey Hill Brain: `C:\Users\greyh\Documents\GitHub\greyhill_brain` |
 | `CORTEX_SKIP_ELECTRON_POSTINSTALL=1` | Faster/lighter `npm install` (web-only) |
 
 ## After `git pull` with schema changes

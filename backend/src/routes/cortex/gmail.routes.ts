@@ -56,7 +56,7 @@ cortexGmailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (re
   const isDesktop = req.query.desktop === "1";
   const returnOrigin = typeof req.query.returnOrigin === "string" ? req.query.returnOrigin : undefined;
   const state = signGmailOAuthState(req.auth!.userId, { desktop: isDesktop, returnOrigin });
-  const url = buildGmailAuthUrl(state);
+  const url = buildGmailAuthUrl(state, returnOrigin);
   sendSuccess(res, { url }, "live");
 });
 
@@ -66,9 +66,9 @@ cortexGmailRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_000
     code: z.string().min(1),
     state: z.string().min(1),
   }).parse(req.body);
-  const { userId } = verifyGmailOAuthState(state);
-  if (userId !== req.auth!.userId) throw new HttpError(403, "State userId mismatch");
-  const tokens = await exchangeAuthorizationCode(code);
+  const gmailState = verifyGmailOAuthState(state);
+  if (gmailState.userId !== req.auth!.userId) throw new HttpError(403, "State userId mismatch");
+  const tokens = await exchangeAuthorizationCode(code, gmailState.returnOrigin);
   await saveGoogleCredentials(req.auth!.userId, tokens);
   sendSuccess(res, { connected: true });
 });
@@ -108,8 +108,8 @@ cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req,
         return;
       }
 
-      const auth = createOAuth2Client();
-      const { tokens } = await auth.getToken(code);
+      const tokens = await exchangeAuthorizationCode(code, mailState.returnOrigin);
+      const auth = createOAuth2Client(mailState.returnOrigin);
       auth.setCredentials(tokens);
 
       const oauth2 = google.oauth2({ version: "v2", auth });
@@ -157,7 +157,7 @@ cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req,
       res.redirect(err("missing_code"));
       return;
     }
-    const tokens = await exchangeAuthorizationCode(code);
+    const tokens = await exchangeAuthorizationCode(code, gmailState.returnOrigin);
     await saveGoogleCredentials(gmailState.userId, tokens);
     res.redirect(ok);
   } catch (e) {

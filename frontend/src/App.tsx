@@ -1,22 +1,32 @@
-import { useEffect, useLayoutEffect, useRef, useState, lazy, Suspense } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import type { AxiosError } from "axios";
 import { LoginPage } from "./pages/LoginPage";
 import { SessionPinGate } from "./components/SessionPinGate";
 import { Sidebar } from "./components/Sidebar";
-import { MobileAppBar } from "./components/MobileAppBar";
-import { MobileNavDrawer } from "./components/MobileNavDrawer";
-import { MobileTabBar } from "./components/MobileTabBar";
 import { OAuthBootstrap } from "./components/OAuthBootstrap";
 import { PageLoading } from "./components/PageLoading";
 import { AppearanceProvider } from "./AppearanceProvider";
 import { PreferencesProvider } from "./context/PreferencesContext";
-import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/client";
+import {
+  api,
+  setAuthToken,
+  AUTH_STORAGE_KEY,
+  AUTH_USER_STORAGE_KEY,
+  AUTH_LOGOUT_EVENT,
+  AUTH_CHANGED_EVENT,
+} from "./api/client";
+import type { User } from "./types";
+import { clearPreferencesCache } from "./context/PreferencesContext";
 import { useWallpaper } from "./hooks/useWallpaper";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { TAB_SCREEN_TITLES } from "./navigation";
 import type { Tab } from "./tab";
 import { TasksCalendarPage } from "./pages/TasksCalendarPage";
+import { CommandPalette, type PaletteAction } from "./components/shell/CommandPalette";
+import { QuickCaptureDialog } from "./components/shell/QuickCaptureDialog";
+import { ToastViewport } from "./components/shell/ToastViewport";
+import { useDesktopShortcuts } from "./hooks/useDesktopShortcuts";
 
 export type { Tab } from "./tab";
 
@@ -68,14 +78,86 @@ export default function App() {
   );
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
   const [sessionProbeDone, setSessionProbeDone] = useState(false);
+  const [pinUnlockRequired, setPinUnlockRequired] = useState(true);
   const [pinGateReason, setPinGateReason] = useState<"sign-in" | "idle" | "manual">("sign-in");
   const prevTokenRef = useRef<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const [navDrawerClosing, setNavDrawerClosing] = useState(false);
   const navDrawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMobileLayout = useMediaQuery("(max-width: 768px)");
   const [tokenReady, setTokenReady] = useState(() => !isElectronEnv);
+
+  const lockSession = useCallback(async () => {
+    try {
+      await api.post("/auth/lock", { lockReason: "manual" });
+    } catch {
+      /* still show gate */
+    }
+    setPinGateReason("manual");
+    setSessionUnlocked(false);
+  }, []);
+
+  const paletteActions = useMemo<PaletteAction[]>(
+    () => [
+      { id: "nav-home", label: "Go to Home", group: "Navigate", keywords: "dashboard home", onSelect: () => setTab("home") },
+      {
+        id: "nav-tasks",
+        label: "Go to Tasks & Calendar",
+        group: "Navigate",
+        keywords: "tasks calendar planner",
+        onSelect: () => setTab("tasks"),
+      },
+      { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant", onSelect: () => setTab("ai") },
+      {
+        id: "nav-notes",
+        label: "Go to Notes",
+        group: "Navigate",
+        keywords: "brain obsidian graph vault",
+        onSelect: () => setTab("notes"),
+      },
+      { id: "nav-mail", label: "Go to Mail", group: "Navigate", keywords: "email gmail", onSelect: () => setTab("mail") },
+      {
+        id: "nav-settings",
+        label: "Go to Settings",
+        group: "Navigate",
+        keywords: "preferences integrations",
+        onSelect: () => setTab("settings"),
+      },
+      {
+        id: "brain-capture",
+        label: "Quick capture",
+        group: "Brain",
+        keywords: "obsidian note inbox daily capture",
+        shortcut: "⌃⇧N",
+        onSelect: () => setCaptureOpen(true),
+      },
+      {
+        id: "session-lock",
+        label: "Lock session",
+        group: "Session",
+        keywords: "pin security logout",
+        shortcut: "⌃L",
+        onSelect: () => {
+          void lockSession();
+        },
+      },
+    ],
+    [lockSession]
+  );
+
+  useDesktopShortcuts({
+    enabled: Boolean(token && sessionUnlocked && sessionProbeDone),
+    paletteOpen,
+    expandedModuleOpen: false,
+    onOpenPalette: () => setPaletteOpen(true),
+    onClosePalette: () => setPaletteOpen(false),
+    onCloseExpanded: () => {},
+    onLock: lockSession,
+    onQuickCapture: () => setCaptureOpen(true),
+  });
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -100,6 +182,7 @@ export default function App() {
     if (!token) {
       prevTokenRef.current = null;
       setSessionUnlocked(false);
+      setPinUnlockRequired(true);
       setSessionProbeDone(true);
       return;
     }
@@ -114,13 +197,23 @@ export default function App() {
     let cancelled = false;
     void (async () => {
       try {
-        await api.get("/auth/session");
+        const session = await api.get<{ user?: User; pinUnlock?: boolean }>("/auth/session");
+        const needsPin = session.data.pinUnlock === true;
+        if (!cancelled) setPinUnlockRequired(needsPin);
+        if (session.data.user) {
+          try {
+            localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.data.user));
+          } catch {
+            /* ignore */
+          }
+        }
         if (!cancelled) setSessionUnlocked(true);
       } catch (err) {
         if (cancelled) return;
         const ax = err as AxiosError<{ error?: { message?: string } }>;
         const status = ax.response?.status;
         if (status === 423) {
+          setPinUnlockRequired(true);
           setSessionUnlocked(false);
           return;
         }
@@ -144,7 +237,7 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (!token || !sessionUnlocked) return;
+    if (!token || !sessionUnlocked || !pinUnlockRequired) return;
     let timeoutId: ReturnType<typeof setTimeout>;
     const schedule = () => {
       clearTimeout(timeoutId);
@@ -174,7 +267,7 @@ export default function App() {
       window.removeEventListener("touchstart", onActivity);
       window.removeEventListener("wheel", onActivity);
     };
-  }, [token, sessionUnlocked]);
+  }, [token, sessionUnlocked, pinUnlockRequired]);
 
   useEffect(() => {
     if (!isElectronEnv) return;
@@ -315,9 +408,18 @@ export default function App() {
   if (!token) {
     return (
       <LoginPage
-        onLogin={(next) => {
+        onLogin={(next, user) => {
+          clearPreferencesCache();
           setAuthToken(next);
           setToken(next);
+          if (user) {
+            try {
+              localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+            } catch {
+              /* ignore */
+            }
+          }
+          window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
         }}
       />
     );
@@ -327,7 +429,7 @@ export default function App() {
     return <div style={{ background: "#0e0e10", height: "100vh" }} aria-busy="true" />;
   }
 
-  if (!sessionUnlocked) {
+  if (!sessionUnlocked && pinUnlockRequired) {
     return (
       <SessionPinGate
         reason={pinGateReason}
@@ -338,6 +440,10 @@ export default function App() {
         }}
       />
     );
+  }
+
+  if (!sessionUnlocked) {
+    return <div style={{ background: "#0e0e10", height: "100vh" }} aria-busy="true" />;
   }
 
   const closeNavDrawer = () => {
@@ -410,11 +516,13 @@ export default function App() {
           )}
 
         <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
-          <div className="container-fluid flex-grow-1 d-flex flex-column min-vh-0 px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5 cortex-route-bootstrap cortex-animate-in">
-            {(tab === "tasks" || tab === "calendar") && (
-              <TasksCalendarPage activeTab={tab} onNavigate={goTab} />
-            )}
-            {tab !== "tasks" && tab !== "calendar" && (
+          <div
+            className={`container-fluid flex-grow-1 d-flex flex-column min-vh-0 cortex-route-bootstrap cortex-animate-in${
+              tab === "home" ? " cortex-route-bootstrap--home-full" : " px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5"
+            }`}
+          >
+            {tab === "tasks" && <TasksCalendarPage activeTab={tab} onNavigate={goTab} />}
+            {tab !== "tasks" && (
               <Suspense fallback={<PageLoading />}>
                 {tab === "home" && <HomePage onNavigate={goTab} />}
                 {tab === "ai" && <AIPage />}
@@ -426,15 +534,7 @@ export default function App() {
                       setToken(null);
                       setTab("home");
                     }}
-                    onLockSession={async () => {
-                      try {
-                        await api.post("/auth/lock", { lockReason: "manual" });
-                      } catch {
-                        /* still show gate */
-                      }
-                      setPinGateReason("manual");
-                      setSessionUnlocked(false);
-                    }}
+                    onLockSession={lockSession}
                   />
                 )}
                 {tab === "mail" && <MailPage />}
@@ -443,8 +543,10 @@ export default function App() {
             )}
           </div>
         </main>
-        {isMobileLayout && <MobileTabBar active={tab} onChange={goTab} />}
       </div>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} actions={paletteActions} />
+      <QuickCaptureDialog open={captureOpen} onOpenChange={setCaptureOpen} />
+      <ToastViewport />
       </AppearanceProvider>
     </PreferencesProvider>
   );

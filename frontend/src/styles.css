@@ -25,15 +25,19 @@
   --radius-md:   8px;
   --radius-lg:   12px;
   --radius-xl:   22px;
+  --radius-widget: 22px;
   /* Semantic aliases (home dashboard + bento shells) */
   --surface-0:   var(--bg);
   --surface-1:   var(--surface);
   --border-strong: var(--border-2);
   --text-1:      var(--text);
-  /* Flat “report tile” surface; wallpaper mode can re-tint via [data-wallpaper] */
-  --widget-glass-bg: rgba(26, 26, 34, 0.96);
-  --widget-shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
-  --widget-shadow-hover: 0 6px 22px rgba(0, 0, 0, 0.4);
+  /* Frosted widget surface (Apple-style vibrancy) */
+  --widget-glass-bg: rgba(36, 36, 42, 0.62);
+  --widget-blur: blur(24px) saturate(1.65);
+  --widget-shadow: 0 4px 24px rgba(0, 0, 0, 0.22), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --widget-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  --apple-blue: #0a84ff;
+  --apple-blue-dim: rgba(10, 132, 255, 0.18);
   --brand-blue: #5b8dff;
   --brand-teal: #3be8ad;
   --brand-blue-dim: rgba(91, 141, 255, 0.14);
@@ -64,14 +68,18 @@ html[data-color-scheme="light"]:not(.cortex-notion) {
   --text-3: rgba(26, 26, 30, 0.4);
   --accent: #2383e2;
   --accent-dim: rgba(35, 131, 226, 0.12);
-  --widget-glass-bg: rgba(255, 255, 255, 0.96);
-  --widget-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --widget-shadow-hover: 0 4px 18px rgba(0, 0, 0, 0.08);
+  --widget-glass-bg: rgba(255, 255, 255, 0.68);
+  --widget-blur: blur(28px) saturate(180%);
+  --widget-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --widget-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.95) inset;
+  --apple-blue: #007aff;
+  --apple-blue-dim: rgba(0, 122, 255, 0.14);
 }
 
 /* ── Reset ───────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
+html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-brand);
   font-size: 13px;
@@ -79,11 +87,34 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
+::selection {
+  background: var(--accent-dim);
+  color: var(--text);
+}
 button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, textarea, select { font: inherit; color: var(--text); background: transparent; border: none; outline: none; }
+input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 #root { height: 100%; display: flex; flex-direction: column; }
+
+/* Global focus-visible rings */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+[tabindex="-1"]:focus-visible,
+.home-prod-kpi:focus-visible,
+.kanban-card:focus-visible,
+.tcc-task-card:focus-visible,
+.cal-sidebar-event:focus-visible,
+.sidebar-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+.sidebar-nav-item:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
 
 .cortex-logo-img {
   display: block;
@@ -190,6 +221,21 @@ img { display: block; max-width: 100%; }
   background: rgba(255, 255, 255, 0.04);
   color: var(--accent);
   font-weight: 600;
+  position: relative;
+}
+.sidebar-nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.sidebar-nav-item:active {
+  transform: scale(0.985);
 }
 
 .sidebar-nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
@@ -282,7 +328,27 @@ img { display: block; max-width: 100%; }
   color: var(--text);
 }
 
-.page-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.page-subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+  max-width: 42rem;
+}
+
+.page-workbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg-2));
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
+}
+
+.page-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .page-error {
   background: var(--red-dim);
   border: 1px solid rgba(255,95,95,0.25);
@@ -561,6 +627,20 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   .login-epic-node {
     animation: none !important;
   }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .page-loading-spinner,
+  .inline-loading-spinner,
+  .tcc-spinner,
+  .sidebar-status-dot {
+    animation: none !important;
+  }
 }
 
 .login-logo-wrap {
@@ -752,6 +832,27 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 /* ── Home widget board ───────────────────────────────────── */
 .home-page { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+
+/* Full-bleed Figma-style canvas on Home (title lives in burger app bar) */
+.cortex-route-bootstrap--home-full {
+  padding: 0 !important;
+  max-width: 100%;
+}
+.home-page--canvas-full {
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+.home-page--canvas-full .home-page__canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+.home-page--canvas-full .canvas-dashboard {
+  border-radius: 0;
+  min-height: 0;
+  height: 100%;
+}
 .home-header {
   display: flex;
   align-items: flex-end;
@@ -1242,40 +1343,42 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   pointer-events: none;
 }
 
-/* Base widget — “report tile”: one shadow tier, flat surface (blur only when wallpaper needs it) */
+/* Base widget — Apple-style frosted card */
 .widget {
   background: var(--widget-glass-bg);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  backdrop-filter: var(--widget-blur);
+  -webkit-backdrop-filter: var(--widget-blur);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-widget, var(--radius-xl));
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow: hidden;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
   position: relative;
   box-shadow: var(--widget-shadow);
   height: 100%;
 }
 .widget[role="button"] { cursor: pointer; }
 .widget[role="button"]:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow: var(--widget-shadow-hover);
-  background: rgba(30, 30, 38, 0.98);
+  background: rgba(44, 44, 52, 0.72);
+  transform: translateY(-1px);
 }
 .widget[role="button"]:active {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
   box-shadow: var(--widget-shadow);
+  transform: translateY(0);
 }
 
 .widget-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--text-2);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1989,12 +2092,19 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .gmail-setup-card p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 .gmail-setup-card code { background: var(--surface-2); padding: 2px 5px; border-radius: 4px; font-size: 12px; }
 
-.gmail-layout {
+.gmail-page .gmail-layout {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 12px;
-  height: calc(100% - var(--titlebar-h) - 32px);
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
+  height: 100%;
+}
+
+.gmail-page .gmail-workbench {
+  flex: 1;
+  min-height: min(72vh, 820px);
 }
 
 .gmail-list {
@@ -2356,15 +2466,27 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
    Mail Hub (MailPage)
    ═══════════════════════════════════════════════════════════════════ */
 
-.mail-page { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.mail-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  gap: var(--space-4);
+}
+
+.mail-workbench {
+  flex: 1;
+  min-height: min(72vh, 820px);
+}
 
 .mail-layout {
   display: grid;
-  grid-template-columns: 200px 320px 1fr;
+  grid-template-columns: minmax(200px, 220px) minmax(280px, 360px) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid var(--border);
+  height: 100%;
 }
 
 /* Mail — stack panes under lg; one primary scroll on .mail-layout (no nested pane scrollbars) */
@@ -2409,18 +2531,29 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .mail-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 8px;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3);
   border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 55%, transparent);
   overflow-y: auto;
+  min-height: 0;
+}
+
+.mail-sidebar-section-label {
+  margin: var(--space-3) var(--space-2) var(--space-1);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .mail-sidebar-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--text-2);
@@ -2491,7 +2624,28 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 /* ── Message list pane ── */
 .mail-list-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mail-list-pane > .inline-loading,
+.mail-list-pane > .mail-empty-state,
+.mail-list-pane > .mail-inbox-empty,
+.mail-list-pane > .mail-folder-empty,
+.mail-list-pane > .gmail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mail-list-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -2699,6 +2853,22 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .cal-list-date-header { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 0 6px; }
 .cal-list-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg-2); border: none; text-align: left; cursor: pointer; width: 100%; margin-bottom: 4px; }
 .cal-list-row:hover { background: var(--bg-3); }
+.cal-list-row--draggable { cursor: grab; }
+.cal-list-row--draggable:active { cursor: grabbing; }
+.cal-list-row--dragging { opacity: 0.35; }
+.cal-list-row--overlay {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px;
+  background: var(--bg-3); border: 1px solid var(--accent-dim, rgba(91,141,255,0.25));
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35); color: var(--text);
+  font-size: 13px; pointer-events: none;
+}
+.cal-list--dnd { padding: 0 4px; }
+.cal-list-hint {
+  font-size: 11px; color: var(--text-3); margin-bottom: 8px; padding: 0 4px;
+}
+.cal-list-day-block { border-radius: 8px; padding: 2px 4px; transition: background 0.15s ease; }
+.cal-list-day-block--over { background: rgba(91,141,255,0.08); outline: 2px dashed var(--accent-dim, rgba(91,141,255,0.35)); outline-offset: -2px; }
+.cal-list-day-empty { font-size: 12px; color: var(--text-3); padding: 10px 8px; text-align: center; }
 .cal-list-time { font-size: 12px; color: var(--text-3); min-width: 60px; }
 .cal-list-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .cal-list-title { font-size: 13px; color: var(--text); }
@@ -2780,16 +2950,26 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 }
 [data-wallpaper="true"] .widget,
 [data-ai-theme="true"] .widget {
-  background: rgba(20, 20, 28, 0.72);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(28, 28, 34, 0.58);
+  backdrop-filter: blur(28px) saturate(1.75);
+  -webkit-backdrop-filter: blur(28px) saturate(1.75);
+  border-color: rgba(255, 255, 255, 0.16);
   box-shadow: var(--widget-shadow);
 }
 [data-wallpaper="true"] .widget[role="button"]:hover,
 [data-ai-theme="true"] .widget[role="button"]:hover {
-  background: rgba(26, 26, 36, 0.82);
+  background: rgba(36, 36, 44, 0.68);
   box-shadow: var(--widget-shadow-hover);
+}
+
+/* Shared frosted panel (GlassPanel, strips, tool surfaces) */
+.glass-panel {
+  background: var(--widget-glass-bg);
+  backdrop-filter: var(--widget-blur);
+  -webkit-backdrop-filter: var(--widget-blur);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--widget-shadow);
 }
 [data-wallpaper="true"] .desktop-main {
   background: transparent;
@@ -2808,14 +2988,6 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 }
 
 /* -- Mail AI folders + category UI ------------------------ */
-.mail-sidebar-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  padding: 10px 12px 4px;
-}
 .mail-sidebar-item--category {
   opacity: 0.9;
 }
@@ -4170,4 +4342,72 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--text-3);
+}
+.empty-state-icon {
+  color: var(--text-3);
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+.empty-state-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: 0;
+}
+.empty-state-message {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0;
+  line-height: 1.45;
+  max-width: 280px;
+}
+
+/* ── Inline loading spinner ──────────────────────────────── */
+.inline-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.inline-loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: inline-loading-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+.inline-loading-spinner--sm {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+@keyframes inline-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── ConfirmButton pending state ─────────────────────────── */
+.confirm-pending {
+  animation: confirm-pulse 1.2s ease-in-out infinite;
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+}
+@keyframes confirm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }

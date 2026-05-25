@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fsPromises, watch, type FSWatcher } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { cortexDataPath } from "../../lib/cortex-data-dir.js";
 
 export interface VaultSearchResult {
   id: string;
@@ -38,7 +39,7 @@ interface VaultIndexOptions {
   cachePath?: string;
 }
 
-const DEFAULT_CACHE_PATH = path.resolve(process.cwd(), ".cortex", "vault-index.json");
+const DEFAULT_CACHE_PATH = cortexDataPath(".cortex", "vault-index.json");
 const FRONTMATTER_DELIMITER = "---";
 
 const toForwardSlashes = (value: string): string => value.replaceAll("\\", "/");

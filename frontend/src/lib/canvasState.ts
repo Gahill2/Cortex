@@ -62,6 +62,23 @@ export async function uploadCanvasDataUrl(dataUrl: string): Promise<string> {
   return imageUrl;
 }
 
+/** Prefer local data: URLs when server layout only has missing /api/canvas asset refs. */
+export function mergeCanvasImageUrlsFromLocal(
+  serverNodes: CanvasNode[],
+  localNodes: CanvasNode[] | undefined
+): CanvasNode[] {
+  if (!localNodes?.length) return serverNodes;
+  const localById = new Map(localNodes.map((n) => [n.id, n]));
+  return serverNodes.map((node) => {
+    if (node.type !== "image") return node;
+    const local = localById.get(node.id);
+    if (local?.type === "image" && local.imageUrl?.startsWith("data:")) {
+      return { ...node, imageUrl: local.imageUrl };
+    }
+    return node;
+  });
+}
+
 export async function migrateCanvasDataUrlImages(
   nodes: CanvasNode[],
   isAuthenticated: boolean

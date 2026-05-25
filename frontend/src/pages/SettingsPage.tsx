@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useToastStore } from "../stores/toastStore";
 import { IntegrationsPanel } from "../components/IntegrationsPanel";
 import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
@@ -119,9 +120,11 @@ const APPEARANCE_OPTIONS: { id: AppearanceMode; label: string }[] = [
 ];
 
 export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
+  const pushToast = useToastStore((s) => s.push);
   const [section, setSection] = useState<SettingsSectionId>(
     () => readSettingsSection() ?? "appearance"
   );
+  const [resetConfirming, setResetConfirming] = useState(false);
   const onSectionChange = (id: SettingsSectionId) => {
     setSection(id);
     writeSettingsSection(id);
@@ -371,6 +374,15 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
 
   return (
     <div className="page settings-page settings-page--shell">
+      <div className="page-titlebar">
+        <div>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-subtitle">
+            Manage your account, appearance, integrations, and preferences.
+          </p>
+        </div>
+      </div>
+
       {import.meta.env.DEV && (
         <div className="settings-dev-banner" role="status">
           <strong>Dev</strong>
@@ -531,12 +543,14 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
             </p>
             <button
               type="button"
-              className="btn-danger btn-sm"
+              className={`btn-danger btn-sm${resetConfirming ? " confirm-pending" : ""}`}
               onClick={() => {
-                const ok = window.confirm(
-                  "Reset Cortex UI preferences? Home layout, appearance, and related settings will return to defaults after reload."
-                );
-                if (!ok) return;
+                if (!resetConfirming) {
+                  setResetConfirming(true);
+                  setTimeout(() => setResetConfirming(false), 3000);
+                  return;
+                }
+                setResetConfirming(false);
                 void (async () => {
                   try {
                     await resetUiPreferences();
@@ -544,11 +558,12 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
                     /* still clear local cache */
                   }
                   clearCortexUiPreferences();
-                  window.location.reload();
+                  pushToast({ title: "Preferences reset", message: "Cortex UI preferences have been reset. Reloading…", tone: "neutral" });
+                  setTimeout(() => window.location.reload(), 800);
                 })();
               }}
             >
-              Reset Cortex UI preferences
+              {resetConfirming ? "Confirm reset?" : "Reset Cortex UI preferences"}
             </button>
           </section>
           </>

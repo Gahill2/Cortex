@@ -16,6 +16,7 @@ import { getOrCreateCortexUser } from "../../features/auth/cortex-db-user.js";
 import { isGmailConfigured, listInbox } from "../../features/gmail/gmail-service.js";
 import { isNotionConnected, notionContext } from "../../features/notion/notion-service.js";
 import { getObsidianContextForUser } from "./obsidian.routes.js";
+import { logAiExchange } from "../../features/obsidian/ai-vault-log.js";
 import {
   extractJsonArray,
   mergeMailCategories,
@@ -156,11 +157,27 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
           systemPrompt,
           maxTokens: 1024,
         });
+
+    const conversationId = input.conversationId ?? `conv_${Date.now()}`;
+    let obsidianLogged = false;
+    try {
+      obsidianLogged = await logAiExchange({
+        userId: req.auth!.userId,
+        userMessage: input.message,
+        assistantReply: result.text,
+        provider: result.provider,
+        conversationId,
+      });
+    } catch {
+      /* vault logging must not fail chat */
+    }
+
     sendSuccess(res, {
-      conversationId: input.conversationId ?? `conv_${Date.now()}`,
+      conversationId,
       reply: result.text,
       model: result.model,
-      provider: result.provider
+      provider: result.provider,
+      obsidianLogged,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "AI error";

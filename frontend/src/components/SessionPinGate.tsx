@@ -45,7 +45,10 @@ export function SessionPinGate({ onUnlocked, onSessionExpired, reason = "sign-in
       const ax = err as AxiosError<{ error?: { message?: string } }>;
       const apiMsg = ax.response?.data?.error?.message;
       if (ax.response?.status === 403) {
-        setError(apiMsg ?? "PIN unlock is disabled on this server.");
+        setError(
+          apiMsg ??
+            "PIN unlock is disabled on this server. Clear site data for this page or sign out and sign in again with email OTP."
+        );
       } else if (ax.response?.status === 401) {
         const msg = apiMsg ?? "";
         if (/invalid|expired.*token/i.test(msg)) {

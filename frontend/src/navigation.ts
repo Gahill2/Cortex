@@ -34,7 +34,6 @@ export const CORTEX_MOBILE_TAB_NAV: NavItem[] = [
 
 /** Mobile drawer — secondary destinations (design D2). */
 export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
-  { id: "calendar", label: "Tasks & Calendar", icon: "calendar" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "spotify", label: "Music", icon: "music" },
   { id: "settings", label: "Settings", icon: "settings" },
@@ -44,7 +43,6 @@ export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
 export const TAB_SCREEN_TITLES: Record<Tab, string> = {
   home: "Dashboard",
   tasks: "Tasks & Calendar",
-  calendar: "Tasks & Calendar",
   ai: "AI",
   notes: "Notes",
   mail: "Mail",

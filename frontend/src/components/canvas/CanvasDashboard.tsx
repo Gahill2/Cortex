@@ -22,6 +22,11 @@ import type { WidgetSkin } from "./widgetSkins";
 import { prepareCanvasPointerGesture } from "./canvasPointer";
 import { clearNativeSelection } from "./canvasSelection";
 import { DEFAULT_BACKDROP_COLOR } from "./backdropColors";
+import {
+  loadCanvasFromLocalStorage,
+  mergeCanvasImageUrlsFromLocal,
+  migrateCanvasDataUrlImages,
+} from "../../lib/canvasState";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -230,19 +235,37 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     };
   }, []);
 
-  // Hydrate from server once preferences are loaded
+  // Hydrate from server once preferences are loaded (re-upload local data: images if assets missing)
   useEffect(() => {
     if (!ready || canvasHydratedRef.current) return;
     const layout = settings.canvasLayout as CanvasLayoutPref | null;
     canvasHydratedRef.current = true;
-    if (layout?.nodes?.length) {
-      const normalized = normalizeNodes(layout.nodes);
-      setNodes(normalized);
-      setPan(layout.pan ?? { x: 0, y: 0 });
-      setZoom(clampZoom(layout.zoom ?? 1));
-      setMaxZ(Math.max(...normalized.map((n) => n.zIndex), 0));
-      if (layout.background) setBackground(layout.background);
-    }
+
+    void (async () => {
+      const local = loadCanvasFromLocalStorage();
+      let nextNodes = layout?.nodes?.length
+        ? normalizeNodes(layout.nodes)
+        : local?.nodes?.length
+          ? normalizeNodes(local.nodes)
+          : normalizeNodes(saved?.nodes ?? defaultNodes());
+
+      nextNodes = mergeCanvasImageUrlsFromLocal(nextNodes, local?.nodes);
+      try {
+        nextNodes = await migrateCanvasDataUrlImages(nextNodes, true);
+      } catch (err) {
+        console.warn("[canvas] image upload migration failed:", err);
+      }
+
+      setNodes(nextNodes);
+      setPan(layout?.pan ?? local?.pan ?? saved?.pan ?? { x: 0, y: 0 });
+      setZoom(clampZoom(layout?.zoom ?? local?.zoom ?? saved?.zoom ?? 1));
+      setMaxZ(Math.max(...nextNodes.map((n) => n.zIndex), 0));
+      if (layout?.background) setBackground(layout.background);
+      else if (local) {
+        const bg = loadCanvasBackground();
+        if (bg.kind !== "default") setBackground(bg);
+      }
+    })();
   }, [ready, settings.canvasLayout]);
 
   // Persist canvas + widgets to account settings (debounced)

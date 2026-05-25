@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { CalendarEvent } from "./calendarTypes";
 import { DAY_NAMES } from "./calendarTypes";
+import { startOfWorkWeek } from "../../lib/calendarDate";
 import {
   GRID_END_HOUR,
   GRID_HEIGHT_PX,
@@ -14,9 +15,14 @@ import {
   isSameDay,
   layoutTimedEvent,
   snapDate,
+  startOfDay,
   startOfWeek,
   yToMinutes,
 } from "./calendarLayout";
+
+export type ScheduleMode = "workweek" | "week" | "day";
+
+const WORK_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 type DragMode = "move" | "resize";
 
@@ -34,20 +40,61 @@ interface Props {
   viewDate: Date;
   events: CalendarEvent[];
   saving: boolean;
+  selectedEventId?: string | null;
   onSelect: (ev: CalendarEvent) => void;
   onReschedule: (ev: CalendarEvent, start: Date, end: Date) => void;
+  /** Teams-style range: work week (Mon–Fri), full week, or single day */
+  scheduleMode?: ScheduleMode;
 }
 
 function SourceDot({ source }: { source: CalendarEvent["source"] }) {
   return <span className={`cal-week-ev-source cal-week-ev-source--${source}`} aria-hidden />;
 }
 
-export function CalendarWeekGrid({ viewDate, events, saving, onSelect, onReschedule }: Props) {
-  const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    [weekStart]
+function isWeekend(day: Date): boolean {
+  const dow = day.getDay();
+  return dow === 0 || dow === 6;
+}
+
+function NowIndicator({ day }: { day: Date }) {
+  if (!isSameDay(day, new Date())) return null;
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = GRID_START_HOUR * 60;
+  const endMinutes = GRID_END_HOUR * 60;
+  if (minutes < startMinutes || minutes >= endMinutes) return null;
+  const topPct = ((minutes - startMinutes) / (endMinutes - startMinutes)) * 100;
+  return (
+    <div className="cal-week-now-line" style={{ top: `${topPct}%` }} aria-hidden>
+      <span className="cal-week-now-dot" />
+    </div>
   );
+}
+
+export function CalendarWeekGrid({
+  viewDate,
+  events,
+  saving,
+  selectedEventId = null,
+  onSelect,
+  onReschedule,
+  scheduleMode = "week",
+}: Props) {
+  const rangeStart = useMemo(() => {
+    if (scheduleMode === "day") return startOfDay(viewDate);
+    if (scheduleMode === "workweek") return startOfWorkWeek(viewDate);
+    return startOfWeek(viewDate);
+  }, [scheduleMode, viewDate]);
+
+  const dayCount = scheduleMode === "workweek" ? 5 : scheduleMode === "day" ? 1 : 7;
+
+  const days = useMemo(
+    () => Array.from({ length: dayCount }, (_, i) => addDays(rangeStart, i)),
+    [rangeStart, dayCount],
+  );
+
+  const dayName = (day: Date, index: number) =>
+    scheduleMode === "workweek" ? WORK_DAY_NAMES[index] : DAY_NAMES[day.getDay()];
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -209,12 +256,13 @@ export function CalendarWeekGrid({ viewDate, events, saving, onSelect, onResched
         <div className="cal-week-gutter cal-week-gutter--head" />
         {days.map((day, i) => {
           const isToday = isSameDay(day, new Date());
+          const weekend = isWeekend(day);
           return (
             <div
               key={i}
-              className={`cal-week-schedule-dayhead ${isToday ? "cal-week-schedule-dayhead--today" : ""}`}
+              className={`cal-week-schedule-dayhead${isToday ? " cal-week-schedule-dayhead--today" : ""}${weekend ? " cal-week-schedule-dayhead--weekend" : ""}`}
             >
-              <span className="cal-week-day-name">{DAY_NAMES[day.getDay()]}</span>
+              <span className="cal-week-day-name">{dayName(day, i)}</span>
               <span className={`cal-week-day-num ${isToday ? "cal-day-num--today" : ""}`}>
                 {day.getDate()}
               </span>
@@ -253,14 +301,21 @@ export function CalendarWeekGrid({ viewDate, events, saving, onSelect, onResched
         </div>
 
         <div className="cal-week-day-columns">
-          {days.map((day, dayIndex) => (
-            <div key={dayIndex} className="cal-week-day-col" data-day-index={dayIndex}>
+          {days.map((day, dayIndex) => {
+            const weekend = isWeekend(day);
+            return (
+            <div
+              key={dayIndex}
+              className={`cal-week-day-col${weekend ? " cal-week-day-col--weekend" : ""}`}
+              data-day-index={dayIndex}
+            >
               <div className="cal-week-day-body">
                 <div className="cal-week-grid-lines" style={{ height: GRID_HEIGHT_PX }}>
                   {hours.map((h) => (
                     <div key={h} className="cal-week-hour-line" />
                   ))}
                 </div>
+                <NowIndicator day={day} />
 
                 {timedByDay[dayIndex].map((ev) => {
                   const times = getPreviewTimes(ev);
@@ -273,13 +328,14 @@ export function CalendarWeekGrid({ viewDate, events, saving, onSelect, onResched
                   if (!layout) return null;
 
                   const dragging = drag?.eventId === ev.id;
+                  const selected = selectedEventId === ev.id;
 
                   return (
                     <div
                       key={ev.id}
                       role="button"
                       tabIndex={0}
-                      className={`cal-week-event cal-week-event--${ev.source} ${dragging ? "cal-week-event--dragging" : ""}`}
+                      className={`cal-week-event cal-week-event--${ev.source}${dragging ? " cal-week-event--dragging" : ""}${selected ? " tcc-event--selected" : ""}`}
                       style={{
                         top: layout.top,
                         height: layout.height,
@@ -314,7 +370,8 @@ export function CalendarWeekGrid({ viewDate, events, saving, onSelect, onResched
                 })}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 

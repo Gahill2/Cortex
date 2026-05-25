@@ -15,6 +15,7 @@ export type DesktopShortcutHandlers = {
   navigateModule?: (index: 1 | 2 | 3) => void;
   cycleModule?: (dir: 1 | -1) => void;
   onSelectAllFiles?: () => void;
+  onQuickCapture?: () => void;
 };
 
 export const useDesktopShortcuts = ({
@@ -30,7 +31,8 @@ export const useDesktopShortcuts = ({
   navigateModule,
   cycleModule,
   activeModule,
-  onSelectAllFiles
+  onSelectAllFiles,
+  onQuickCapture
 }: DesktopShortcutHandlers) => {
   useEffect(() => {
     if (!enabled) return;
@@ -69,6 +71,12 @@ export const useDesktopShortcuts = ({
         } else {
           onOpenPalette();
         }
+        return;
+      }
+
+      if (ctrlOrMeta && event.shiftKey && key.toLowerCase() === "n" && onQuickCapture) {
+        event.preventDefault();
+        onQuickCapture();
         return;
       }
 
@@ -127,6 +135,7 @@ export const useDesktopShortcuts = ({
     navigateModule,
     cycleModule,
     activeModule,
-    onSelectAllFiles
+    onSelectAllFiles,
+    onQuickCapture
   ]);
 };

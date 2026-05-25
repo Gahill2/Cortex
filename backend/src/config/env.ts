@@ -67,6 +67,12 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
+  /** Homelab/local: return OTP in API + UI when SMTP is missing (do not use on public internet). */
+  CORTEX_OTP_DEV_FALLBACK: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   SPOTIFY_CLIENT_ID: z.string().optional().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().optional().default(""),
   SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),
@@ -115,11 +121,26 @@ const envSchema = z.object({
     .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   OBSIDIAN_VAULT_PATH: z.string().optional().default(""),
   OBSIDIAN_VAULT_PATHS: z.string().optional().default(""),
+  OBSIDIAN_VAULT_NAME: z.string().optional().default("greyhill_brain"),
+  OBSIDIAN_AI_LOG_PATH: z.string().optional().default("Cortex/AI Log.md"),
+  OBSIDIAN_CAPTURE_PATH: z.string().optional().default("Cortex/Capture.md"),
+  OBSIDIAN_USE_CLI: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  OBSIDIAN_AI_LOG_ENABLED: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   CORTEX_ENABLE_VAULT_WATCHER: z
     .string()
     .optional()
     .default("false")
-    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase()))
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  /** Persistent API files (canvas images, obsidian sidecar, vault index). Homelab: `/app/data`. */
+  CORTEX_API_DATA_DIR: z.string().optional().default("")
 });
 
 const parsed = envSchema.parse(process.env);

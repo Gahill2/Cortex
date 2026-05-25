@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Music } from "lucide-react";
 import { api } from "../api/client";
 import { startOAuthFlow } from "../lib/oauth";
 
@@ -103,7 +104,7 @@ function NowPlayingSection() {
   if (loading) {
     return (
       <section className="spotify-now-playing spotify-now-playing--loading">
-        <p className="page-loading">Loading…</p>
+        <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading…</span></div>
       </section>
     );
   }
@@ -135,7 +136,7 @@ function NowPlayingSection() {
     return (
       <section className="spotify-now-playing">
         <div className="spotify-np-empty">
-          <div className="spotify-np-icon">♫</div>
+          <Music size={40} strokeWidth={1.5} className="spotify-np-icon" aria-hidden />
           <p className="spotify-np-empty-title">Connect your Spotify account</p>
           <p className="spotify-np-empty-sub">Link Spotify to see what's playing and control playback.</p>
           {connectUrl && (
@@ -152,7 +153,7 @@ function NowPlayingSection() {
     return (
       <section className="spotify-now-playing">
         <div className="spotify-np-empty">
-          <div className="spotify-np-icon">♫</div>
+          <Music size={40} strokeWidth={1.5} className="spotify-np-icon" aria-hidden />
           <p className="spotify-np-empty-title">Nothing playing</p>
           <p className="spotify-np-empty-sub">Open Spotify and start a track</p>
         </div>
@@ -302,7 +303,7 @@ function AIDJSection() {
   if (connected === null) {
     return (
       <section className="spotify-ai-dj">
-        <p className="page-loading">Checking Spotify…</p>
+        <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Checking Spotify…</span></div>
       </section>
     );
   }
@@ -311,7 +312,7 @@ function AIDJSection() {
     return (
       <section className="spotify-ai-dj">
         <div className="spotify-ai-empty">
-          <div className="spotify-np-icon">♫</div>
+          <Music size={32} strokeWidth={1.5} className="spotify-np-icon" aria-hidden />
           <p className="spotify-ai-empty-title">Connect Spotify in Settings first</p>
           <p className="spotify-ai-empty-sub">The AI DJ needs your Spotify account to search and queue tracks.</p>
         </div>
@@ -490,7 +491,7 @@ function QueueSection() {
 
   useEffect(() => { void loadQueue(); }, []);
 
-  if (loading) return <section className="spotify-section"><p className="page-loading">Loading queue…</p></section>;
+  if (loading) return <section className="spotify-section"><div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading queue…</span></div></section>;
   if (error) return (
     <section className="spotify-section">
       <div className="spotify-section-header">
@@ -510,7 +511,10 @@ function QueueSection() {
         <button className="btn-ghost btn-sm" onClick={() => void loadQueue()}>↻ Refresh</button>
       </div>
       {queue.length === 0 ? (
-        <p className="spotify-empty">Queue is empty — play something to see upcoming tracks.</p>
+        <div className="empty-state" style={{ padding: "20px 16px" }}>
+          <Music size={28} strokeWidth={1.5} className="empty-state-icon" aria-hidden />
+          <p className="empty-state-message">Queue is empty — play something to see upcoming tracks.</p>
+        </div>
       ) : (
         <>
           <div className="spotify-queue-list">

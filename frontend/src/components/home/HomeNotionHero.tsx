@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useToastStore } from "../../stores/toastStore";
 import type { Tab } from "../../App";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import {
@@ -38,6 +39,10 @@ function openHeroLink(link: HomeHeroLink, onNavigate: (t: Tab) => void) {
   }
   if (!link.tab) return;
   const legacy = link.tab as string;
+  if (legacy === "calendar") {
+    onNavigate("tasks");
+    return;
+  }
   if (legacy === "link" || legacy === "memory") {
     writeSettingsSection(legacy === "link" ? "cortex-link" : "memory");
     onNavigate("settings");
@@ -172,12 +177,21 @@ export function HomeNotionHero({ onNavigate }: Props) {
     setCustomOpen(false);
   };
 
+  const pushToast = useToastStore((s) => s.push);
+
+  const [resetConfirming, setResetConfirming] = useState(false);
   const resetAll = () => {
-    if (!window.confirm("Reset home layout to defaults? Your custom cover, quote, and links will be cleared.")) return;
+    if (!resetConfirming) {
+      setResetConfirming(true);
+      setTimeout(() => setResetConfirming(false), 3000);
+      return;
+    }
+    setResetConfirming(false);
     const fresh = defaultHomeHeroConfig();
     setConfig(fresh);
     setDraft(cloneConfig(fresh));
     setCustomOpen(false);
+    pushToast({ title: "Layout reset", message: "Home layout restored to defaults.", tone: "neutral" });
   };
 
   const updateDraft = useCallback((fn: (d: HomeHeroConfig) => HomeHeroConfig) => {
@@ -467,8 +481,8 @@ export function HomeNotionHero({ onNavigate }: Props) {
               </div>
             </div>
             <div className="home-hero-modal-foot">
-              <button type="button" className="btn-ghost btn-sm" onClick={resetAll}>
-                Reset to defaults
+              <button type="button" className={`btn-ghost btn-sm${resetConfirming ? " confirm-pending" : ""}`} onClick={resetAll}>
+                {resetConfirming ? "Confirm reset?" : "Reset to defaults"}
               </button>
               <div className="home-hero-modal-foot-right">
                 <button type="button" className="btn-ghost btn-sm" onClick={() => setCustomOpen(false)}>

@@ -38,8 +38,8 @@ const isElectron = typeof window !== "undefined" &&
 
 /**
  * Resolves the Cortex API base (`…/api`) for axios.
- * In dev, if you open the UI at http://&lt;tailscale-ip&gt;:5173, we use that same host for :4000
- * so the phone does not call localhost (which would hit the phone itself).
+ * Browser dev uses same-origin `/api`, proxied by Vite to 127.0.0.1:4000 (see vite.config.ts).
+ * That works for localhost and Tailscale/LAN URLs without exposing port 4000 on the tailnet.
  */
 export function resolveCortexApiBaseURL(): string {
   if (isElectron) return "http://localhost:4000/api";
@@ -58,15 +58,10 @@ export function resolveCortexApiBaseURL(): string {
   }
 
   if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host !== "localhost" && host !== "127.0.0.1") {
-      const apiPort = (import.meta.env as { VITE_API_PORT?: string }).VITE_API_PORT || "4000";
-      const scheme = window.location.protocol === "https:" ? "https" : "http";
-      return `${scheme}://${host}:${apiPort}/api`;
-    }
+    return `${window.location.origin}/api`;
   }
 
-  return "http://localhost:4000/api";
+  return "/api";
 }
 
 const baseURL = resolveCortexApiBaseURL();

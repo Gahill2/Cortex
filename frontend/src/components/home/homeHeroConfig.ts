@@ -36,8 +36,7 @@ export type HomeHeroConfig = {
 
 export const HERO_TAB_OPTIONS: { value: Tab; label: string }[] = [
   { value: "home", label: "Home" },
-  { value: "tasks", label: "Tasks" },
-  { value: "calendar", label: "Calendar" },
+  { value: "tasks", label: "Tasks & Calendar" },
   { value: "mail", label: "Mail" },
   { value: "notes", label: "Notes" },
   { value: "ai", label: "AI" },
@@ -108,7 +107,7 @@ export function defaultHomeHeroConfig(): HomeHeroConfig {
         title: "✅ To-Do",
         links: [
           { id: newId(), label: "Open Tasks", tab: "tasks" },
-          { id: newId(), label: "Calendar", tab: "calendar" },
+          { id: newId(), label: "Tasks & Calendar", tab: "tasks" },
         ],
       },
       {
@@ -141,6 +140,7 @@ function clampStr(s: string, max: number): string {
 
 function parseTab(v: unknown): Tab | undefined {
   const s = typeof v === "string" ? v : "";
+  if (s === "calendar") return "tasks";
   const ok = HERO_TAB_OPTIONS.some((o) => o.value === s);
   return ok ? (s as Tab) : undefined;
 }

@@ -13,7 +13,7 @@ function daysFromToday(days: number, hour: number, minute = 0): string {
   return d.toISOString();
 }
 
-/** Sample events for the weekly grid — replace with GET /calendar/events. */
+/** Dev-only fixtures — production hub uses useTasksCalendarData + /calendar/events. */
 export function createMockEvents(): PlannerEvent[] {
   return [
     {
@@ -64,7 +64,7 @@ export function createMockEvents(): PlannerEvent[] {
   ];
 }
 
-/** Sample tasks — replace with GET /tasks (+ grouping client-side). */
+/** Dev-only fixtures — production hub uses useTasksCalendarData + /tasks. */
 export function createMockTasks(): PlannerTask[] {
   return [
     {

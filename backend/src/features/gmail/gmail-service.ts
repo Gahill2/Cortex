@@ -1,6 +1,7 @@
 import type { Credentials } from "google-auth-library";
 import { google } from "googleapis";
 import { env } from "../../config/env.js";
+import { resolveGmailOAuthRedirectUri } from "../oauth/oauth-frontend-redirect.js";
 import { getGoogleCredentials } from "./google-token-store.js";
 
 const GMAIL_SCOPES = [
@@ -9,7 +10,7 @@ const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email"
 ];
 
-const getRedirectUri = () => env.GOOGLE_REDIRECT_URI || "";
+const getRedirectUri = (returnOrigin?: string) => resolveGmailOAuthRedirectUri(returnOrigin);
 
 export const isGmailConfigured = (): boolean => {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env;
@@ -23,11 +24,15 @@ export const isGmailConfigured = (): boolean => {
   }
 };
 
-export const createOAuth2Client = () =>
-  new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, getRedirectUri() || undefined);
+export const createOAuth2Client = (returnOrigin?: string) =>
+  new google.auth.OAuth2(
+    env.GOOGLE_CLIENT_ID,
+    env.GOOGLE_CLIENT_SECRET,
+    getRedirectUri(returnOrigin) || undefined
+  );
 
-export const buildGmailAuthUrl = (state: string): string => {
-  const client = createOAuth2Client();
+export const buildGmailAuthUrl = (state: string, returnOrigin?: string): string => {
+  const client = createOAuth2Client(returnOrigin);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -37,8 +42,8 @@ export const buildGmailAuthUrl = (state: string): string => {
   });
 };
 
-export const exchangeAuthorizationCode = async (code: string) => {
-  const client = createOAuth2Client();
+export const exchangeAuthorizationCode = async (code: string, returnOrigin?: string) => {
+  const client = createOAuth2Client(returnOrigin);
   const { tokens } = await client.getToken(code);
   return tokens;
 };

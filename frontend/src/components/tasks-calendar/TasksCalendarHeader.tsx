@@ -5,6 +5,9 @@ interface Props {
   onSearchChange: (q: string) => void;
   onNewTask: () => void;
   onNewEvent: () => void;
+  loading?: boolean;
+  busy?: boolean;
+  onRefresh?: () => void;
 }
 
 export function TasksCalendarHeader({
@@ -12,14 +15,17 @@ export function TasksCalendarHeader({
   onSearchChange,
   onNewTask,
   onNewEvent,
+  loading = false,
+  busy = false,
+  onRefresh,
 }: Props) {
   return (
-    <header className="tcc-header">
+    <header className="page-titlebar tcc-header">
       <div className="tcc-header-titles">
-        <h1 className="tcc-title">Tasks &amp; Calendar</h1>
-        <p className="tcc-subtitle">Plan your day, track priorities, and stay ahead.</p>
+        <h1 className="page-title">Tasks &amp; Calendar</h1>
+        <p className="page-subtitle">Schedule, tasks, and focus — calendar and planner in one workspace.</p>
       </div>
-      <div className="tcc-header-actions">
+      <div className="page-actions tcc-header-actions">
         <label className="tcc-search">
           <TccIconSearch />
           <input
@@ -29,8 +35,35 @@ export function TasksCalendarHeader({
             onChange={(e) => onSearchChange(e.target.value)}
             aria-label="Search tasks and events"
           />
+          {search ? (
+            <button
+              type="button"
+              className="tcc-search-clear"
+              onClick={() => onSearchChange("")}
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              ×
+            </button>
+          ) : null}
         </label>
-        <button type="button" className="teams-btn teams-btn--ghost" onClick={onNewTask}>
+        {onRefresh ? (
+          <button
+            type="button"
+            className="teams-btn teams-btn--ghost"
+            onClick={onRefresh}
+            disabled={loading}
+            aria-busy={loading}
+          >
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="teams-btn teams-btn--ghost"
+          onClick={onNewTask}
+          disabled={busy}
+        >
           <TccIconPlus />
           New Task
         </button>

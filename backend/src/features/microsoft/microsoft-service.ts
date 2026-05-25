@@ -1,4 +1,5 @@
 import { env } from "../../config/env.js";
+import { resolveMicrosoftOAuthRedirectUri } from "../oauth/oauth-frontend-redirect.js";
 import { prisma } from "../../db/prisma.js";
 
 const AUTHORITY = "https://login.microsoftonline.com/common/oauth2/v2.0";
@@ -29,11 +30,12 @@ export function isMicrosoftConfigured(): boolean {
 
 // ── OAuth URL ─────────────────────────────────────────────────────────────────
 
-export function buildMicrosoftAuthUrl(state: string): string {
+export function buildMicrosoftAuthUrl(state: string, returnOrigin?: string): string {
+  const redirect_uri = resolveMicrosoftOAuthRedirectUri(returnOrigin);
   const params = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID!,
     response_type: "code",
-    redirect_uri: env.MICROSOFT_REDIRECT_URI!,
+    redirect_uri,
     scope: SCOPES,
     response_mode: "query",
     prompt: "select_account",
@@ -44,12 +46,13 @@ export function buildMicrosoftAuthUrl(state: string): string {
 
 // ── Token exchange ────────────────────────────────────────────────────────────
 
-export async function exchangeMicrosoftCode(code: string): Promise<MicrosoftTokens> {
+export async function exchangeMicrosoftCode(code: string, returnOrigin?: string): Promise<MicrosoftTokens> {
+  const redirect_uri = resolveMicrosoftOAuthRedirectUri(returnOrigin);
   const body = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID!,
     client_secret: env.MICROSOFT_CLIENT_SECRET!,
     code,
-    redirect_uri: env.MICROSOFT_REDIRECT_URI!,
+    redirect_uri,
     grant_type: "authorization_code",
   });
   const res = await fetch(`${AUTHORITY}/token`, {

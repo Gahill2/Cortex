@@ -23,8 +23,29 @@
 }
 
 .widget-skin--cortex {
-  --widget-weight-display: 600;
-  --widget-weight-body: 500;
+  --widget-weight-display: 300;
+  --widget-weight-body: 450;
+}
+
+/* Cortex default = Apple-style vibrancy (same material as iOS skin) */
+.canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget,
+.widget-skin--cortex .widget,
+.canvas-widget-shell.widget-skin--cortex .widget {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(1.65);
+  -webkit-backdrop-filter: blur(24px) saturate(1.65);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-widget, 22px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.widget-skin--cortex .widget-label,
+.canvas-widget-shell.widget-skin--cortex .widget-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--text-2);
 }
 
 .widget-skin--notion {
@@ -433,7 +454,9 @@
 }
 
 .widget-style-picker__skin-swatch--cortex {
-  background: linear-gradient(135deg, #1a1a1e, #2a2a32);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .widget-style-picker__skin-swatch--notion {

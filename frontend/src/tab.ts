@@ -6,5 +6,4 @@ export type Tab =
   | "notes"
   | "settings"
   | "spotify"
-  | "mail"
-  | "calendar";
+  | "mail";

@@ -49,7 +49,7 @@ cortexTasksRouter.get("/", routeRateLimit(60, 60_000), async (req, res) => {
     orderBy: [{ dueDate: "asc" }, { priority: "desc" }, { createdAt: "desc" }]
   });
 
-  sendSuccess(res, tasks);
+  sendSuccess(res, tasks, "live");
 });
 
 // POST /api/tasks
@@ -83,7 +83,7 @@ cortexTasksRouter.post("/", routeRateLimit(30, 60_000), async (req, res) => {
   });
 
   res.status(201);
-  sendSuccess(res, task);
+  sendSuccess(res, task, "live");
 });
 
 // PATCH /api/tasks/:id
@@ -112,7 +112,7 @@ cortexTasksRouter.patch("/:id", routeRateLimit(60, 60_000), async (req, res) => 
     }
   });
 
-  sendSuccess(res, updated);
+  sendSuccess(res, updated, "live");
 });
 
 // DELETE /api/tasks/:id
@@ -126,5 +126,5 @@ cortexTasksRouter.delete("/:id", routeRateLimit(30, 60_000), async (req, res) =>
   if (!task) throw new HttpError(404, "Task not found");
 
   await prisma.task.delete({ where: { id: task.id } });
-  sendSuccess(res, { deleted: true });
+  sendSuccess(res, { deleted: true }, "live");
 });

@@ -19,16 +19,18 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Terminal coding agent (Pi CLI on this repo) → `npm run pi:install` then `npm run pi`; see `docs/pi-coding-agent.md`
+- Terminal coding agent (Kimi Code CLI) → `npm run kimi:install` then `npm run kimi`; see `docs/kimi-code-cli.md`
+- Terminal coding agent (OpenClaw) → `npm run openclaw:setup` then `npm run openclaw:dev`; see `docs/openclaw-cortex.md`
 
-## OpenClaw as primary host
+## OpenClaw (terminal)
 
-There is **no** OpenClaw-specific wiring in this repository (no `openclaw`, `OpenClaw`, or `.openclaw` references in tracked source). `.cursor/` is **gitignored**, so Cursor rules or model defaults are not shared through git.
+Interactive coding in the user's terminal (not Discord-required):
 
-**To drive Cortex mainly from OpenClaw:** open this repo root as the working tree in OpenClaw; use OpenClaw’s own docs for browser control, pair-agent, and MCP. Keep the skill routing above as the contract for *which* workflows to run (review, QA, ship, etc.); only the host and skill install path change.
+1. `npm run openclaw:setup` — workspace = this repo, Gateway helper installed
+2. `npm run openclaw:dev` — `openclaw tui` in the current shell; agent runs shell/file tools on Cortex
+3. Follow skill routing in this file (review, investigate, ship, etc.)
 
-**Skills:** if you use gstack, install or sync the OpenClaw-oriented skill copies where OpenClaw discovers them (upstream gstack ships `gstack-openclaw-*` variants alongside the generic skills; exact paths depend on your install).
-
-**Cursor-only chats:** nothing here auto-selects OpenClaw; use local Cursor user rules or a tracked doc if you want explicit reminders.
+One-shot: `npm run openclaw:ask -- "prompt"` or `npm run openclaw:local -- "prompt"`. Full guide: `docs/openclaw-cortex.md`.
 
 ## Multi-agent review (team workflow)
 

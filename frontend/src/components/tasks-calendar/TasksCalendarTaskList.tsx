@@ -1,5 +1,6 @@
 import { TccIconCheck } from "./TccIcons";
-import type { CategoryFilter, PlannerTask, TaskGroup } from "./types";
+import type { PlannerTask, TaskGroup } from "./types";
+import { TaskContextMenu } from "./TaskContextMenu";
 
 const GROUP_LABELS: Record<TaskGroup, string> = {
   today: "Today",
@@ -34,34 +35,31 @@ function fmtDue(iso: string) {
 interface Props {
   tasks: PlannerTask[];
   selectedTaskId: string | null;
-  categoryFilter: CategoryFilter;
   onSelectTask: (task: PlannerTask) => void;
   onToggleTask: (id: string) => void;
+  onDeleteTask?: (id: string) => void;
+  onUpdateStatus?: (id: string, status: NonNullable<PlannerTask["status"]>) => void;
 }
 
 export function TasksCalendarTaskList({
   tasks,
   selectedTaskId,
-  categoryFilter,
   onSelectTask,
   onToggleTask,
+  onDeleteTask,
+  onUpdateStatus,
 }: Props) {
-  const filtered =
-    categoryFilter === "All"
-      ? tasks
-      : tasks.filter((t) => t.category === categoryFilter);
-
   const groups: TaskGroup[] = ["today", "upcoming", "completed"];
 
   return (
     <section className="tcc-card tcc-tasks-card" aria-label="Tasks">
       <div className="tcc-card-head">
         <h2 className="tcc-card-title">Tasks</h2>
-        <span className="tcc-card-meta">{filtered.filter((t) => !t.completed).length} open</span>
+        <span className="tcc-card-meta">{tasks.filter((t) => !t.completed).length} open</span>
       </div>
       <div className="tcc-task-groups">
         {groups.map((group) => {
-          const items = filtered.filter((t) => t.group === group);
+          const items = tasks.filter((t) => t.group === group);
           if (items.length === 0) return null;
           return (
             <div key={group} className="tcc-task-group">
@@ -69,39 +67,45 @@ export function TasksCalendarTaskList({
               <ul className="tcc-task-list">
                 {items.map((task) => (
                   <li key={task.id}>
-                    <article
-                      className={`tcc-task-card${selectedTaskId === task.id ? " tcc-task-card--selected" : ""}${task.completed ? " tcc-task-card--done" : ""}`}
-                      onClick={() => onSelectTask(task)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") onSelectTask(task);
-                      }}
-                      role="button"
-                      tabIndex={0}
+                    <TaskContextMenu
+                      task={task}
+                      onUpdateStatus={onUpdateStatus ?? (() => {})}
+                      onDelete={onDeleteTask ?? (() => {})}
                     >
-                      <button
-                        type="button"
-                        className={`kanban-check${task.completed ? " kanban-check--done" : ""}`}
-                        aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleTask(task.id);
+                      <article
+                        className={`tcc-task-card${selectedTaskId === task.id ? " tcc-task-card--selected" : ""}${task.completed ? " tcc-task-card--done" : ""}`}
+                        onClick={() => onSelectTask(task)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") onSelectTask(task);
                         }}
+                        role="button"
+                        tabIndex={0}
                       >
-                        {task.completed ? <TccIconCheck /> : null}
-                      </button>
-                      <div className="tcc-task-card-body">
-                        <p className="tcc-task-title">{task.title}</p>
-                        <p className="tcc-task-due">{fmtDue(task.dueAt)}</p>
-                        <div className="tcc-task-badges">
-                          <span className={`tcc-badge tcc-priority ${PRIORITY_CLASS[task.priority]}`}>
-                            {task.priority === "HIGH" ? "High" : task.priority === "MEDIUM" ? "Medium" : "Low"}
-                          </span>
-                          <span className={`tcc-badge tcc-category ${CATEGORY_CLASS[task.category]}`}>
-                            {task.category}
-                          </span>
+                        <button
+                          type="button"
+                          className={`kanban-check${task.completed ? " kanban-check--done" : ""}`}
+                          aria-label={task.completed ? "Mark incomplete" : "Mark complete"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleTask(task.id);
+                          }}
+                        >
+                          {task.completed ? <TccIconCheck /> : null}
+                        </button>
+                        <div className="tcc-task-card-body">
+                          <p className="tcc-task-title">{task.title}</p>
+                          <p className="tcc-task-due">{fmtDue(task.dueAt)}</p>
+                          <div className="tcc-task-badges">
+                            <span className={`tcc-badge tcc-priority ${PRIORITY_CLASS[task.priority]}`}>
+                              {task.priority === "HIGH" ? "High" : task.priority === "MEDIUM" ? "Medium" : "Low"}
+                            </span>
+                            <span className={`tcc-badge tcc-category ${CATEGORY_CLASS[task.category]}`}>
+                              {task.category}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </article>
+                      </article>
+                    </TaskContextMenu>
                   </li>
                 ))}
               </ul>

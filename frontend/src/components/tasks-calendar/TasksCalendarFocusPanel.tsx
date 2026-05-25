@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
 import { TccIconSparkles } from "./TccIcons";
+import { buildFocusSuggestion } from "./focusSuggestion";
 import type { PlannerEvent, PlannerTask } from "./types";
 
 interface Props {
@@ -24,12 +27,25 @@ function fmtWhen(iso: string) {
   });
 }
 
+function fmtRange(start: string, end: string) {
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.getTime())) return "";
+  const day = s.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const t1 = s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const t2 = e.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${day} · ${t1} – ${t2}`;
+}
+
 export function TasksCalendarFocusPanel({
   selectedTask,
   selectedEvent,
   tasks,
   events,
 }: Props) {
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+
   const completed = tasks.filter((t) => t.completed).length;
   const meetingsToday = events.filter((e) => {
     const d = new Date(e.start);
@@ -44,16 +60,48 @@ export function TasksCalendarFocusPanel({
     null;
   const upcoming = nextEvent(events);
 
+  useEffect(() => {
+    const date = new Date().toISOString().split("T")[0];
+    const fallback = buildFocusSuggestion(tasks, events);
+    setSuggestionLoading(true);
+    void api
+      .get("/ai/meeting-prep", { params: { date } })
+      .then((r) => {
+        const payload = (r.data?.data ?? r.data) as { summary?: string; briefing?: string };
+        const text = payload?.summary?.trim() || payload?.briefing?.trim();
+        setSuggestion(text || fallback);
+      })
+      .catch(() => setSuggestion(fallback))
+      .finally(() => setSuggestionLoading(false));
+  }, [tasks, events]);
+
   return (
     <aside className="tcc-detail" aria-label="Today focus">
       <h2 className="tcc-detail-title">Today&apos;s Focus</h2>
+
+      {selectedEvent ? (
+        <div className="tcc-detail-block tcc-detail-block--event">
+          <p className="tcc-detail-label">Selected event</p>
+          <p className="tcc-detail-value">{selectedEvent.title}</p>
+          <p className="tcc-detail-muted">{fmtRange(selectedEvent.start, selectedEvent.end)}</p>
+          {selectedEvent.location ? (
+            <p className="tcc-detail-muted">{selectedEvent.location}</p>
+          ) : null}
+          {selectedEvent.calendarName ? (
+            <p className="tcc-detail-muted">{selectedEvent.calendarName}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="tcc-detail-block">
         <p className="tcc-detail-label">Main priority</p>
         {mainPriority ? (
           <>
             <p className="tcc-detail-value">{mainPriority.title}</p>
-            <p className="tcc-detail-muted">{mainPriority.category} · {mainPriority.priority}</p>
+            <p className="tcc-detail-muted">
+              {mainPriority.category}
+              {mainPriority.projectName ? ` · ${mainPriority.projectName}` : ""} · {mainPriority.priority}
+            </p>
           </>
         ) : (
           <p className="tcc-detail-muted">No priority set</p>
@@ -63,10 +111,7 @@ export function TasksCalendarFocusPanel({
       <div className="tcc-detail-block">
         <p className="tcc-detail-label">Next event</p>
         {selectedEvent ? (
-          <>
-            <p className="tcc-detail-value">{selectedEvent.title}</p>
-            <p className="tcc-detail-muted">{fmtWhen(selectedEvent.start)}</p>
-          </>
+          <p className="tcc-detail-muted">See selected event above</p>
         ) : upcoming ? (
           <>
             <p className="tcc-detail-value">{upcoming.title}</p>
@@ -105,9 +150,7 @@ export function TasksCalendarFocusPanel({
           <span>AI Suggestion</span>
         </div>
         <p className="tcc-ai-card-body">
-          {/* TODO: POST /ai/planner/suggest */}
-          You have a 2-hour gap after work. This may be a good time to work on Cortex or go to
-          the gym.
+          {suggestionLoading ? "Analyzing your calendar…" : suggestion ?? buildFocusSuggestion(tasks, events)}
         </p>
       </div>
     </aside>

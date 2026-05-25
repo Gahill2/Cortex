@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useToastStore } from "../stores/toastStore";
 import {
   type AIProviderOption,
   type ChatAIProviderId,
@@ -55,6 +56,7 @@ function providerBadgeClass(id: ChatAIProviderId | "none"): string {
 }
 
 export const AIPage = () => {
+  const pushToast = useToastStore((s) => s.push);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "init",
@@ -114,12 +116,20 @@ export const AIPage = () => {
         await fetchStatus();
         handleProviderChange("ollama");
       } else {
-        alert(
-          `Failed to start Ollama: ${result.error ?? "unknown error"}\n\nMake sure Ollama is installed: https://ollama.com`
-        );
+        pushToast({
+          title: "Failed to start Ollama",
+          message: `${result.error ?? "unknown error"}. Make sure Ollama is installed: https://ollama.com`,
+          tone: "error",
+          dismissMs: 6000,
+        });
       }
     } catch {
-      alert("Could not start Ollama. Make sure it's installed at https://ollama.com");
+      pushToast({
+        title: "Could not start Ollama",
+        message: "Make sure it's installed at https://ollama.com",
+        tone: "error",
+        dismissMs: 6000,
+      });
     } finally {
       setStarting(false);
     }
@@ -134,6 +144,14 @@ export const AIPage = () => {
     const data = res.data?.data ?? res.data;
     const reply: string = data?.reply ?? "…";
     const provider: string = data?.provider;
+    if (data?.obsidianLogged) {
+      pushToast({
+        title: "Saved to vault",
+        message: "This exchange was appended to your Obsidian AI log.",
+        tone: "success",
+        dismissMs: 4000,
+      });
+    }
     setMessages((p) => [
       ...p,
       {

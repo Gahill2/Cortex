@@ -1,11 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { cortexDataPath } from "../../lib/cortex-data-dir.js";
 import { HttpError } from "../../utils/http-error.js";
 
-const backendRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
-const ASSETS_ROOT = join(backendRoot, "data", "canvas-assets");
+const ASSETS_ROOT = cortexDataPath("canvas-assets");
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",

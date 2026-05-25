@@ -306,7 +306,7 @@ cortexCalendarRouter.patch("/events", requireAuth, async (req, res) => {
     } else {
       await patchMicrosoftEvent(userId, accountEmail, providerEventId, start, end, isAllDay, tz);
     }
-    sendSuccess(res, { ok: true, start, end });
+    sendSuccess(res, { ok: true, start, end }, "live");
   } catch (e) {
     if (e instanceof HttpError) throw e;
     throw new HttpError(502, `Calendar update failed: ${e instanceof Error ? e.message : e}`);
@@ -348,7 +348,7 @@ cortexCalendarRouter.get("/events", requireAuth, async (req, res) => {
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
     );
 
-    sendSuccess(res, { events: all, count: all.length, warnings });
+    sendSuccess(res, { events: all, count: all.length, warnings }, "live");
   } catch (e) {
     throw new HttpError(500, `Calendar fetch failed: ${e instanceof Error ? e.message : e}`);
   }
@@ -390,7 +390,7 @@ cortexCalendarRouter.get("/today", requireAuth, async (req, res) => {
       ...googleResult.warnings,
       ...msResults.flatMap((r) => r.warnings),
     ];
-    sendSuccess(res, { events: all, warnings });
+    sendSuccess(res, { events: all, warnings }, "live");
   } catch (e) {
     throw new HttpError(500, `Calendar fetch failed: ${e instanceof Error ? e.message : e}`);
   }

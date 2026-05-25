@@ -16,11 +16,11 @@ export interface WidgetSkinDef {
 export const WIDGET_SKINS: WidgetSkinDef[] = [
   {
     id: "cortex",
-    label: "Cortex",
-    shortLabel: "Cx",
-    hint: "Default dashboard chrome",
-    description: "Balanced UI type, soft borders, dashboard density.",
-    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    label: "Apple",
+    shortLabel: "Ap",
+    hint: "Frosted glass, SF-style type",
+    description: "Vibrancy blur, soft borders, large rounded corners.",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
   },
   {
     id: "notion",

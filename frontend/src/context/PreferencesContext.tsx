@@ -8,12 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, AUTH_LOGOUT_EVENT } from "../api/client";
+import { api, AUTH_CHANGED_EVENT, AUTH_LOGOUT_EVENT } from "../api/client";
 import type { ServerSettings } from "../lib/preferencesTypes";
 import { EMPTY_SETTINGS } from "../lib/preferencesTypes";
 import {
   clearMigratedLocalPreferences,
   collectLocalPreferences,
+  hydrateLocalFromServerSettings,
   isServerSettingsEmpty,
   mergeSettings,
   normalizeLoadedSettings,
@@ -74,27 +75,31 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     [flushPatch],
   );
 
+  const loadFromServer = useCallback(async () => {
+    const r = await api.get<{ data?: Partial<ServerSettings> }>("/settings");
+    let loaded = normalizeLoadedSettings(r.data?.data);
+
+    if (isServerSettingsEmpty(loaded)) {
+      const local = collectLocalPreferences();
+      if (Object.keys(local).length > 0) {
+        loaded = mergeSettings(loaded, local);
+        await api.patch("/settings", local);
+        clearMigratedLocalPreferences();
+      }
+    }
+
+        hydrateLocalFromServerSettings(loaded);
+        cachedSettings = loaded;
+        setSettings(loaded);
+        setReady(true);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
-        const r = await api.get<{ data?: Partial<ServerSettings> }>("/settings");
-        if (cancelled) return;
-
-        let loaded = normalizeLoadedSettings(r.data?.data);
-
-        if (isServerSettingsEmpty(loaded)) {
-          const local = collectLocalPreferences();
-          if (Object.keys(local).length > 0) {
-            loaded = mergeSettings(loaded, local);
-            await api.patch("/settings", local);
-            clearMigratedLocalPreferences();
-          }
-        }
-
-        cachedSettings = loaded;
-        setSettings(loaded);
+        await loadFromServer();
       } catch (err) {
         console.warn("[preferences] load failed, using local fallback:", err);
         const local = collectLocalPreferences();
@@ -108,10 +113,18 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       }
     })();
 
+    const onAuthChange = () => {
+      clearPreferencesCache();
+      setReady(false);
+      void loadFromServer().catch((err) => console.warn("[preferences] reload failed:", err));
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChange);
+
     return () => {
       cancelled = true;
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChange);
     };
-  }, []);
+  }, [loadFromServer]);
 
   useEffect(() => {
     const onLogout = () => {

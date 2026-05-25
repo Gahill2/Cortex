@@ -45,7 +45,7 @@ export function CanvasToolbar({
   const [showBgMenu, setShowBgMenu] = useState(false);
   const [pickingWidgetKey, setPickingWidgetKey] = useState<string | null>(null);
   const [pickVariant, setPickVariant] = useState<WidgetSizeVariant>("medium");
-  const [pickSkin, setPickSkin] = useState<WidgetSkin>("cortex");
+  const [pickSkin, setPickSkin] = useState<WidgetSkin>("ios");
   const [pickDisplay, setPickDisplay] = useState("standard");
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);

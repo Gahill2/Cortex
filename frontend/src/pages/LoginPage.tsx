@@ -1,7 +1,8 @@
 ﻿import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { AxiosError } from "axios";
-import { api } from "../api/client";
+import { api, AUTH_CHANGED_EVENT, AUTH_USER_STORAGE_KEY } from "../api/client";
+import type { User } from "../types";
 
 type SendOtpResponse = {
   ok: boolean;
@@ -26,7 +27,7 @@ import { CortexBrand } from "../components/brand/CortexBrand";
 import { LoginEpicScene } from "../components/LoginEpicScene";
 
 interface Props {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, user?: User) => void;
 }
 
 export const LoginPage = ({ onLogin }: Props) => {
@@ -52,9 +53,11 @@ export const LoginPage = ({ onLogin }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post<SendOtpResponse>("/auth/send-otp", {
-        email: email.trim().toLowerCase(),
-      });
+      const res = await api.post<SendOtpResponse>(
+        "/auth/send-otp",
+        { email: email.trim().toLowerCase() },
+        { timeout: 25_000 }
+      );
       const data = res.data;
       applySendOtpPayload(data);
 
@@ -83,11 +86,21 @@ export const LoginPage = ({ onLogin }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/auth/verify-otp", {
-        email: email.trim().toLowerCase(),
-        code: code.trim()
-      });
-      onLogin(res.data.token as string);
+      const res = await api.post<{ token: string; user?: User }>(
+        "/auth/verify-otp",
+        { email: email.trim().toLowerCase(), code: code.trim() },
+        { timeout: 25_000 }
+      );
+      const nextUser = res.data.user;
+      if (nextUser) {
+        try {
+          localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser));
+        } catch {
+          /* private mode */
+        }
+      }
+      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+      onLogin(res.data.token, nextUser);
     } catch (err) {
       setError(authErrorMessage(err, "Invalid or expired code. Try again."));
     } finally {

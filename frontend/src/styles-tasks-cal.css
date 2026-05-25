@@ -39,7 +39,7 @@
 
 /* ── Teams shared surface ─────────────────────────────────────────────────── */
 .teams-surface.page {
-  gap: 10px;
+  gap: var(--space-4, 16px);
 }
 
 .teams-command-bar {
@@ -110,7 +110,19 @@
   border-color: var(--accent);
 }
 .teams-btn--primary:hover {
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--accent) 88%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 88%, #fff);
+}
+.teams-btn--primary:active {
+  transform: translateY(0.5px);
+}
+.teams-btn--ghost:active {
+  transform: translateY(0.5px);
+}
+.teams-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
 }
 .teams-btn--icon {
   min-width: 32px;
@@ -842,6 +854,335 @@
   opacity: 0.85;
 }
 
+/* Week grid with drag-move / resize (CalendarWeekGrid) */
+.cal-week-schedule {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.tcc-cal-card--schedule .cal-week-schedule {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tcc-cal-card--schedule .cal-week-schedule-body {
+  flex: 1;
+  max-height: none;
+  min-height: 280px;
+}
+
+.tcc-cal-card--schedule .cal-week-schedule-head,
+.tcc-cal-card--schedule .cal-week-allday-row {
+  position: sticky;
+  z-index: 3;
+  background: var(--bg-2);
+}
+
+.tcc-cal-card--schedule .cal-week-schedule-head {
+  top: 0;
+}
+
+.tcc-cal-card--schedule .cal-week-allday-row {
+  top: 44px;
+}
+.cal-week-schedule-head {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.cal-week-gutter {
+  flex-shrink: 0;
+  width: 52px;
+  border-right: 1px solid var(--border);
+}
+.cal-week-gutter--head {
+  min-height: 44px;
+}
+.cal-week-schedule-dayhead {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-right: 1px solid var(--border);
+  color: var(--text-2);
+}
+.cal-week-schedule-dayhead:last-child {
+  border-right: none;
+}
+.cal-week-schedule-dayhead--today {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.cal-week-schedule-dayhead--weekend {
+  color: var(--text-3);
+}
+
+.cal-week-schedule-dayhead--weekend .cal-week-day-num {
+  color: var(--text-2);
+}
+
+.cal-week-day-col--weekend {
+  background: color-mix(in srgb, var(--bg-2) 55%, transparent);
+}
+
+.cal-week-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.cal-week-now-dot {
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.cal-week-day-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-2);
+}
+.cal-week-day-num {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.cal-day-num--today {
+  background: var(--accent);
+  color: #fff;
+}
+.cal-week-allday-row {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  min-height: 32px;
+}
+.cal-week-allday-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 6px;
+}
+.cal-week-allday-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+}
+.cal-week-allday-cell:last-child {
+  border-right: none;
+}
+.cal-week-allday-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 3px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.cal-week-allday-chip--microsoft {
+  border-left-color: #0078d4;
+  background: color-mix(in srgb, #0078d4 14%, var(--surface));
+}
+.cal-week-allday-chip--google {
+  border-left-color: #4285f4;
+  background: color-mix(in srgb, #4285f4 14%, var(--surface));
+}
+.cal-week-schedule-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  max-height: min(72vh, 720px);
+}
+.cal-week-time-gutter {
+  flex-shrink: 0;
+  width: 52px;
+  border-right: 1px solid var(--border);
+}
+.cal-week-time-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-align: right;
+  padding-right: 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.cal-week-day-columns {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+.cal-week-day-col {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+.cal-week-day-col:last-child {
+  border-right: none;
+}
+.cal-week-day-body {
+  position: relative;
+}
+.cal-week-grid-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cal-week-hour-line {
+  height: 56px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  box-sizing: border-box;
+}
+.cal-week-event {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  min-height: 24px;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  z-index: 1;
+  touch-action: none;
+  user-select: none;
+  transition: box-shadow 120ms, filter 120ms;
+}
+
+.cal-week-event:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 2;
+}
+
+.cal-week-event.tcc-event--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  z-index: 3;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.cal-week-event--google {
+  border-left-color: #4285f4;
+  background: color-mix(in srgb, #4285f4 16%, var(--surface));
+}
+.cal-week-event--microsoft {
+  border-left-color: #0078d4;
+  background: color-mix(in srgb, #0078d4 16%, var(--surface));
+}
+.cal-week-event--dragging {
+  opacity: 0.92;
+  z-index: 5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  cursor: grabbing;
+}
+.cal-week-event-inner {
+  padding: 3px 6px 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.cal-week-ev-source {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+  background: var(--accent);
+}
+.cal-week-ev-source--google {
+  background: #4285f4;
+}
+.cal-week-ev-source--microsoft {
+  background: #0078d4;
+}
+.cal-week-ev-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.cal-week-ev-time {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-week-event-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+}
+.cal-week-saving {
+  position: absolute;
+  inset: auto 12px 12px auto;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+}
+
 /* Month event bars (Teams-style) */
 .cal-month-grid {
   gap: 1px;
@@ -964,23 +1305,49 @@
 }
 
 /* ── Tasks & Calendar command center (Teams-inspired) ───────────────────── */
+.tcc-status-banner,
+.tcc-page .page-error.tcc-status-banner {
+  margin: 0;
+}
+
+.tcc-warnings {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--teams-radius-md, 8px);
+  background: color-mix(in srgb, var(--teams-warning, #f59e0b) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--teams-warning, #f59e0b) 35%, transparent);
+}
+
+.tcc-warning-line {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--teams-text-secondary, #6b7280);
+}
+
+.tcc-warning-line + .tcc-warning-line {
+  margin-top: 0.35rem;
+}
+
 .tcc-page {
   --tcc-rail-w: 220px;
   --tcc-detail-w: 280px;
   max-width: none;
   padding: 0;
-  margin: 0 calc(-1 * var(--bs-gutter-x, 0.75rem));
-  min-height: calc(100vh - 120px);
+  margin: 0;
+  min-height: 0;
+  flex: 1;
 }
 
 .tcc-shell {
   display: flex;
-  min-height: calc(100vh - 120px);
+  flex: 1;
+  min-height: min(68vh, 760px);
   background: color-mix(in srgb, var(--bg) 92%, var(--bg-2));
-  border: 1px solid var(--border);
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.tcc-shell.page-workbench {
+  border-radius: var(--radius-lg, 12px);
 }
 
 .tcc-rail {
@@ -1055,32 +1422,19 @@
 .tcc-workspace {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
-  gap: 12px;
+  padding: var(--space-4, 16px) var(--space-5, 20px);
+  gap: var(--space-4, 16px);
 }
 
 .tcc-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px 16px;
+  flex-shrink: 0;
 }
 
-.tcc-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
-.tcc-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--text-2);
+.tcc-header-titles {
+  min-width: 0;
 }
 
 .tcc-header-actions {
@@ -1100,6 +1454,11 @@
   background: var(--surface);
   min-width: 200px;
   color: var(--text-3);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.tcc-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-2));
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
 .tcc-search input {
@@ -1109,6 +1468,25 @@
   font-size: 13px;
   width: 180px;
   outline: none;
+}
+.tcc-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms, color 120ms;
+}
+.tcc-search-clear:hover {
+  background: var(--text-3);
+  color: var(--text);
 }
 
 .tcc-header-actions .teams-btn {
@@ -1153,6 +1531,292 @@
   gap: 14px;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
+}
+
+.tcc-shell--no-rail .tcc-workspace {
+  padding: 16px 20px;
+}
+
+.tcc-body--teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(320px, 34vw);
+  gap: var(--space-4, 16px);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.tcc-cal-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.tcc-cal-card--schedule,
+.tcc-cal-card--agenda,
+.tcc-cal-card--month {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.tcc-cal-card--schedule {
+  min-height: min(560px, calc(100vh - 280px));
+}
+
+.tcc-cal-card--agenda {
+  min-height: 360px;
+  max-height: min(72vh, 680px);
+}
+
+.tcc-cal-card--month {
+  min-height: 420px;
+}
+
+.tcc-card-head--compact {
+  padding: 8px 14px;
+}
+
+.tcc-month-grid {
+  margin: 0;
+  flex: 1;
+  border: none;
+  border-radius: 0;
+}
+
+.tcc-month-grid .cal-cell-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tcc-month-grid .cal-cell-num.cal-day-num--today {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tcc-month-grid .cal-cell-more {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 2px 4px;
+  cursor: default;
+}
+
+.tcc-cal-empty {
+  margin: 0;
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.tcc-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  min-width: 0;
+  padding: var(--space-4, 16px);
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 40%, var(--surface));
+  max-height: min(78vh, 820px);
+  overflow: hidden;
+}
+
+.tcc-sidebar-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  padding-bottom: var(--space-2, 8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.tcc-sidebar .tcc-tasks-card,
+.tcc-sidebar .tcc-kanban-board {
+  flex: 1;
+  min-height: 0;
+}
+
+.tcc-sidebar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tcc-sidebar-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.tcc-task-panel-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2, 8px);
+}
+
+.tcc-task-view-toggle {
+  width: 100%;
+}
+
+.tcc-quick-add {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.tcc-quick-add-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tcc-quick-add-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-color: var(--accent);
+}
+
+.tcc-tasks-card--board {
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.tcc-kanban-board {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 12px 14px;
+  scroll-snap-type: x proximity;
+}
+
+.tcc-kanban-col {
+  flex: 0 0 200px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  background: var(--bg-2);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  scroll-snap-align: start;
+}
+
+.tcc-kanban-col--over .tcc-kanban-col-body {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.tcc-kanban-col-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tcc-kanban-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+
+.tcc-kanban-col-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-3);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.tcc-kanban-col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+}
+
+.tcc-kanban-card--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.tcc-detail-block--event {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tcc-loading-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border-radius: var(--radius-sm, 6px);
+  background: color-mix(in srgb, var(--bg-2) 60%, transparent);
+}
+.tcc-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tcc-spin 0.6s linear infinite;
+}
+@keyframes tcc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.teams-segmented button {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  border-right: 1px solid var(--border-2);
+}
+.teams-segmented button:last-child {
+  border-right: none;
+}
+.teams-segmented button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.teams-segmented button.active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .tcc-main {
@@ -1194,8 +1858,43 @@
 }
 
 .tcc-cal-schedule {
-  max-height: 420px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
+}
+
+/* Calendar command bar */
+.cal-command-bar {
+  padding: 6px 12px;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-2) 70%, var(--surface));
+}
+
+.cal-command-bar .cal-period-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: min(280px, 42vw);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.tcc-view-toggle {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.tcc-view-toggle button {
+  padding: 6px 11px;
+  white-space: nowrap;
 }
 
 .tcc-cal-placeholder {
@@ -1241,7 +1940,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .tcc-task-list {
@@ -1258,8 +1957,8 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--text));
+  background: var(--surface);
   cursor: pointer;
   transition: border-color 120ms, box-shadow 120ms;
 }
@@ -1450,6 +2149,9 @@
   .tcc-rail {
     display: none;
   }
+  .tcc-body--teams {
+    grid-template-columns: 1fr;
+  }
   .tcc-main {
     grid-template-columns: 1fr;
   }
@@ -1459,6 +2161,82 @@
   .tcc-body {
     flex-direction: column;
   }
+}
+
+/* ── Context menu (Radix) ──────────────────────────────────────────────── */
+.ctx-menu-content {
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  z-index: 300;
+  animation: ctx-fade-in 80ms ease-out;
+}
+@keyframes ctx-fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.ctx-menu-label {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ctx-menu-sublabel {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+.ctx-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  transition: background 80ms;
+}
+.ctx-menu-item:focus,
+.ctx-menu-item:hover {
+  background: var(--bg-3);
+}
+.ctx-menu-item[data-disabled] {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+.ctx-menu-item--danger {
+  color: var(--red);
+}
+.ctx-menu-item--danger:focus,
+.ctx-menu-item--danger:hover {
+  background: var(--red-dim);
+}
+.ctx-menu-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ctx-menu-dot--todo { background: #3b82f6; }
+.ctx-menu-dot--in_progress { background: #f59e0b; }
+.ctx-menu-dot--done { background: #22c55e; }
+.ctx-menu-arrow {
+  fill: var(--surface);
 }
 
 @media (max-width: 768px) {
@@ -1480,5 +2258,27 @@
   }
   .tcc-search input {
     width: 100%;
+  }
+
+  .tcc-cal-command.cal-command-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cal-nav {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cal-command-bar .cal-period-label {
+    max-width: none;
+    font-size: 14px;
+  }
+
+  .tcc-view-toggle {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 }

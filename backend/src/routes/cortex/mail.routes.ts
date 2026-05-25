@@ -94,7 +94,7 @@ cortexMailRouter.post("/accounts/gmail/connect", requireAuth, routeRateLimit(10,
     desktop: body.desktop === true,
     returnOrigin: body.returnOrigin
   });
-  sendSuccess(res, { url: buildGmailAuthUrl(state) }, "live");
+  sendSuccess(res, { url: buildGmailAuthUrl(state, body.returnOrigin) }, "live");
 });
 
 cortexMailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (req, res) => {

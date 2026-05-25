@@ -136,7 +136,7 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
         <button type="button" className="widget-units-btn" onClick={toggleUnits}>{sym}</button>
       </div>
 
-      {loading && <p className="widget-empty">Loading…</p>}
+      {loading && <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>}
 
       {!loading && !data && (
         <form className="weather-city-form" onSubmit={(e) => void searchCity(e)}>

@@ -20,8 +20,7 @@ type HomeGoal = { id: string; text: string; done: boolean };
 const GOALS_KEY = "cortex_home_goals";
 
 const QUICK_LINKS: Array<{ tab: Tab; label: string }> = [
-  { tab: "tasks", label: "Tasks" },
-  { tab: "calendar", label: "Calendar" },
+  { tab: "tasks", label: "Tasks & Calendar" },
   { tab: "mail", label: "Mail" },
   { tab: "notes", label: "Notes" },
   { tab: "ai", label: "AI" },
@@ -263,7 +262,7 @@ export function HomeDashboardTop({ onNavigate, tasks, projectsCount, loading }: 
           <GlassPanel as="section" className="home-dash-panel home-dash-panel--stats">
             <div className="home-dash-panel-head home-dash-panel-head--inline">
               <h2 className="home-dash-panel-title">At a glance</h2>
-              {loading ? <span className="home-dash-muted">Loading…</span> : null}
+              {loading ? <span className="home-dash-muted"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</span> : null}
             </div>
             <div className="home-stat-grid">
               <button type="button" className="home-stat-tile" onClick={() => onNavigate("tasks")}>
@@ -325,7 +324,7 @@ export function HomeDashboardTop({ onNavigate, tasks, projectsCount, loading }: 
               <GlassPanel as="section" className="home-dash-panel home-dash-panel--list h-100">
                 <h3 className="home-dash-list-title">Recent tasks</h3>
                 {loading ? (
-                  <p className="home-dash-muted mb-0">Loading…</p>
+                  <p className="home-dash-muted mb-0"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>
                 ) : recent.length === 0 ? (
                   <p className="home-dash-muted mb-0">No tasks yet — create one in Tasks.</p>
                 ) : (

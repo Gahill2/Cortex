@@ -18,18 +18,60 @@ export const DashboardPage = () => {
     api.get("/dashboard").then((response) => setStats(response.data));
   }, []);
 
-  if (!stats) return <p>Loading dashboard...</p>;
-
   return (
-    <section>
-      <h1>Dashboard</h1>
-      <div className="stats-grid">
-        <article><h3>Projects</h3><p>{stats.projectsCount}</p></article>
-        <article><h3>Tasks</h3><p>{stats.tasksCount}</p></article>
-        <article><h3>Todo</h3><p>{stats.taskStatus.todoCount}</p></article>
-        <article><h3>In Progress</h3><p>{stats.taskStatus.inProgressCount}</p></article>
-        <article><h3>Done</h3><p>{stats.taskStatus.doneCount}</p></article>
+    <div className="page dashboard-page">
+      <div className="page-titlebar">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">
+            At-a-glance overview of your projects, tasks, and progress.
+          </p>
+        </div>
       </div>
-    </section>
+
+      <div className="page-workbench">
+        {!stats ? (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "var(--space-4)",
+              color: "var(--text-3)",
+            }}
+          >
+            <div className="page-loading-spinner" aria-hidden="true" />
+            <p>Loading dashboard…</p>
+          </div>
+        ) : (
+          <div style={{ padding: "var(--space-5)" }}>
+            <div className="stats-row">
+              <article className="stat-card">
+                <p className="stat-value">{stats.projectsCount}</p>
+                <p className="stat-label">Projects</p>
+              </article>
+              <article className="stat-card">
+                <p className="stat-value">{stats.tasksCount}</p>
+                <p className="stat-label">Tasks</p>
+              </article>
+              <article className="stat-card">
+                <p className="stat-value">{stats.taskStatus.todoCount}</p>
+                <p className="stat-label">Todo</p>
+              </article>
+              <article className="stat-card">
+                <p className="stat-value">{stats.taskStatus.inProgressCount}</p>
+                <p className="stat-label">In Progress</p>
+              </article>
+              <article className="stat-card">
+                <p className="stat-value">{stats.taskStatus.doneCount}</p>
+                <p className="stat-label">Done</p>
+              </article>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };

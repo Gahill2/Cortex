@@ -90,6 +90,9 @@ async function main() {
   try {
     await runPrisma(['migrate', 'resolve', '--applied', BASELINE_MIGRATION]);
     await runPrisma(['migrate', 'deploy']);
+    // Baseline only updates migration history — sync any columns/tables the init migration would have created.
+    console.log('[prisma-deploy] Running db push to align schema after baseline…');
+    await runPrisma(['db', 'push', '--skip-generate']);
   } catch (error) {
     process.exit(error.code ?? 1);
   }

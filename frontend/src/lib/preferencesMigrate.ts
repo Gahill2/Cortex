@@ -6,6 +6,7 @@ import { DEFAULT_CANVAS_BACKGROUND } from "../components/canvas/canvasBackground
 import type { CanvasLayoutPref, HabitPref, ServerSettings, WeatherLocationPref } from "./preferencesTypes";
 import { EMPTY_SETTINGS } from "./preferencesTypes";
 import { CORTEX_UI_PREFERENCE_KEYS } from "./cortexUiStorageKeys";
+import { CORTEX_HOME_HERO_STORAGE_KEY } from "../components/home/homeHeroConfig";
 
 function readJson<T>(key: string): T | null {
   try {
@@ -157,4 +158,34 @@ export function mergeSettings(base: ServerSettings, partial: Partial<ServerSetti
 export function normalizeLoadedSettings(raw: Partial<ServerSettings> | null | undefined): ServerSettings {
   if (!raw) return { ...EMPTY_SETTINGS };
   return mergeSettings(EMPTY_SETTINGS, raw);
+}
+
+/** Push server prefs into localStorage so :8080 matches what was saved on Railway / dev. */
+export function hydrateLocalFromServerSettings(settings: ServerSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    const hero = settings.extraJson?.homeHero;
+    if (hero && typeof hero === "object" && Object.keys(hero).length > 0) {
+      localStorage.setItem(CORTEX_HOME_HERO_STORAGE_KEY, JSON.stringify(hero));
+    }
+    const layout = settings.canvasLayout;
+    if (layout && Array.isArray(layout.nodes) && layout.nodes.length > 0) {
+      localStorage.setItem(
+        "cortex-canvas-state",
+        JSON.stringify({
+          nodes: layout.nodes,
+          pan: layout.pan ?? { x: 0, y: 0 },
+          zoom: layout.zoom ?? 1,
+        })
+      );
+    }
+    if (layout?.background && typeof layout.background === "object") {
+      localStorage.setItem("cortex-canvas-background", JSON.stringify(layout.background));
+    }
+    if (settings.wallpaper && typeof settings.wallpaper === "object") {
+      localStorage.setItem("cortex_wallpaper", JSON.stringify(settings.wallpaper));
+    }
+  } catch {
+    /* quota */
+  }
 }

@@ -85,6 +85,7 @@ export const GmailPage = () => {
             Gmail
             {unreadCount > 0 && <span className="gmail-unread-badge">{unreadCount}</span>}
           </h1>
+          <p className="page-subtitle">Read, archive, and triage Gmail without leaving Cortex.</p>
         </div>
         <div className="page-actions">
           {connected && (
@@ -96,7 +97,7 @@ export const GmailPage = () => {
         </div>
       </div>
 
-      {loading && <p className="page-loading">Loading…</p>}
+      {loading && <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading…</span></div>}
 
       {!loading && !configured && (
         <div className="gmail-setup-card">
@@ -118,6 +119,7 @@ export const GmailPage = () => {
       )}
 
       {!loading && connected && (
+        <div className="gmail-workbench page-workbench">
         <div className="gmail-layout">
           {/* Message list */}
           <div className="gmail-list">
@@ -179,6 +181,7 @@ export const GmailPage = () => {
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
     </div>
