@@ -22,7 +22,7 @@ export interface ApiTask {
   priority: "LOW" | "MEDIUM" | "HIGH";
   dueDate?: string | null;
   createdAt: string;
-  project: { id: string; name: string };
+  project?: { id: string; name: string } | null;
 }
 
 const CATEGORY_NAMES: TaskCategory[] = ["Work", "Personal", "School", "Fitness"];
@@ -61,17 +61,18 @@ export function plannerGroupForTask(task: Pick<PlannerTask, "dueAt" | "status" |
 }
 
 export function mapApiTaskToPlanner(task: ApiTask): PlannerTask {
+  const projectName = task.project?.name ?? "Personal";
   return {
     id: task.id,
     title: task.title,
     dueAt: task.dueDate ?? task.createdAt,
     priority: task.priority,
-    category: projectToCategory(task.project.name),
+    category: projectToCategory(projectName),
     group: taskGroupForApi(task),
     completed: task.status === "DONE",
     notes: task.description?.trim() || undefined,
-    projectId: task.project.id,
-    projectName: task.project.name,
+    projectId: task.project?.id,
+    projectName,
     status: task.status,
   };
 }

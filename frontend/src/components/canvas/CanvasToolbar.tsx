@@ -15,6 +15,12 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  /** Dashboard edit mode (Home canvas) */
+  editMode?: boolean;
+  onToggleEditMode?: () => void;
+  onOpenWidgetLibrary?: () => void;
+  onResetLayout?: () => void;
+  widgetCount?: number;
   onAddWidget: (key: string, variant: WidgetSizeVariant, skin: WidgetSkin, display: string) => void;
   onAddImage: (url: string) => void;
   onAddNote: () => void;
@@ -32,6 +38,11 @@ export function CanvasToolbar({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  editMode = false,
+  onToggleEditMode,
+  onOpenWidgetLibrary,
+  onResetLayout,
+  widgetCount = 0,
   onAddWidget,
   onAddImage,
   onAddNote,
@@ -104,8 +115,23 @@ export function CanvasToolbar({
     setShowBgMenu(false);
   };
 
+  const showDashboardChrome = Boolean(onToggleEditMode || onOpenWidgetLibrary);
+
   return (
-    <div className="canvas-toolbar">
+    <div className={`canvas-toolbar${showDashboardChrome ? " canvas-toolbar--with-dashboard" : ""}`}>
+      {showDashboardChrome && (
+        <>
+          <div className="canvas-toolbar__brand">
+            <span className="canvas-toolbar__brand-title">Dashboard</span>
+            <span className="canvas-toolbar__brand-meta">
+              {widgetCount} widget{widgetCount === 1 ? "" : "s"}
+              {editMode ? " · editing" : ""}
+            </span>
+          </div>
+          <div className="canvas-toolbar__divider" />
+        </>
+      )}
+
       <div className="canvas-toolbar__group">
         <button type="button" className="canvas-toolbar__btn" onClick={onZoomOut} title="Zoom out">
           <span className="canvas-toolbar__icon">−</span>
@@ -264,27 +290,35 @@ export function CanvasToolbar({
               </div>
             ) : (
             <>
-            <div className="canvas-add-menu__section">
-              <p className="canvas-add-menu__heading">Widgets</p>
-              {CANVAS_WIDGET_TYPES.map((w) => (
-                <button
-                  key={w.key}
-                  type="button"
-                  className="canvas-add-menu__item"
-                  onClick={() => {
-                    const defaults = getDefaultWidgetStyle(w.key);
-                    setPickingWidgetKey(w.key);
-                    setPickVariant(defaults.variant);
-                    setPickSkin(defaults.skin);
-                    setPickDisplay(defaults.display);
-                  }}
-                >
-                  <span className="canvas-add-menu__icon">{w.icon}</span>
-                  <span>{w.label}</span>
-                  <span className="canvas-add-menu__chevron" aria-hidden>›</span>
-                </button>
-              ))}
-            </div>
+            {onOpenWidgetLibrary ? (
+              <div className="canvas-add-menu__section canvas-add-menu__section--hint">
+                <p className="canvas-add-menu__hint-text">
+                  Dashboard widgets live in the library — use <strong>Widgets</strong> on the toolbar.
+                </p>
+              </div>
+            ) : (
+              <div className="canvas-add-menu__section">
+                <p className="canvas-add-menu__heading">Widgets</p>
+                {CANVAS_WIDGET_TYPES.map((w) => (
+                  <button
+                    key={w.key}
+                    type="button"
+                    className="canvas-add-menu__item"
+                    onClick={() => {
+                      const defaults = getDefaultWidgetStyle(w.key);
+                      setPickingWidgetKey(w.key);
+                      setPickVariant(defaults.variant);
+                      setPickSkin(defaults.skin);
+                      setPickDisplay(defaults.display);
+                    }}
+                  >
+                    <span className="canvas-add-menu__icon">{w.icon}</span>
+                    <span>{w.label}</span>
+                    <span className="canvas-add-menu__chevron" aria-hidden>›</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="canvas-add-menu__divider" />
             <div className="canvas-add-menu__section">
               <p className="canvas-add-menu__heading">Layout</p>
@@ -337,6 +371,42 @@ export function CanvasToolbar({
           onChange={handleImageUpload}
         />
       </div>
+
+      {showDashboardChrome && onToggleEditMode && (
+        <>
+          <div className="canvas-toolbar__divider" />
+          <div className="canvas-toolbar__group canvas-toolbar__group--dashboard">
+            {onOpenWidgetLibrary && (
+              <button
+                type="button"
+                className="canvas-toolbar__btn"
+                onClick={onOpenWidgetLibrary}
+                title="Browse widget library"
+              >
+                <span className="canvas-toolbar__label">Widgets</span>
+              </button>
+            )}
+            {editMode && onResetLayout && (
+              <button
+                type="button"
+                className="canvas-toolbar__btn"
+                onClick={onResetLayout}
+                title="Restore starter layout"
+              >
+                <span className="canvas-toolbar__label">Reset</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className={`canvas-toolbar__btn canvas-toolbar__btn--edit${editMode ? " is-active" : ""}`}
+              onClick={onToggleEditMode}
+              title={editMode ? "Exit customize mode" : "Customize dashboard"}
+            >
+              <span className="canvas-toolbar__label">{editMode ? "Done" : "Customize"}</span>
+            </button>
+          </div>
+        </>
+      )}
 
       {showCustomModal && (
         <CustomWidgetModal

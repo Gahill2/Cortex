@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePreferences } from "../../context/PreferencesContext";
 import type { CanvasLayoutPref } from "../../lib/preferencesTypes";
 import { CanvasToolbar } from "./CanvasToolbar";
+import { CanvasSelectionToolbar } from "./CanvasSelectionToolbar";
 import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
 import {
@@ -27,6 +28,17 @@ import {
   mergeCanvasImageUrlsFromLocal,
   migrateCanvasDataUrlImages,
 } from "../../lib/canvasState";
+import { createDefaultDashboardNodes } from "../../dashboard/defaultLayout";
+import {
+  clearProductivityLayoutAfterMigration,
+  tryMigrateProductivityLayoutToCanvas,
+} from "../../lib/migrateProductivityLayoutToCanvas";
+import { WidgetLibrary } from "../../dashboard/WidgetLibrary";
+import { DashboardEmptyState } from "../../dashboard/DashboardEmptyState";
+import type { WidgetRegistryEntry } from "../../dashboard/types";
+import { useCanvasViewPrefs } from "./canvasViewPrefs";
+import { computeFitView } from "./canvasFit";
+import { CanvasViewControls } from "./CanvasViewControls";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -56,6 +68,14 @@ export interface CanvasNode {
   backdropRadius?: number;
   backdropBorderWidth?: number;
   backdropBorderColor?: string;
+  /** 0–1 layer opacity for non-backdrop items (default 1) */
+  opacity?: number;
+  /** Corner radius in px for widgets, images, notes, etc. */
+  cornerRadius?: number;
+  /** Rotation in degrees (-180…180) */
+  rotation?: number;
+  /** Per-widget settings (title override, accent, compact flag) — sync-ready via prefs later */
+  widgetConfig?: Record<string, unknown>;
   zIndex: number;
 }
 
@@ -64,14 +84,23 @@ interface Props {
   /** Legacy static widgets (used if renderWidget is omitted). */
   widgets?: Record<string, ReactNode>;
   /** Preferred: render widget by key + size variant. */
-  renderWidget?: (widgetKey: string, style: WidgetRenderStyle) => ReactNode;
+  renderWidget?: (
+    widgetKey: string,
+    style: WidgetRenderStyle,
+    instance?: { title?: string; widgetConfig?: Record<string, unknown> },
+  ) => ReactNode;
+  /** When set, customize mode is controlled by the parent. */
+  editMode?: boolean;
+  onEditModeChange?: (next: boolean) => void;
+  /** Controlled widget library (e.g. home workbench “Add widget”). */
+  libraryOpen?: boolean;
+  onLibraryOpenChange?: (open: boolean) => void;
 }
 
 const STORAGE_KEY = "cortex-canvas-state";
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const ZOOM_SENSITIVITY = 0.0015;
-const GRID_SIZE = 24;
 const SNAP_THRESHOLD = 8;
 const GUIDE_THRESHOLD = 6;
 
@@ -131,22 +160,33 @@ function loadState(): { nodes: CanvasNode[]; pan: { x: number; y: number }; zoom
   return null;
 }
 
-function defaultNodes(): CanvasNode[] {
-  return [
-    { id: generateId(), type: "widget", x: 60, y: 60, w: 380, h: 260, widgetKey: "weather", zIndex: 1 },
-    { id: generateId(), type: "widget", x: 480, y: 60, w: 420, h: 320, widgetKey: "tasks", zIndex: 2 },
-    { id: generateId(), type: "widget", x: 60, y: 360, w: 380, h: 280, widgetKey: "spotify", zIndex: 3 },
-    { id: generateId(), type: "widget", x: 480, y: 420, w: 420, h: 280, widgetKey: "mail", zIndex: 4 },
-    { id: generateId(), type: "widget", x: 940, y: 60, w: 360, h: 300, widgetKey: "ai", zIndex: 5 },
-    { id: generateId(), type: "text", x: 940, y: 400, w: 320, h: 100, content: "Welcome to your Canvas Dashboard — drag, zoom, and add anything!", zIndex: 6 },
-  ];
+function initialCanvasNodes(): CanvasNode[] {
+  const migrated = tryMigrateProductivityLayoutToCanvas();
+  if (migrated?.length) {
+    clearProductivityLayoutAfterMigration();
+    return migrated;
+  }
+  return createDefaultDashboardNodes();
 }
 
-export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Props) {
+export function CanvasDashboard({
+  onNavigate,
+  widgets = {},
+  renderWidget,
+  editMode: editModeProp,
+  onEditModeChange,
+  libraryOpen: libraryOpenProp,
+  onLibraryOpenChange,
+}: Props) {
   const { settings, ready, patch } = usePreferences();
+  const { prefs: viewPrefs, patch: patchViewPrefs } = useCanvasViewPrefs();
+  const viewPrefsRef = useRef(viewPrefs);
+  viewPrefsRef.current = viewPrefs;
   const canvasHydratedRef = useRef(false);
   const saved = loadState();
-  const [nodes, setNodes] = useState<CanvasNode[]>(() => normalizeNodes(saved?.nodes ?? defaultNodes()));
+  const [nodes, setNodes] = useState<CanvasNode[]>(() =>
+    normalizeNodes(saved?.nodes ?? initialCanvasNodes()),
+  );
   const [pan, setPan] = useState(saved?.pan ?? { x: 0, y: 0 });
   const [zoom, setZoom] = useState(saved?.zoom ?? 1);
   const [isPanning, setIsPanning] = useState(false);
@@ -156,7 +196,25 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [guides, setGuides] = useState<{ type: "h" | "v"; pos: number }[]>([]);
-  const [maxZ, setMaxZ] = useState(() => Math.max(...(saved?.nodes ?? defaultNodes()).map((n) => n.zIndex), 0));
+  const [editModeLocal, setEditModeLocal] = useState(false);
+  const editModeControlled = onEditModeChange !== undefined;
+  const editMode = editModeControlled ? Boolean(editModeProp) : editModeLocal;
+  const setEditMode = (next: boolean | ((prev: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(editMode) : next;
+    if (editModeControlled) onEditModeChange(value);
+    else setEditModeLocal(value);
+  };
+  const [libraryOpenLocal, setLibraryOpenLocal] = useState(false);
+  const libraryControlled = onLibraryOpenChange !== undefined;
+  const libraryOpen = libraryControlled ? Boolean(libraryOpenProp) : libraryOpenLocal;
+  const setLibraryOpen = (next: boolean | ((prev: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(libraryOpen) : next;
+    if (libraryControlled) onLibraryOpenChange(value);
+    else setLibraryOpenLocal(value);
+  };
+  const [maxZ, setMaxZ] = useState(() =>
+    Math.max(...(saved?.nodes ?? initialCanvasNodes()).map((n) => n.zIndex), 0),
+  );
   const [background, setBackground] = useState<CanvasBackground>(loadCanvasBackground);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -189,11 +247,16 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
   const applyViewportGrid = useCallback((p: { x: number; y: number }, z: number) => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const gridSize = GRID_SIZE * z;
+    const vp = viewPrefsRef.current;
+    const base = vp.gridSize;
+    const gridSize = base * z;
     viewport.style.setProperty("--grid-size", `${gridSize}px`);
     viewport.style.setProperty("--grid-off-x", `${p.x % gridSize}px`);
     viewport.style.setProperty("--grid-off-y", `${p.y % gridSize}px`);
-    viewport.style.setProperty("--grid-opacity", `${Math.min(0.5, Math.max(0.15, z * 0.25))}`);
+    viewport.style.setProperty(
+      "--grid-opacity",
+      vp.showGrid ? `${Math.min(0.55, Math.max(0.12, z * 0.22))}` : "0",
+    );
   }, []);
 
   const applyLayerTransform = useCallback((p: { x: number; y: number }, z: number) => {
@@ -228,6 +291,10 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     applyLayerTransform(pan, zoom);
   }, [pan, zoom, applyLayerTransform]);
 
+  useLayoutEffect(() => {
+    applyViewportGrid(panRef.current, zoomRef.current);
+  }, [viewPrefs, applyViewportGrid]);
+
   useEffect(() => {
     return () => {
       if (chromeSyncRafRef.current) cancelAnimationFrame(chromeSyncRafRef.current);
@@ -247,7 +314,7 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
         ? normalizeNodes(layout.nodes)
         : local?.nodes?.length
           ? normalizeNodes(local.nodes)
-          : normalizeNodes(saved?.nodes ?? defaultNodes());
+          : normalizeNodes(saved?.nodes ?? createDefaultDashboardNodes());
 
       nextNodes = mergeCanvasImageUrlsFromLocal(nextNodes, local?.nodes);
       try {
@@ -316,11 +383,11 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  // ── Zoom toward cursor (Figma-style) ─────────────────────────────────────
+  // ── Zoom toward cursor (Figma-style: pinch/Ctrl+scroll; Alt+scroll on trackpads) ──
   const onWheel = useCallback((e: React.WheelEvent) => {
     const curZoom = zoomRef.current;
     const curPan = panRef.current;
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || e.altKey) {
       const rect = viewportRef.current?.getBoundingClientRect();
       if (!rect) return;
       const cx = e.clientX - rect.left;
@@ -391,6 +458,13 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     const dy = py / curZoom;
     let newX = dragStart.current.nodeX + dx;
     let newY = dragStart.current.nodeY + dy;
+
+    if (viewPrefsRef.current.snapToGrid) {
+      const g = viewPrefsRef.current.gridSize;
+      const snap = (v: number) => Math.round(v / g) * g;
+      newX = snap(newX);
+      newY = snap(newY);
+    }
 
     const dragNode = nodes.find((n) => n.id === id);
     const activeGuides: { type: "h" | "v"; pos: number }[] = [];
@@ -500,8 +574,14 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     if (dragId && dragElRef.current) {
       const dx = (e.clientX - dragStart.current.x) / zoomRef.current;
       const dy = (e.clientY - dragStart.current.y) / zoomRef.current;
-      const finalX = dragStart.current.nodeX + dx;
-      const finalY = dragStart.current.nodeY + dy;
+      let finalX = dragStart.current.nodeX + dx;
+      let finalY = dragStart.current.nodeY + dy;
+      if (viewPrefsRef.current.snapToGrid) {
+        const g = viewPrefsRef.current.gridSize;
+        const snap = (v: number) => Math.round(v / g) * g;
+        finalX = snap(finalX);
+        finalY = snap(finalY);
+      }
       dragElRef.current.style.transform = "";
       dragElRef.current.style.willChange = "";
       dragElRef.current = null;
@@ -576,6 +656,71 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     });
   }, []);
 
+  const bringForward = useCallback((id: string) => {
+    setNodes((prev) => {
+      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
+      const idx = sorted.findIndex((n) => n.id === id);
+      if (idx < 0 || idx >= sorted.length - 1) return prev;
+      const current = sorted[idx]!;
+      const above = sorted[idx + 1]!;
+      return prev.map((n) => {
+        if (n.id === current.id) return { ...n, zIndex: above.zIndex };
+        if (n.id === above.id) return { ...n, zIndex: current.zIndex };
+        return n;
+      });
+    });
+  }, []);
+
+  const sendBackward = useCallback((id: string) => {
+    setNodes((prev) => {
+      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
+      const idx = sorted.findIndex((n) => n.id === id);
+      if (idx <= 0) return prev;
+      const current = sorted[idx]!;
+      const below = sorted[idx - 1]!;
+      return prev.map((n) => {
+        if (n.id === current.id) return { ...n, zIndex: below.zIndex };
+        if (n.id === below.id) return { ...n, zIndex: current.zIndex };
+        return n;
+      });
+    });
+  }, []);
+
+  const updateNodeGeometry = useCallback(
+    (id: string, patch: Partial<Pick<CanvasNode, "x" | "y" | "w" | "h" | "rotation">>) => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const next = { ...n, ...patch };
+          const minW = n.type === "backdrop" ? 48 : 120;
+          const minH = n.type === "backdrop" ? 48 : 80;
+          if (patch.w !== undefined) next.w = Math.max(minW, patch.w);
+          if (patch.h !== undefined) next.h = Math.max(minH, patch.h);
+          if (patch.rotation !== undefined) {
+            next.rotation = Math.min(180, Math.max(-180, patch.rotation));
+          }
+          return next;
+        }),
+      );
+    },
+    [],
+  );
+
+  const updateNodeAppearance = useCallback(
+    (id: string, patch: Partial<Pick<CanvasNode, "opacity" | "cornerRadius">>) => {
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          const next = { ...n, ...patch };
+          if (patch.opacity !== undefined) next.opacity = Math.min(1, Math.max(0.05, patch.opacity));
+          if (patch.cornerRadius !== undefined) next.cornerRadius = Math.min(64, Math.max(0, patch.cornerRadius));
+          return next;
+        }),
+      );
+    },
+    [],
+  );
+
   const startDrag = useCallback((id: string, e: React.PointerEvent) => {
     e.stopPropagation();
     prepareCanvasPointerGesture(e);
@@ -617,6 +762,28 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     if (resizeElRef.current) resizeElRef.current.style.willChange = "width, height";
   }, [nodes, bringToFront]);
 
+  const duplicateNode = useCallback(
+    (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
+      const newId = generateId();
+      const newZ = maxZ + 1;
+      setMaxZ(newZ);
+      setNodes((prev) => [
+        ...prev,
+        {
+          ...node,
+          id: newId,
+          x: node.x + 28,
+          y: node.y + 28,
+          zIndex: newZ,
+        },
+      ]);
+      setSelected(new Set([newId]));
+    },
+    [nodes, maxZ],
+  );
+
   const removeNode = useCallback((id: string) => {
     setNodes((prev) => prev.filter((n) => n.id !== id));
     setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
@@ -654,6 +821,30 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     },
     [maxZ, viewCenter],
   );
+
+  const addWidgetFromRegistry = useCallback(
+    (entry: WidgetRegistryEntry, variant?: import("../../dashboard/types").WidgetSizeVariant) => {
+      addWidget(
+        entry.key,
+        variant ?? entry.defaultVariant,
+        entry.defaultSkin,
+        entry.defaultDisplay,
+      );
+    },
+    [addWidget],
+  );
+
+  const resetDashboardLayout = useCallback(() => {
+    const fresh = createDefaultDashboardNodes();
+    const topZ = fresh.reduce((m, n) => Math.max(m, n.zIndex), 0);
+    setNodes(fresh);
+    setMaxZ(topZ);
+    setSelected(new Set());
+    setEditMode(true);
+  }, []);
+
+  const widgetNodeCount = nodes.filter((n) => n.type === "widget").length;
+  const showEmptyOnboarding = widgetNodeCount === 0;
 
   const setWidgetVariant = useCallback((id: string, variant: WidgetSizeVariant) => {
     setNodes((prev) =>
@@ -808,13 +999,22 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
 
   const zoomIn = () => animateZoom(clampZoom(zoomRef.current * 1.25));
   const zoomOut = () => animateZoom(clampZoom(zoomRef.current / 1.25));
-  const zoomReset = () => {
-    animateZoom(1);
+  const zoomTo = (target: number) => animateZoom(clampZoom(target));
+
+  const fitToBoard = useCallback(() => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const { pan: fitPan, zoom: fitZoom } = computeFitView(
+      nodes,
+      rect.width,
+      rect.height,
+    );
+    animateZoom(fitZoom);
     window.setTimeout(() => {
-      applyLayerTransform({ x: 0, y: 0 }, 1);
+      applyLayerTransform(fitPan, fitZoom);
       commitChromeSync();
     }, 130);
-  };
+  }, [nodes, animateZoom, applyLayerTransform, commitChromeSync]);
 
   // Delete selected with keyboard
   useEffect(() => {
@@ -838,32 +1038,112 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
     height: Math.abs(selBox.y2 - selBox.y1) * zoom,
   } : null;
 
+  const selectedId = selected.size === 1 ? [...selected][0]! : null;
+  const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) : undefined;
+  const chromeDockRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = chromeDockRef.current;
+    const root = containerRef.current;
+    if (!el || !root) return;
+    const apply = () => {
+      const h = el.getBoundingClientRect().height;
+      root.style.setProperty("--canvas-chrome-dock-h", `${Math.ceil(h)}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [selectedNode?.id, selectedNode?.type]);
+
   return (
-    <div className="canvas-dashboard" ref={containerRef}>
-      <CanvasToolbar
-        zoom={zoom}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onZoomReset={zoomReset}
-        onAddWidget={addWidget}
-        onAddImage={addImage}
-        onAddNote={addNote}
-        onAddCustom={addCustom}
-        onAddEmbed={addEmbed}
-        onAddBackdrop={addBackdrop}
-        background={background}
-        onBackgroundChange={onBackgroundChange}
+    <div
+      className={`canvas-dashboard canvas-dashboard--fixed-chrome${editMode ? " canvas-dashboard--edit-mode" : ""}`}
+      ref={containerRef}
+    >
+      <WidgetLibrary
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        onAdd={addWidgetFromRegistry}
       />
+      <div
+        className={`canvas-chrome-dock${selectedNode ? " canvas-chrome-dock--inspector" : ""}`}
+        ref={chromeDockRef}
+      >
+        <div className="canvas-chrome-dock__row canvas-chrome-dock__row--main">
+          <CanvasToolbar
+            zoom={zoom}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onZoomReset={() => zoomTo(1)}
+            editMode={editMode}
+            onToggleEditMode={() => setEditMode((v) => !v)}
+            onOpenWidgetLibrary={() => {
+              setLibraryOpen(true);
+              setEditMode(true);
+            }}
+            onResetLayout={resetDashboardLayout}
+            widgetCount={widgetNodeCount}
+            onAddWidget={addWidget}
+            onAddImage={addImage}
+            onAddNote={addNote}
+            onAddCustom={addCustom}
+            onAddEmbed={addEmbed}
+            onAddBackdrop={addBackdrop}
+            background={background}
+            onBackgroundChange={onBackgroundChange}
+          />
+        </div>
+        {selectedNode && (
+          <div className="canvas-chrome-dock__row canvas-chrome-dock__row--inspector">
+            <CanvasSelectionToolbar
+              node={selectedNode}
+              onGeometryChange={(patch) => updateNodeGeometry(selectedNode.id, patch)}
+              onAppearanceChange={
+                selectedNode.type !== "backdrop"
+                  ? (patch) => updateNodeAppearance(selectedNode.id, patch)
+                  : undefined
+              }
+              onWidgetStyleChange={
+                selectedNode.type === "widget"
+                  ? (patch) => setWidgetStyle(selectedNode.id, patch)
+                  : undefined
+              }
+              onBackdropChange={
+                selectedNode.type === "backdrop"
+                  ? (patch) => updateBackdrop(selectedNode.id, patch)
+                  : undefined
+              }
+              onBringForward={() => bringForward(selectedNode.id)}
+              onSendForward={() => bringToFront(selectedNode.id)}
+              onSendBackward={() => sendBackward(selectedNode.id)}
+              onSendToBack={() => sendToBack(selectedNode.id)}
+              onDuplicate={() => duplicateNode(selectedNode.id)}
+              onRemove={() => removeNode(selectedNode.id)}
+              onClearSelection={() => setSelected(new Set())}
+            />
+          </div>
+        )}
+      </div>
 
       <div
         ref={viewportRef}
-        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId || pendingDragId ? " canvas-viewport--dragging" : ""}${resizeId ? " canvas-viewport--resizing" : ""}${selBox ? " canvas-viewport--selecting" : ""}${isPanning || dragId || pendingDragId || resizeId || selBox ? " canvas-viewport--interacting" : ""}`}
+        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId || pendingDragId ? " canvas-viewport--dragging" : ""}${resizeId ? " canvas-viewport--resizing" : ""}${selBox ? " canvas-viewport--selecting" : ""}${isPanning || dragId || pendingDragId || resizeId || selBox ? " canvas-viewport--interacting" : ""}${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
         onWheel={onWheel}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPointerMove}
         onPointerUp={onCanvasPointerUp}
         style={canvasBackgroundCss(background) as React.CSSProperties}
       >
+        {showEmptyOnboarding && (
+          <DashboardEmptyState
+            onCustomize={() => setEditMode(true)}
+            onAddWidget={() => {
+              setEditMode(true);
+              setLibraryOpen(true);
+            }}
+          />
+        )}
         <div
           ref={layerRef}
           className={`canvas-layer${isPanning || dragId || resizeId ? " canvas-layer--active" : ""}`}
@@ -876,6 +1156,7 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
               node={node}
               widgets={widgets}
               renderWidget={renderWidget}
+              editMode={editMode}
               isSelected={selected.has(node.id)}
               onDragStart={(e) => startDrag(node.id, e)}
               onResizeStart={(e) => startResize(node.id, e)}
@@ -924,12 +1205,18 @@ export function CanvasDashboard({ onNavigate, widgets = {}, renderWidget }: Prop
         viewportHeight={containerRef.current?.clientHeight ?? 600}
       />
 
-      <div className="canvas-zoom-badge">
-        {Math.round(zoom * 100)}%
-      </div>
+      <CanvasViewControls
+        zoom={zoom}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onZoomTo={zoomTo}
+        onFit={fitToBoard}
+        prefs={viewPrefs}
+        onPrefsChange={patchViewPrefs}
+      />
 
       <div className="canvas-hints">
-        Scroll to pan · Ctrl+scroll to zoom · Shift+drag to select · Delete to remove
+        Scroll to pan · Ctrl/Alt+scroll to zoom · Grid & snap bottom-right · Shift+drag to select
       </div>
     </div>
   );

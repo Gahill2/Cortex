@@ -38,6 +38,8 @@ CORTEX_DEV_FULL=1 npm run dev           # bash
 - `npm run hub:up` / InsForge Docker (Postgres + more) unless you need the hub DB
 - `npm run dev:stack` (adds AgentMemory)
 - `npm run dev:mcp` unless testing MCP
+
+**Cursor MCP (global):** copy `cursor-mcp.json.example` to `%USERPROFILE%\.cursor\mcp.json` and restart Cursor — see [cursor-mcp-setup.md](./cursor-mcp-setup.md).
 - Root `docker compose up` n8n unless you use n8n
 
 ## Docker as local server (this PC)

@@ -1,0 +1,47 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {
+        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
+      }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["-y", "shadcn@latest", "mcp"]
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "@alisaitteke/docker-mcp"]
+    },
+    "MCP_DOCKER": {
+      "command": "docker",
+      "args": ["mcp", "gateway", "run"]
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp"
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "google-maps": {
+      "command": "uvx",
+      "args": ["gmaps-mcp"],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "${env:GOOGLE_MAPS_API_KEY}"
+      }
+    },
+    "google-maps-grounding": {
+      "url": "https://mapstools.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${env:GOOGLE_MAPS_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream"
+      }
+    },
+    "cortex": {
+      "url": "http://127.0.0.1:3001/mcp"
+    }
+  }
+}

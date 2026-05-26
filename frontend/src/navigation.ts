@@ -4,6 +4,7 @@ import type { Tab } from "./tab";
 export type NavIconName =
   | "home"
   | "check-square"
+  | "target"
   | "calendar"
   | "bot"
   | "file-text"
@@ -16,7 +17,9 @@ export type NavItem = { id: Tab; label: string; icon: NavIconName };
 /** Desktop sidebar + full nav reference. */
 export const CORTEX_MAIN_NAV: NavItem[] = [
   { id: "home", label: "Home", icon: "home" },
-  { id: "tasks", label: "Tasks & Calendar", icon: "check-square" },
+  { id: "calendar", label: "Calendar", icon: "calendar" },
+  { id: "tasks", label: "Tasks", icon: "check-square" },
+  { id: "goals", label: "Goals", icon: "target" },
   { id: "ai", label: "AI", icon: "bot" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "mail", label: "Mail", icon: "mail" },
@@ -27,13 +30,14 @@ export const CORTEX_MAIN_NAV: NavItem[] = [
 /** Mobile bottom tab bar (design D2). */
 export const CORTEX_MOBILE_TAB_NAV: NavItem[] = [
   { id: "home", label: "Home", icon: "home" },
+  { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "tasks", label: "Tasks", icon: "check-square" },
   { id: "mail", label: "Mail", icon: "mail" },
-  { id: "ai", label: "AI", icon: "bot" },
 ];
 
 /** Mobile drawer — secondary destinations (design D2). */
 export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
+  { id: "goals", label: "Goals", icon: "target" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "spotify", label: "Music", icon: "music" },
   { id: "settings", label: "Settings", icon: "settings" },
@@ -42,7 +46,9 @@ export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
 /** App bar / screen titles (Material-style single-line headers). */
 export const TAB_SCREEN_TITLES: Record<Tab, string> = {
   home: "Dashboard",
-  tasks: "Tasks & Calendar",
+  calendar: "Calendar",
+  tasks: "Tasks",
+  goals: "Goals & progress",
   ai: "AI",
   notes: "Notes",
   mail: "Mail",

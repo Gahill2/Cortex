@@ -1,0 +1,663 @@
+/* Calendar + Tasks routes — shell, top nav, planner chrome */
+
+/* ── App top navigation (desktop) ── */
+.app-topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem 0.5rem 1.25rem;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+.app-topnav__brand,
+.app-topnav__links,
+.app-topnav__actions {
+  -webkit-app-region: no-drag;
+}
+
+.app-topnav__brand {
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.app-topnav__links {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-topnav__links::-webkit-scrollbar {
+  display: none;
+}
+
+.app-topnav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-topnav__link:hover {
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text);
+}
+
+.app-topnav__link--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
+.app-topnav__icon {
+  opacity: 0.85;
+}
+
+.app-topnav__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.app-topnav__cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.app-topnav__cmd:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
+}
+
+/* Shell is row by default (sidebar + main); top nav must stack vertically */
+.desktop-shell--topnav {
+  flex-direction: column;
+}
+
+.desktop-shell--topnav .app-topnav {
+  width: 100%;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+.desktop-shell--topnav .burger-appbar {
+  display: none;
+}
+
+.desktop-shell--topnav .desktop-main {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.desktop-shell--topnav .cortex-route-bootstrap--padded {
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0;
+}
+
+/* ── Productivity route pages ── */
+.pd-route {
+  --pd-radius-md: 0.75rem;
+  --pd-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pd-text: var(--text);
+  --pd-text-muted: var(--text-2);
+  --pd-border-soft: color-mix(in srgb, var(--border) 55%, transparent);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, var(--surface-0));
+}
+
+.pd-route__stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.pd-route__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0.75rem 1rem;
+}
+
+.pd-route__body--tasks {
+  padding-top: 0.25rem;
+}
+
+.pd-route__banner {
+  margin: 0 1rem 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--pd-radius-md);
+  font-size: 0.8125rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--pd-text-muted);
+}
+
+.pd-route__banner--error {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  color: var(--text);
+}
+
+.pd-route__loading {
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--pd-text-muted);
+}
+
+.pd-route__quick-add {
+  padding: 0 1rem 0.5rem;
+}
+
+/* ── Three-column shell ── */
+.pd-shell {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(260px, 300px);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.pd-shell__left,
+.pd-shell__right {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--pd-border-soft);
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+}
+
+.pd-shell__right {
+  border-right: none;
+  border-left: 1px solid var(--pd-border-soft);
+}
+
+.pd-shell__main {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sidebar ── */
+.pd-sidebar {
+  padding: 1rem 0.75rem 1.25rem;
+}
+
+.pd-sidebar__title {
+  margin: 0 0 0.75rem 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pd-text-muted);
+}
+
+.pd-sidebar-section {
+  margin-top: 1rem;
+}
+
+.pd-sidebar-section__label {
+  margin: 0 0 0.35rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pd-text-muted);
+}
+
+.pd-sidebar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: var(--pd-radius-md);
+  background: transparent;
+  color: var(--pd-text);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pd-sidebar-nav--indent {
+  padding-left: 1.25rem;
+}
+
+.pd-sidebar-nav:hover {
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+}
+
+.pd-sidebar-nav--active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-weight: 600;
+}
+
+.pd-sidebar-nav__count {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--pd-text-muted);
+}
+
+/* ── Calendar top bar ── */
+.pd-cal-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--pd-border-soft);
+}
+
+.pd-cal-topbar__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.pd-cal-topbar__center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 12rem;
+}
+
+.pd-cal-topbar__end {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* ── Tasks top bar ── */
+.pd-tasks-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--pd-border-soft);
+}
+
+.pd-tasks-topbar__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.pd-tasks-topbar__count {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--pd-text-muted);
+}
+
+.pd-tasks-topbar__start {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.pd-tasks-topbar__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 12rem;
+}
+
+.pd-tasks-topbar__end {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.pd-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  max-width: 280px;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--pd-radius-md);
+  border: 1px solid var(--pd-border-soft);
+  background: var(--surface);
+  color: var(--pd-text-muted);
+}
+
+.pd-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--pd-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.pd-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--pd-text-muted);
+}
+
+.pd-sort select {
+  border: 1px solid var(--pd-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--pd-text);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.35rem;
+}
+
+/* ── View switcher ── */
+.pd-view-switcher {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  border: 1px solid var(--pd-border-soft);
+}
+
+.pd-view-switcher__btn {
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--pd-text-muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.pd-view-switcher__btn--active {
+  background: var(--surface);
+  color: var(--pd-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.pd-view-switcher--sm .pd-view-switcher__btn {
+  padding: 0.3rem 0.45rem;
+}
+
+/* ── Buttons ── */
+.pd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--pd-radius-md);
+  border: 1px solid transparent;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s var(--pd-ease);
+}
+
+.pd-btn--sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+.pd-btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pd-btn--ghost {
+  background: transparent;
+  border-color: var(--pd-border-soft);
+  color: var(--pd-text);
+}
+
+.pd-btn--danger {
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+  color: #f87171;
+  border-color: color-mix(in srgb, #ef4444 35%, transparent);
+}
+
+.pd-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pd-text);
+  cursor: pointer;
+}
+
+.pd-icon-btn:hover {
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+}
+
+.pd-icon-btn--xs {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* ── Inspector ── */
+.pd-inspector {
+  padding: 1.25rem 1rem;
+}
+
+.pd-inspector--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+}
+
+.pd-inspector__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pd-text-muted);
+}
+
+.pd-inspector__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.pd-inspector__title--done {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.pd-inspector__meta,
+.pd-inspector__notes {
+  font-size: 0.8125rem;
+  color: var(--pd-text-muted);
+  line-height: 1.45;
+}
+
+.pd-inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* ── Empty state (module) ── */
+.pd-empty__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.pd-empty__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pd-empty__message {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--pd-text-muted);
+  text-align: center;
+  max-width: 22rem;
+}
+
+.pd-empty__action {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Task list + check button ── */
+.pd-task-list {
+  padding: 0 0.5rem;
+}
+
+.pd-task-list__section {
+  margin-bottom: 0.5rem;
+}
+
+.pd-task-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.35rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pd-text-muted);
+}
+
+.pd-task-row__check-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--pd-text-muted) 70%, transparent);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pd-task-row__check-btn--done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pd-task-row--selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.pd-task-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-task-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.pd-task-row__cat {
+  font-size: 0.6875rem;
+  color: var(--pd-text-muted);
+}
+
+.pd-cal-grid {
+  min-height: 420px;
+  height: 100%;
+}
+
+.pd-mini-cal {
+  margin-bottom: 0.5rem;
+}
+
+.pd-mini-cal__label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.pd-mini-cal__head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (max-width: 1100px) {
+  .pd-shell {
+    grid-template-columns: minmax(180px, 200px) minmax(0, 1fr);
+  }
+  .pd-shell__right {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-topnav {
+    display: none;
+  }
+  .pd-shell {
+    grid-template-columns: 1fr;
+  }
+  .pd-shell__left {
+    display: none;
+  }
+}

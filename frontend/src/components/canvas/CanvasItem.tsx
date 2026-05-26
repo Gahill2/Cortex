@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { WidgetRenderStyle } from "./widgetRenderStyle";
 import { useState } from "react";
 import type { CanvasNode } from "./CanvasDashboard";
@@ -26,7 +26,12 @@ export type BackdropStylePatch = Partial<
 interface Props {
   node: CanvasNode;
   widgets: Record<string, ReactNode>;
-  renderWidget?: (widgetKey: string, style: WidgetRenderStyle) => ReactNode;
+  renderWidget?: (
+    widgetKey: string,
+    style: WidgetRenderStyle,
+    instance?: { title?: string; widgetConfig?: Record<string, unknown> },
+  ) => ReactNode;
+  editMode?: boolean;
   isSelected?: boolean;
   onDragStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
@@ -46,6 +51,7 @@ export function CanvasItem({
   node,
   widgets,
   renderWidget,
+  editMode = false,
   isSelected,
   onDragStart,
   onResizeStart,
@@ -76,11 +82,31 @@ export function CanvasItem({
   const widgetDef = node.widgetKey ? getWidgetTypeDef(node.widgetKey) : undefined;
   const variantPreset = node.widgetKey ? getVariantPreset(node.widgetKey, widgetVariant) : null;
 
-  const showChrome = hovered || isSelected;
+  const showChrome = editMode && (hovered || isSelected);
+  const showEditChrome = editMode;
   const isBackdrop = node.type === "backdrop";
   const isWidget = node.type === "widget";
 
+  const itemShellStyle = (): CSSProperties => {
+    const rotation = node.rotation ?? 0;
+    const style: CSSProperties = {};
+    if (rotation !== 0) {
+      style.transform = `rotate(${rotation}deg)`;
+      style.transformOrigin = "center center";
+    }
+    if (!isBackdrop && node.opacity !== undefined && node.opacity < 1) {
+      style.opacity = node.opacity;
+    }
+    const radius = isBackdrop ? undefined : node.cornerRadius;
+    if (radius !== undefined && radius > 0) {
+      style.borderRadius = radius;
+      style.overflow = "hidden";
+    }
+    return style;
+  };
+
   const handleBodyPointerDown = (e: React.PointerEvent) => {
+    if (!editMode) return;
     if (node.type === "note" || node.type === "custom") return;
     if (isInteractiveCanvasTarget(e.target)) return;
     prepareCanvasPointerGesture(e);
@@ -95,7 +121,12 @@ export function CanvasItem({
 
   const resolveWidgetContent = () => {
     if (!node.widgetKey) return null;
-    if (renderWidget && widgetStyle) return renderWidget(node.widgetKey, widgetStyle);
+    if (renderWidget && widgetStyle) {
+      return renderWidget(node.widgetKey, widgetStyle, {
+        title: node.title,
+        widgetConfig: node.widgetConfig,
+      });
+    }
     return widgets[node.widgetKey] ?? null;
   };
 
@@ -293,32 +324,36 @@ export function CanvasItem({
           width: node.w,
           height: node.h,
           zIndex: node.zIndex,
+          ...itemShellStyle(),
         }}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
       >
         <div className="canvas-item__body canvas-item__body--backdrop">{renderContent()}</div>
-        {renderBackdropChrome()}
-        <div className="canvas-item__resize" onPointerDown={onResizeStart}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-            <circle cx="10" cy="10" r="1.5" />
-            <circle cx="6" cy="10" r="1.5" />
-            <circle cx="10" cy="6" r="1.5" />
-          </svg>
-        </div>
+        {!isSelected ? renderBackdropChrome() : null}
+        {editMode && (
+          <div className="canvas-item__resize" onPointerDown={onResizeStart}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <circle cx="10" cy="10" r="1.5" />
+              <circle cx="6" cy="10" r="1.5" />
+              <circle cx="10" cy="6" r="1.5" />
+            </svg>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div
-      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
+      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
       style={{
         left: node.x,
         top: node.y,
         width: node.w,
         height: node.h,
         zIndex: node.zIndex,
+        ...itemShellStyle(),
       }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => {
@@ -326,8 +361,11 @@ export function CanvasItem({
         if (!isSelected) setShowStylePicker(false);
       }}
     >
-      <div className="canvas-item__header" onPointerDown={onDragStart}>
-        <span className="canvas-item__drag-dots" aria-hidden>⋮⋮</span>
+      <div
+        className={`canvas-item__header${showEditChrome ? "" : " canvas-item__header--hidden"}`}
+        onPointerDown={editMode ? onDragStart : undefined}
+      >
+        {showEditChrome && <span className="canvas-item__drag-dots" aria-hidden>⋮⋮</span>}
         {(node.type === "custom" || node.type === "embed") && onTitleChange ? (
           <input
             className="canvas-item__title-input"
@@ -339,26 +377,37 @@ export function CanvasItem({
         ) : (
           <span className="canvas-item__type-label">{typeLabel}</span>
         )}
-        {node.type === "widget" && onWidgetStyleChange && node.widgetKey && widgetStyle && (
-          <button
-            type="button"
-            className={`canvas-item__style-btn${showStylePicker ? " canvas-item__style-btn--open" : ""}`}
-            title="Change size, design, and layout"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowStylePicker((v) => !v);
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            Style
+        {node.type === "widget" &&
+          onWidgetStyleChange &&
+          node.widgetKey &&
+          widgetStyle &&
+          !isSelected && (
+            <button
+              type="button"
+              className={`canvas-item__style-btn${showStylePicker ? " canvas-item__style-btn--open" : ""}`}
+              title="Change size, design, and layout"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowStylePicker((v) => !v);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              Style
+            </button>
+          )}
+        {showEditChrome && (
+          <button type="button" className="canvas-item__close" onClick={onRemove} title="Remove">
+            ×
           </button>
         )}
-        <button type="button" className="canvas-item__close" onClick={onRemove} title="Remove">
-          ×
-        </button>
       </div>
 
-      {showStylePicker && node.type === "widget" && node.widgetKey && onWidgetStyleChange && widgetStyle && (
+      {showStylePicker &&
+        !isSelected &&
+        node.type === "widget" &&
+        node.widgetKey &&
+        onWidgetStyleChange &&
+        widgetStyle && (
         <div className="canvas-item__style-panel">
           <WidgetStylePicker
             variant="panel"
@@ -377,13 +426,15 @@ export function CanvasItem({
         {renderContent()}
       </div>
 
-      <div className="canvas-item__resize" onPointerDown={onResizeStart}>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <circle cx="10" cy="10" r="1.5" />
-          <circle cx="6" cy="10" r="1.5" />
-          <circle cx="10" cy="6" r="1.5" />
-        </svg>
-      </div>
+      {showEditChrome && (
+        <div className="canvas-item__resize" onPointerDown={onResizeStart}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <circle cx="10" cy="10" r="1.5" />
+            <circle cx="6" cy="10" r="1.5" />
+            <circle cx="10" cy="6" r="1.5" />
+          </svg>
+        </div>
+      )}
 
       {!isWidget ? <div className="canvas-item__frame" /> : null}
     </div>

@@ -1,3 +1,4 @@
+import type { Tab } from "../../tab";
 import { TccIconCalendarPlus, TccIconPlus, TccIconSearch } from "./TccIcons";
 
 interface Props {
@@ -5,6 +6,7 @@ interface Props {
   onSearchChange: (q: string) => void;
   onNewTask: () => void;
   onNewEvent: () => void;
+  onNavigate?: (tab: Tab) => void;
   loading?: boolean;
   busy?: boolean;
   onRefresh?: () => void;
@@ -15,6 +17,7 @@ export function TasksCalendarHeader({
   onSearchChange,
   onNewTask,
   onNewEvent,
+  onNavigate,
   loading = false,
   busy = false,
   onRefresh,
@@ -47,6 +50,11 @@ export function TasksCalendarHeader({
             </button>
           ) : null}
         </label>
+        {onNavigate ? (
+          <button type="button" className="teams-btn teams-btn--ghost" onClick={() => onNavigate("goals")}>
+            Goals
+          </button>
+        ) : null}
         {onRefresh ? (
           <button
             type="button"

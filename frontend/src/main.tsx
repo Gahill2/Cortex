@@ -19,8 +19,13 @@ import "./styles-notion-app.css";
 import "./styles-home-prod.css";
 import "./styles-canvas.css";
 import "./styles-canvas-widgets.css";
+import "./styles-dashboard.css";
 import "./styles-widget-skins.css";
 import "./styles-shell.css";
+import "./styles-ui-customization.css";
+import "./styles-goals.css";
+import "./styles-productivity-dashboard.css";
+import "./styles-productivity.css";
 
 if ("serviceWorker" in navigator) {
   const w = window as Window & { __ELECTRON__?: boolean };

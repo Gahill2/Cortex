@@ -9,6 +9,7 @@ import { clearCortexUiPreferences } from "../lib/cortexUiStorageKeys";
 import { usePreferences } from "../context/PreferencesContext";
 import { startOAuthFlow } from "../lib/oauth";
 import { SettingsShell } from "../components/settings/SettingsShell";
+import { UiCustomizationSettings } from "../components/settings/UiCustomizationSettings";
 import { MemoryPage } from "./MemoryPage";
 import { McpLinkPage } from "./McpLinkPage";
 import {
@@ -374,15 +375,6 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
 
   return (
     <div className="page settings-page settings-page--shell">
-      <div className="page-titlebar">
-        <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">
-            Manage your account, appearance, integrations, and preferences.
-          </p>
-        </div>
-      </div>
-
       {import.meta.env.DEV && (
         <div className="settings-dev-banner" role="status">
           <strong>Dev</strong>
@@ -448,6 +440,8 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
               ))}
             </div>
           </section>
+
+          <UiCustomizationSettings />
 
           {/* ── AI Theme ── */}
           <section className="settings-section">

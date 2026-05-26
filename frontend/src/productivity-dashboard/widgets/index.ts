@@ -1,0 +1,15 @@
+export { TodayOverviewWidget } from "./TodayOverviewWidget";
+export { DailyAgendaWidget } from "./DailyAgendaWidget";
+export { QuickTasksWidget } from "./QuickTasksWidget";
+export { InboxCaptureWidget } from "./InboxCaptureWidget";
+export { MiniCalendarWidget } from "./MiniCalendarWidget";
+export { UpcomingWidget } from "./UpcomingWidget";
+export { GoalsProgressWidget } from "./GoalsProgressWidget";
+export { HabitsWidget } from "./HabitsWidget";
+export { HabitHeatmapWidget } from "./HabitHeatmapWidget";
+export { FocusBlockWidget } from "./FocusBlockWidget";
+export { NotesWidget } from "./NotesWidget";
+export { AutomationsWidget } from "./AutomationsWidget";
+export { EmailPreviewWidget } from "./EmailPreviewWidget";
+export { MusicWidget } from "./MusicWidget";
+export { SystemStatusWidget } from "./SystemStatusWidget";

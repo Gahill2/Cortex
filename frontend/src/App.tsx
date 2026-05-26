@@ -8,6 +8,7 @@ import { OAuthBootstrap } from "./components/OAuthBootstrap";
 import { PageLoading } from "./components/PageLoading";
 import { AppearanceProvider } from "./AppearanceProvider";
 import { PreferencesProvider } from "./context/PreferencesContext";
+import { useUiCustomization } from "./hooks/useUiCustomization";
 import {
   api,
   setAuthToken,
@@ -22,8 +23,8 @@ import { useWallpaper } from "./hooks/useWallpaper";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { TAB_SCREEN_TITLES } from "./navigation";
 import type { Tab } from "./tab";
-import { TasksCalendarPage } from "./pages/TasksCalendarPage";
 import { CommandPalette, type PaletteAction } from "./components/shell/CommandPalette";
+import { AppTopNav } from "./components/shell/AppTopNav";
 import { QuickCaptureDialog } from "./components/shell/QuickCaptureDialog";
 import { ToastViewport } from "./components/shell/ToastViewport";
 import { useDesktopShortcuts } from "./hooks/useDesktopShortcuts";
@@ -46,6 +47,15 @@ const SpotifyPage = lazy(() =>
 const NotesPage = lazy(() =>
   import("./pages/NotesPage").then((m) => ({ default: m.NotesPage }))
 );
+const GoalsPage = lazy(() =>
+  import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage }))
+);
+const CalendarPage = lazy(() =>
+  import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage }))
+);
+const TasksPage = lazy(() =>
+  import("./pages/TasksPage").then((m) => ({ default: m.TasksPage }))
+);
 /** Renderer idle lock — must match server expectations for `/auth/lock` */
 const IDLE_LOCK_MS = 15 * 60 * 1000;
 
@@ -66,6 +76,12 @@ type OAuthWindow = Window & {
 
 function WallpaperSync() {
   useWallpaper(true);
+  return null;
+}
+
+/** Applies home font, density, accent, and surface tokens from server settings. */
+function UiCustomizationSync() {
+  useUiCustomization();
   return null;
 }
 
@@ -104,11 +120,25 @@ export default function App() {
     () => [
       { id: "nav-home", label: "Go to Home", group: "Navigate", keywords: "dashboard home", onSelect: () => setTab("home") },
       {
-        id: "nav-tasks",
-        label: "Go to Tasks & Calendar",
+        id: "nav-calendar",
+        label: "Go to Calendar",
         group: "Navigate",
-        keywords: "tasks calendar planner",
+        keywords: "calendar schedule events",
+        onSelect: () => setTab("calendar"),
+      },
+      {
+        id: "nav-tasks",
+        label: "Go to Tasks",
+        group: "Navigate",
+        keywords: "tasks todo inbox today",
         onSelect: () => setTab("tasks"),
+      },
+      {
+        id: "nav-goals",
+        label: "Go to Goals",
+        group: "Navigate",
+        keywords: "progress etc targets",
+        onSelect: () => setTab("goals"),
       },
       { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant", onSelect: () => setTab("ai") },
       {
@@ -475,28 +505,33 @@ export default function App() {
     <PreferencesProvider>
       <AppearanceProvider>
       <WallpaperSync />
+      <UiCustomizationSync />
       <OAuthBootstrap enabled />
       <div
-        className={`desktop-shell desktop-shell--burger flex-grow-1 min-vh-0${isMobileLayout ? " desktop-shell--mobile" : ""}${
-          import.meta.env.DEV ? " desktop-shell--dev" : ""
-        }`}
+        className={`desktop-shell flex-grow-1 min-vh-0${
+          isMobileLayout ? " desktop-shell--burger desktop-shell--mobile" : " desktop-shell--topnav"
+        }${import.meta.env.DEV ? " desktop-shell--dev" : ""}`}
         title={import.meta.env.DEV ? "Vite dev server (hot reload)" : undefined}
       >
-        <header className="burger-appbar">
-          <button
-            type="button"
-            className="burger-appbar__btn"
-            onClick={openNavDrawer}
-            aria-label="Open menu"
-          >
-            <span className="burger-appbar__icon" aria-hidden>
-              <span className="burger-appbar__line" />
-              <span className="burger-appbar__line" />
-              <span className="burger-appbar__line" />
-            </span>
-          </button>
-          <span className="burger-appbar__title">{TAB_SCREEN_TITLES[tab]}</span>
-        </header>
+        {!isMobileLayout ? (
+          <AppTopNav active={tab} onChange={goTab} onOpenPalette={() => setPaletteOpen(true)} />
+        ) : (
+          <header className="burger-appbar">
+            <button
+              type="button"
+              className="burger-appbar__btn"
+              onClick={openNavDrawer}
+              aria-label="Open menu"
+            >
+              <span className="burger-appbar__icon" aria-hidden>
+                <span className="burger-appbar__line" />
+                <span className="burger-appbar__line" />
+                <span className="burger-appbar__line" />
+              </span>
+            </button>
+            <span className="burger-appbar__title">{TAB_SCREEN_TITLES[tab]}</span>
+          </header>
+        )}
 
         {(navDrawerOpen || navDrawerClosing) &&
           createPortal(
@@ -518,13 +553,24 @@ export default function App() {
         <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
           <div
             className={`container-fluid flex-grow-1 d-flex flex-column min-vh-0 cortex-route-bootstrap cortex-animate-in${
-              tab === "home" ? " cortex-route-bootstrap--home-full" : " px-3 px-sm-4 px-lg-4 px-xxl-5 pt-3 pt-lg-4 pb-4 pb-xxl-5"
+              tab === "home"
+                ? " cortex-route-bootstrap--home-full"
+                : tab === "calendar" || tab === "tasks"
+                  ? " cortex-route-bootstrap--planner-full"
+                  : " cortex-route-bootstrap--padded"
             }`}
           >
-            {tab === "tasks" && <TasksCalendarPage activeTab={tab} onNavigate={goTab} />}
-            {tab !== "tasks" && (
+            {tab === "calendar" || tab === "tasks" ? (
               <Suspense fallback={<PageLoading />}>
-                {tab === "home" && <HomePage onNavigate={goTab} />}
+                {tab === "calendar" && <CalendarPage onNavigate={goTab} />}
+                {tab === "tasks" && <TasksPage onNavigate={goTab} />}
+              </Suspense>
+            ) : (
+              <Suspense fallback={<PageLoading />}>
+                {tab === "home" && (
+                  <HomePage onNavigate={goTab} onCommand={() => setPaletteOpen(true)} />
+                )}
+                {tab === "goals" && <GoalsPage onNavigate={goTab} />}
                 {tab === "ai" && <AIPage />}
                 {tab === "notes" && <NotesPage />}
                 {tab === "settings" && (

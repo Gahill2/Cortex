@@ -120,6 +120,7 @@ export function TasksCalendarPage({ activeTab: _activeTab, onNavigate }: Props) 
         onSearchChange={setSearch}
         onNewTask={() => void onNewTask()}
         onNewEvent={onNewEvent}
+        onNavigate={onNavigate}
         loading={loading}
         busy={busy}
         onRefresh={() => void refresh()}

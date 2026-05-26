@@ -1,0 +1,1 @@
+Fix Cortex Home canvas chrome if still broken: one compact toolbar, inspector only when selected, correct viewport padding.

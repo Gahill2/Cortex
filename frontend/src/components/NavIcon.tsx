@@ -7,6 +7,7 @@ import {
   Mail,
   Music,
   Settings,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import type { NavIconName } from "../navigation";
@@ -14,6 +15,7 @@ import type { NavIconName } from "../navigation";
 const ICON_MAP: Record<NavIconName, LucideIcon> = {
   home: Home,
   "check-square": CheckSquare,
+  target: Target,
   calendar: Calendar,
   bot: Bot,
   "file-text": FileText,

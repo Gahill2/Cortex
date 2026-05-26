@@ -27,16 +27,27 @@
   --widget-weight-body: 450;
 }
 
-/* Cortex default = Apple-style vibrancy (same material as iOS skin) */
+/* Apple Home Screen–style liquid glass (Cortex default) */
 .canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget,
 .widget-skin--cortex .widget,
 .canvas-widget-shell.widget-skin--cortex .widget {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(24px) saturate(1.65);
-  -webkit-backdrop-filter: blur(24px) saturate(1.65);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-widget, 22px);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --radius-widget: 26px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.04) 42%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  backdrop-filter: blur(28px) saturate(1.85);
+  -webkit-backdrop-filter: blur(28px) saturate(1.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-widget, 26px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.12) inset,
+    0 12px 40px rgba(0, 0, 0, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .widget-skin--cortex .widget-label,
@@ -127,16 +138,31 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 
-/* —— iOS: glass, large centered type —— */
+/* —— iOS: large-type hero widgets (iOS 17+ style) —— */
 .canvas-item--widget .canvas-widget-shell.widget-skin--ios .widget,
 .widget-skin--ios .widget,
 .canvas-widget-shell.widget-skin--ios .widget {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 22px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  --radius-widget: 28px;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.05) 38%,
+      rgba(120, 120, 128, 0.08) 100%
+    );
+  backdrop-filter: blur(32px) saturate(2);
+  -webkit-backdrop-filter: blur(32px) saturate(2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-widget, 28px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 16px 48px rgba(0, 0, 0, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.14);
+}
+
+.canvas-item--widget .canvas-widget-shell.widget-skin--ios .widget,
+.canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget {
+  padding: 14px 16px 12px;
 }
 
 .widget-skin--ios .worldclock-digital-hero__time {

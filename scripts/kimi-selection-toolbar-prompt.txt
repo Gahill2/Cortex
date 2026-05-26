@@ -1,0 +1,27 @@
+Cortex Home canvas — fix the widget selection inspector banner (hard to see / cluttered).
+
+## Problem
+When the user clicks a widget on the canvas, a second row appears under the main toolbar: `CanvasSelectionToolbar` in `frontend/src/components/canvas/CanvasSelectionToolbar.tsx`, styled in `frontend/src/styles-canvas.css` (`.canvas-selection-toolbar` and children).
+
+Users report it is **hard to see** (low contrast glass, text-3 labels, busy horizontal scroll) and want it **cleaned up** — readable, compact, premium (Figma/Notion-like), not a noisy banner.
+
+## Goals
+1. **Visibility**: Stronger contrast — readable title, labels, inputs, and buttons on light and dark themes. Use existing CSS vars (`--text`, `--text-2`, `--text-3`, `--surface-elevated`, `--accent`, `--apple-blue`). Avoid ultra-transparent `rgba(28,28,34,0.58)` if it washes out.
+2. **Cleaner layout**: Reduce visual noise — clear hierarchy (title + key actions first). On desktop, keep one scannable row; improve overflow (subtle scroll hint or wrap secondary controls). Consider collapsing rarely-used blocks behind a "More" toggle ONLY if it materially simplifies without breaking features.
+3. **Compact height**: Target ~56–64px min-height on desktop when possible (currently min-height 72px + heavy padding). Do not break touch targets (min 36px buttons).
+4. **Polish**: Subtle border, inset highlight, consistent 12–14px label typography, tabular nums for meta. Remove duplicate max-width rules if any.
+5. **Mobile**: Keep usable in `@media (max-width: 768px)` rules at bottom of styles-canvas.css — do not regress.
+
+## Files you may edit
+- `frontend/src/styles-canvas.css` — primary (`.canvas-selection-toolbar*`, `.canvas-chrome-dock__row--inspector`)
+- `frontend/src/components/canvas/CanvasSelectionToolbar.tsx` — only if markup changes help (optional collapsible "More", clearer structure)
+- Do NOT change CanvasDashboard logic unless required for layout.
+
+## Constraints
+- Keep all existing controls (geometry, appearance, widget variant/skin/layout, backdrop, layers, duplicate, delete).
+- Match existing canvas toolbar glass aesthetic but **more legible**.
+- Run `npm run typecheck` in `frontend/` when done.
+- Do NOT git commit.
+
+## Deliverable
+Implement the CSS/TSX changes directly. Brief summary of what you changed for contrast and layout.

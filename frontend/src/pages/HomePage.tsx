@@ -4,22 +4,35 @@ import type { Tab } from "../tab";
 import { CanvasDashboard } from "../components/canvas/CanvasDashboard";
 import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
 import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";
+import { DashboardDataProvider } from "../productivity-dashboard/hooks/useDashboardDataContext";
+import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
+import { HomeWorkbenchChrome } from "./HomeWorkbenchChrome";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
+  onCommand?: () => void;
 }
 
-export const HomePage = ({ onNavigate }: Props) => {
+export const HomePage = ({ onNavigate, onCommand }: Props) => {
   const [boardTasks, setBoardTasks] = useState<HomeBoardTask[]>([]);
   const [boardDataLoading, setBoardDataLoading] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+
+  const editMode = useDashboardLayoutStore((s) => s.editMode);
+  const setEditMode = useDashboardLayoutStore((s) => s.setEditMode);
 
   useEffect(() => {
     let cancelled = false;
     setBoardDataLoading(true);
     Promise.all([api.get("/tasks"), api.get("/projects")])
-      .then(([tr, _pr]) => {
+      .then(([tr]) => {
         if (cancelled) return;
-        const t: HomeBoardTask[] = Array.isArray(tr.data) ? tr.data : (tr.data?.data ?? []);
+        const body = tr.data as { data?: HomeBoardTask[] } | HomeBoardTask[];
+        const t: HomeBoardTask[] = Array.isArray(body)
+          ? body
+          : Array.isArray(body?.data)
+            ? body.data
+            : [];
         setBoardTasks(t);
       })
       .catch(() => {
@@ -38,11 +51,27 @@ export const HomePage = ({ onNavigate }: Props) => {
     [onNavigate, boardTasks, boardDataLoading],
   );
 
+  const openLibrary = () => {
+    setLibraryOpen(true);
+    setEditMode(true);
+  };
+
   return (
-    <div className="page home-page home-page--canvas-full">
-      <div className="page-workbench home-page__canvas-wrap">
-        <CanvasDashboard onNavigate={onNavigate} renderWidget={renderWidget} />
+    <DashboardDataProvider>
+      <div className="page home-page home-page--board">
+        <HomeWorkbenchChrome onOpenLibrary={openLibrary} onCommand={onCommand} />
+
+        <div className="home-page__canvas-wrap">
+          <CanvasDashboard
+            onNavigate={onNavigate}
+            renderWidget={renderWidget}
+            editMode={editMode}
+            onEditModeChange={setEditMode}
+            libraryOpen={libraryOpen}
+            onLibraryOpenChange={setLibraryOpen}
+          />
+        </div>
       </div>
-    </div>
+    </DashboardDataProvider>
   );
 };

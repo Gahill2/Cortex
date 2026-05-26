@@ -1,5 +1,7 @@
 # Cortex MCP (Cortex Link)
 
+For **Cursor IDE** MCP servers (Context7, Docker, shadcn, Supabase, Notion, Google Maps, etc.), see [cursor-mcp-setup.md](./cursor-mcp-setup.md).
+
 Personal Streamable HTTP MCP server for automation workflows. Runs **next to** the main Cortex API (default API `4000`, MCP default `3001`).
 
 ## Local (this PC only)

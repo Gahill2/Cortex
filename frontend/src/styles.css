@@ -269,7 +269,11 @@ img { display: block; max-width: 100%; }
 .py-space-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
 
 .cortex-route-bootstrap {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .cortex-route-bootstrap > .page,
@@ -282,9 +286,20 @@ img { display: block; max-width: 100%; }
   flex-direction: column;
 }
 
+/* Scrollable routes (not home canvas / not tasks workbench) */
+.cortex-route-bootstrap:not(.cortex-route-bootstrap--home-full) > .page:not(.settings-page--shell):not(.tcc-page) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 .desktop-shell--burger .desktop-main {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .page {
@@ -292,7 +307,7 @@ img { display: block; max-width: 100%; }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
   min-height: 0;
 }
 
@@ -834,9 +849,17 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .home-page { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
 
 /* Full-bleed Figma-style canvas on Home (title lives in burger app bar) */
-.cortex-route-bootstrap--home-full {
+.cortex-route-bootstrap--home-full,
+.cortex-route-bootstrap--planner-full {
   padding: 0 !important;
   max-width: 100%;
+}
+
+.cortex-route-bootstrap--planner-full > .pd-route {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
 }
 .home-page--canvas-full {
   gap: 0;
@@ -3549,6 +3572,18 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .settings-page--shell {
   padding: 0;
   max-width: none;
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.settings-page--shell .settings-dev-banner,
+.settings-page--shell .settings-origin-banner {
+  flex-shrink: 0;
+}
+
+.settings-page--shell .settings-shell {
+  flex: 1;
+  min-height: 0;
 }
 
 .settings-page--shell .settings-layout {
@@ -3557,7 +3592,8 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 .settings-shell {
   display: flex;
-  min-height: min(72vh, calc(100vh - 140px));
+  flex: 1;
+  min-height: 0;
   position: relative;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
@@ -3693,8 +3729,10 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .settings-shell__main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .settings-shell__header {
@@ -3727,8 +3765,12 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 .settings-shell__content {
   flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--space-5);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: var(--space-4) var(--space-5);
 }
 
 .settings-embedded-actions {
