@@ -1,0 +1,11 @@
+[Unit]
+Description=Cortex homelab deploy if GitHub main changed
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=greyhill
+WorkingDirectory=/home/greyhill/Documents/Cortex
+Environment=CORTEX_DEPLOY_BRANCH=main
+ExecStart=/home/greyhill/Documents/Cortex/scripts/homelab-deploy-watch.sh

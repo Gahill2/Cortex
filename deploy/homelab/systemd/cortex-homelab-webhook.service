@@ -1,0 +1,18 @@
+[Unit]
+Description=Cortex homelab GitHub deploy webhook
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=greyhill
+WorkingDirectory=/home/greyhill/Documents/Cortex
+Environment=NODE_ENV=production
+Environment=CORTEX_WEBHOOK_PORT=9090
+Environment=CORTEX_DEPLOY_BRANCH=main
+ExecStart=/usr/bin/node /home/greyhill/Documents/Cortex/scripts/homelab-github-webhook.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
