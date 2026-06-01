@@ -31,7 +31,7 @@ export function TasksCalendarQuickAdd({ busy = false, onAdd }: Props) {
         aria-label="Add task in plain language"
       />
       <button type="submit" className="teams-btn teams-btn--primary teams-btn--sm" disabled={busy || saving || !text.trim()}>
-        {saving ? "Adding…" : "Add"}
+        {saving ? "Adding…" : "Confirm add"}
       </button>
     </form>
   );

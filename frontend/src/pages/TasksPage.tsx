@@ -44,6 +44,7 @@ export function TasksPage({ onNavigate }: Props) {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const [createFocusToken, setCreateFocusToken] = useState(0);
 
   const viewDate = useMemo(() => new Date(), []);
   const calView = toPlannerCalView("week");
@@ -240,7 +241,7 @@ export function TasksPage({ onNavigate }: Props) {
               onSortChange={setSort}
               boardMode={boardMode}
               onBoardModeChange={setBoardMode}
-              onQuickAdd={() => void handleCreateTask({ title: "New task" })}
+              onQuickAdd={() => setCreateFocusToken((n) => n + 1)}
               onRefresh={() => void refresh()}
               busy={busy}
               onOpenSidebar={() => setMobileSidebarOpen(true)}
@@ -260,7 +261,12 @@ export function TasksPage({ onNavigate }: Props) {
                 {tasksError}
               </p>
             ) : null}
-            <TaskCreateBar busy={busy} onCreateTask={handleCreateTask} onCreateGoal={handleCreateGoal} />
+            <TaskCreateBar
+              busy={busy}
+              focusToken={createFocusToken}
+              onCreateTask={handleCreateTask}
+              onCreateGoal={handleCreateGoal}
+            />
             {loading ? (
               <p className="pd-route__loading" aria-busy="true">
                 Loading…

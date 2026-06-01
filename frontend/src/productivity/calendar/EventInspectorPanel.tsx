@@ -93,20 +93,25 @@ export function EventInspectorPanel({
   const [progressPercent, setProgressPercent] = useState(0);
   const [projectId, setProjectId] = useState("");
   const [calendarNote, setCalendarNote] = useState<string | null>(null);
+  const [goalDirty, setGoalDirty] = useState(false);
+
+  const loadTaskForm = (task: PlannerTask) => {
+    setTitle(task.title);
+    setNotes(task.notes ?? "");
+    setPriority(task.priority);
+    setStatus(task.status ?? "TODO");
+    setProgressPercent(task.progressPercent ?? 0);
+    setDueDate(task.hasDueDate ? toDateInput(task.dueAt) : "");
+    setPlanStartTime(toTimeInput(task.planStart));
+    setPlanEndTime(toTimeInput(task.planEnd));
+    setSyncToCalendar(task.syncToCalendar ?? true);
+    setProjectId(task.projectId ?? "");
+    setCalendarNote(null);
+  };
 
   useEffect(() => {
     if (!selectedTask) return;
-    setTitle(selectedTask.title);
-    setNotes(selectedTask.notes ?? "");
-    setPriority(selectedTask.priority);
-    setStatus(selectedTask.status ?? "TODO");
-    setProgressPercent(selectedTask.progressPercent ?? 0);
-    setDueDate(selectedTask.hasDueDate ? toDateInput(selectedTask.dueAt) : "");
-    setPlanStartTime(toTimeInput(selectedTask.planStart));
-    setPlanEndTime(toTimeInput(selectedTask.planEnd));
-    setSyncToCalendar(selectedTask.syncToCalendar ?? true);
-    setProjectId(selectedTask.projectId ?? "");
-    setCalendarNote(null);
+    loadTaskForm(selectedTask);
   }, [selectedTask]);
 
   useEffect(() => {
@@ -116,6 +121,7 @@ export function EventInspectorPanel({
     setProgressPercent(goalProgress(selectedGoal));
     setDueDate(selectedGoal.targetDate ? toDateInput(selectedGoal.targetDate) : "");
     setCalendarNote(null);
+    setGoalDirty(false);
   }, [selectedGoal]);
 
   if (!selectedEvent && !selectedTask && !selectedGoal) {
@@ -152,19 +158,21 @@ export function EventInspectorPanel({
   }
 
   if (selectedGoal && !selectedTask) {
-    const pct = goalProgress(selectedGoal);
     return (
       <div className="pd-inspector pd-inspector--task">
         <p className="pd-inspector__eyebrow">
           <Flag size={12} aria-hidden /> Goal
         </p>
+        <p className="pd-inspector__hint">Click Save goal when your edits look right.</p>
         <label className="pd-inspector__field">
           Title
           <input
             className="pd-inspector__input"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => onUpdateGoal?.(selectedGoal.id, { text: title.trim() })}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setGoalDirty(true);
+            }}
           />
         </label>
         <label className="pd-inspector__field">
@@ -177,12 +185,8 @@ export function EventInspectorPanel({
             value={progressPercent}
             disabled={selectedGoal.done}
             onChange={(e) => {
-              const next = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-              setProgressPercent(next);
-              onUpdateGoal?.(selectedGoal.id, {
-                progressPercent: next,
-                done: next >= 100,
-              });
+              setProgressPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)));
+              setGoalDirty(true);
             }}
           />
         </label>
@@ -190,13 +194,12 @@ export function EventInspectorPanel({
           type="range"
           min={0}
           max={100}
-          value={pct}
+          value={progressPercent}
           disabled={selectedGoal.done}
           className="pd-inspector__range"
           onChange={(e) => {
-            const next = Number(e.target.value);
-            setProgressPercent(next);
-            onUpdateGoal?.(selectedGoal.id, { progressPercent: next, done: false });
+            setProgressPercent(Number(e.target.value));
+            setGoalDirty(true);
           }}
         />
         <label className="pd-inspector__field">
@@ -207,14 +210,29 @@ export function EventInspectorPanel({
             value={dueDate}
             onChange={(e) => {
               setDueDate(e.target.value);
-              onUpdateGoal?.(selectedGoal.id, {
-                targetDate: e.target.value
-                  ? new Date(`${e.target.value}T12:00:00`).toISOString()
-                  : null,
-              });
+              setGoalDirty(true);
             }}
           />
         </label>
+        {goalDirty ? (
+          <div className="pd-inspector__save-row">
+            <button
+              type="button"
+              className="pd-btn pd-btn--primary pd-btn--sm"
+              onClick={() => {
+                onUpdateGoal?.(selectedGoal.id, {
+                  text: title.trim(),
+                  progressPercent,
+                  done: progressPercent >= 100,
+                  targetDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
+                });
+                setGoalDirty(false);
+              }}
+            >
+              Save goal
+            </button>
+          </div>
+        ) : null}
         <div className="pd-inspector__actions">
           {onToggleGoal ? (
             <button type="button" className="pd-btn pd-btn--ghost pd-btn--sm" onClick={() => onToggleGoal(selectedGoal.id)}>
@@ -235,40 +253,65 @@ export function EventInspectorPanel({
 
   if (!selectedTask) return null;
 
-  const save = async (extra?: Parameters<NonNullable<typeof onUpdateTask>>[1]) => {
+  const dueIso = dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null;
+  const draftPlanStart = dueDate && planStartTime ? combineDateAndTime(dueDate, planStartTime) : null;
+  const draftPlanEnd = dueDate && planEndTime ? combineDateAndTime(dueDate, planEndTime) : null;
+  const taskDirty =
+    title.trim() !== selectedTask.title ||
+    (notes.trim() || "") !== (selectedTask.notes ?? "") ||
+    priority !== selectedTask.priority ||
+    status !== (selectedTask.status ?? "TODO") ||
+    progressPercent !== (selectedTask.progressPercent ?? 0) ||
+    dueIso !== (selectedTask.hasDueDate ? selectedTask.dueAt : null) ||
+    draftPlanStart !== (selectedTask.planStart ?? null) ||
+    draftPlanEnd !== (selectedTask.planEnd ?? null) ||
+    syncToCalendar !== (selectedTask.syncToCalendar ?? true) ||
+    (projectId || "") !== (selectedTask.projectId ?? "");
+
+  const saveTask = async () => {
     if (!onUpdateTask || !title.trim()) return;
     const planStart = dueDate && planStartTime ? combineDateAndTime(dueDate, planStartTime) : null;
     const planEnd = dueDate && planEndTime ? combineDateAndTime(dueDate, planEndTime) : null;
+    let progress = progressPercent;
+    let nextStatus = status;
+    const parsed = parseProgressFromNotes(notes);
+    if (parsed !== null) {
+      progress = parsed;
+      nextStatus = parsed >= 100 ? "DONE" : parsed > 0 ? "IN_PROGRESS" : "TODO";
+      setProgressPercent(progress);
+      setStatus(nextStatus);
+    }
     const result = await onUpdateTask(selectedTask.id, {
       title: title.trim(),
       description: notes.trim() || null,
       priority,
-      status,
-      progressPercent,
+      status: nextStatus,
+      progressPercent: progress,
       dueDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
       planStart,
       planEnd,
       syncToCalendar,
       projectId: projectId || undefined,
-      ...extra,
     });
     if (result && "calendarError" in result && result.calendarError) {
       setCalendarNote(result.calendarError);
     } else if (dueDate && syncToCalendar) {
       setCalendarNote(selectedTask.googleEventId ? "Updated on Google Calendar" : "Scheduled on Google Calendar");
+    } else {
+      setCalendarNote(null);
     }
   };
 
   return (
     <div className="pd-inspector pd-inspector--task">
       <p className="pd-inspector__eyebrow">Task</p>
+      <p className="pd-inspector__hint">Edits apply when you click Save — typing alone won&apos;t create or change tasks.</p>
       <label className="pd-inspector__field">
         Title
         <input
           className="pd-inspector__input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => void save()}
         />
       </label>
       <label className="pd-inspector__field">
@@ -281,11 +324,9 @@ export function EventInspectorPanel({
           value={progressPercent}
           onChange={(e) => {
             const next = Math.min(100, Math.max(0, Number(e.target.value) || 0));
-            const nextStatus =
-              next >= 100 ? "DONE" : next > 0 ? "IN_PROGRESS" : "TODO";
+            const nextStatus = next >= 100 ? "DONE" : next > 0 ? "IN_PROGRESS" : "TODO";
             setProgressPercent(next);
             setStatus(nextStatus);
-            void save({ progressPercent: next, status: nextStatus });
           }}
         />
       </label>
@@ -295,7 +336,6 @@ export function EventInspectorPanel({
         onChange={(nextProgress, nextStatus) => {
           setProgressPercent(nextProgress);
           setStatus(nextStatus);
-          void save({ progressPercent: nextProgress, status: nextStatus });
         }}
       />
       <label className="pd-inspector__field">
@@ -305,7 +345,6 @@ export function EventInspectorPanel({
           className="pd-inspector__input"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          onBlur={() => void save()}
         />
       </label>
       {dueDate ? (
@@ -317,7 +356,6 @@ export function EventInspectorPanel({
               className="pd-inspector__input"
               value={planStartTime}
               onChange={(e) => setPlanStartTime(e.target.value)}
-              onBlur={() => void save()}
             />
           </label>
           <label className="pd-inspector__field">
@@ -327,7 +365,6 @@ export function EventInspectorPanel({
               className="pd-inspector__input"
               value={planEndTime}
               onChange={(e) => setPlanEndTime(e.target.value)}
-              onBlur={() => void save()}
             />
           </label>
         </div>
@@ -336,11 +373,7 @@ export function EventInspectorPanel({
         <input
           type="checkbox"
           checked={syncToCalendar}
-          onChange={(e) => {
-            const next = e.target.checked;
-            setSyncToCalendar(next);
-            void save({ syncToCalendar: next });
-          }}
+          onChange={(e) => setSyncToCalendar(e.target.checked)}
         />
         Add to Google Calendar when scheduled
       </label>
@@ -357,11 +390,7 @@ export function EventInspectorPanel({
           <select
             className="pd-inspector__input"
             value={priority}
-            onChange={(e) => {
-              const next = e.target.value as TaskPriority;
-              setPriority(next);
-              onUpdateTask?.(selectedTask.id, { priority: next });
-            }}
+            onChange={(e) => setPriority(e.target.value as TaskPriority)}
           >
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
@@ -379,7 +408,6 @@ export function EventInspectorPanel({
                 next === "DONE" ? 100 : next === "IN_PROGRESS" ? Math.max(progressPercent, 25) : 0;
               setStatus(next);
               setProgressPercent(progress);
-              void save({ status: next, progressPercent: progress });
             }}
           >
             <option value="TODO">To do</option>
@@ -394,10 +422,7 @@ export function EventInspectorPanel({
           <select
             className="pd-inspector__input"
             value={projectId}
-            onChange={(e) => {
-              setProjectId(e.target.value);
-              onUpdateTask?.(selectedTask.id, { projectId: e.target.value });
-            }}
+            onChange={(e) => setProjectId(e.target.value)}
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -414,21 +439,19 @@ export function EventInspectorPanel({
           rows={4}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => {
-            const parsed = parseProgressFromNotes(notes);
-            if (parsed !== null) {
-              const nextStatus =
-                parsed >= 100 ? "DONE" : parsed > 0 ? "IN_PROGRESS" : "TODO";
-              setProgressPercent(parsed);
-              setStatus(nextStatus);
-              void save({ progressPercent: parsed, status: nextStatus });
-            } else {
-              void save();
-            }
-          }}
-          placeholder="Notes… Tip: “progress: 40” sets your %"
+          placeholder="Notes… Tip: “progress: 40” sets your % when you save"
         />
       </label>
+      {taskDirty ? (
+        <div className="pd-inspector__save-row">
+          <button type="button" className="pd-btn pd-btn--primary pd-btn--sm" onClick={() => void saveTask()}>
+            Save changes
+          </button>
+          <button type="button" className="pd-btn pd-btn--ghost pd-btn--sm" onClick={() => loadTaskForm(selectedTask)}>
+            Discard
+          </button>
+        </div>
+      ) : null}
       <div className="pd-inspector__actions">
         {onToggleTask ? (
           <button type="button" className="pd-btn pd-btn--ghost pd-btn--sm" onClick={() => onToggleTask(selectedTask.id)}>

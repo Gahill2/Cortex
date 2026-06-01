@@ -129,7 +129,7 @@ export function TasksTopBar({
         </div>
         <button type="button" className="pd-btn pd-btn--primary pd-btn--sm" onClick={onQuickAdd} disabled={busy}>
           <Plus size={16} />
-          Add task
+          New…
         </button>
       </div>
     </header>
