@@ -16,7 +16,7 @@ const WIDGET_ID_TO_CANVAS_KEY: Record<string, string> = {
   "daily-agenda": "calendar",
   "mini-calendar": "calendar",
   upcoming: "calendar",
-  "goals-progress": "today",
+  "goals-progress": "goals",
   habits: "habits",
   "habit-heatmap": "habits",
   "inbox-capture": "notes",

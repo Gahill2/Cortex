@@ -51,7 +51,7 @@ export function TasksCalendarHeader({
           ) : null}
         </label>
         {onNavigate ? (
-          <button type="button" className="teams-btn teams-btn--ghost" onClick={() => onNavigate("goals")}>
+          <button type="button" className="teams-btn teams-btn--ghost" onClick={() => onNavigate("tasks")}>
             Goals
           </button>
         ) : null}

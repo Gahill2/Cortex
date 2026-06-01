@@ -60,14 +60,17 @@ export function HabitTrackerWidget() {
   const days = last7Days();
 
   useEffect(() => {
-    if (!ready || hydrated) return;
+    if (!ready) return;
     const fromServer = settings.extraJson?.habits;
-    if (Array.isArray(fromServer) && fromServer.length > 0) {
+    if (Array.isArray(fromServer)) {
       setHabits(fromServer as Habit[]);
-    } else {
-      setHabits(loadHabits());
+      setHydrated(true);
+      return;
     }
-    setHydrated(true);
+    if (!hydrated) {
+      setHabits(loadHabits());
+      setHydrated(true);
+    }
   }, [ready, settings.extraJson?.habits, hydrated]);
 
   const persist = useCallback(

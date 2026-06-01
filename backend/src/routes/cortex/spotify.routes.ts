@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../../config/env.js";
-import { callAI, getAIStatus } from "../../features/ai/ai-provider.js";
+import { callAI } from "../../features/ai/ai-provider.js";
 import { extractJsonObject } from "../../features/mail/mail-classify.js";
 import { HttpError } from "../../utils/http-error.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
@@ -15,7 +15,10 @@ import {
   getNowPlaying,
   playbackControl,
   setVolume,
-  getValidSpotifyToken
+  getValidSpotifyToken,
+  createSpotifyPlaylist,
+  searchSpotifyTracks,
+  type SpotifyTrackResult,
 } from "../../features/spotify/spotify-service.js";
 import {
   saveSpotifyTokens,
@@ -148,64 +151,62 @@ cortexSpotifyRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), 
 
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
-cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
-  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
-  const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
-
-  const aiStatus = await getAIStatus();
-  if (aiStatus.activeProvider === "none") {
-    throw new HttpError(
-      503,
-      "No AI provider available. Start Ollama, or set ANTHROPIC_API_KEY / OPENAI_API_KEY on the API server."
-    );
-  }
-
-  // Step 1: Ask AI for track recommendations (Ollama → Anthropic fallback)
-  const aiResult_raw = await callAI(
-    [{ role: "user", content: prompt }],
-    {
-      tier: "simple",
-      systemPrompt: `You are a music expert. When given a mood or genre prompt, return ONLY a JSON object (no markdown, no explanation) with this exact shape:
+const SPOTIFY_AI_SYSTEM = `You are a music expert. When given a mood or genre prompt, return ONLY a JSON object (no markdown, no explanation) with this exact shape:
 { "playlistName": string, "tracks": Array<{ "artist": string, "title": string }> }
-Include 12-15 diverse, real tracks that match the requested mood/genre. Vary artists — avoid repeating the same artist more than twice.`,
-      maxTokens: 1024
+Include 12-15 diverse, real tracks that match the requested mood/genre. Vary artists — avoid repeating the same artist more than twice.`;
+
+async function resolveTracksFromAiPrompt(
+  userId: string,
+  prompt: string,
+  token: string,
+): Promise<{
+  playlistName: string;
+  tracks: SpotifyTrackResult[];
+  source: "ai" | "spotify-search";
+  aiProvider?: string;
+  aiWarning?: string;
+}> {
+  let playlistName = `Cortex: ${prompt.trim().slice(0, 50)}`;
+  let aiTracks: Array<{ artist: string; title: string }> = [];
+  let aiProvider: string | undefined;
+  let aiWarning: string | undefined;
+
+  try {
+    const aiResult_raw = await callAI(
+      [{ role: "user", content: prompt }],
+      { tier: "simple", preferCloud: true, systemPrompt: SPOTIFY_AI_SYSTEM, maxTokens: 1024 },
+    );
+    aiProvider = aiResult_raw.provider;
+    const parsed = extractJsonObject(aiResult_raw.text);
+    if (parsed && Array.isArray(parsed.tracks)) {
+      if (typeof parsed.playlistName === "string" && parsed.playlistName.trim()) {
+        playlistName = parsed.playlistName.trim();
+      }
+      aiTracks = (parsed.tracks as Array<{ artist?: string; title?: string }>)
+        .filter((t) => t?.artist && t?.title)
+        .map((t) => ({ artist: String(t.artist), title: String(t.title) }));
+    } else if (!parsed) {
+      aiWarning = "AI returned invalid JSON — using Spotify search instead.";
     }
-  );
-
-  const parsed = extractJsonObject(aiResult_raw.text);
-  if (!parsed || !Array.isArray(parsed.tracks)) {
-    throw new HttpError(502, "AI returned invalid JSON for track recommendations");
-  }
-  const aiResult = {
-    playlistName:
-      typeof parsed.playlistName === "string" && parsed.playlistName.trim()
-        ? parsed.playlistName.trim()
-        : "Cortex Mix",
-    tracks: (parsed.tracks as Array<{ artist?: string; title?: string }>)
-      .filter((t) => t?.artist && t?.title)
-      .map((t) => ({ artist: String(t.artist), title: String(t.title) }))
-  };
-  if (aiResult.tracks.length === 0) {
-    throw new HttpError(502, "AI did not return any track suggestions");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/credit balance|billing|quota|insufficient/i.test(msg)) {
+      throw new HttpError(
+        503,
+        "Anthropic API credits exhausted. Claude Pro/Max subscription does not include API access — add credits at console.anthropic.com or set OPENAI_API_KEY on the server.",
+      );
+    }
+    aiWarning = `AI unavailable (${msg}) — using Spotify search instead.`;
+    console.warn("[spotify] AI recommend failed, falling back to Spotify search:", err);
   }
 
-  // Step 2: Search Spotify for each recommended track
-  const token = await getValidSpotifyToken(req.auth!.userId);
-  const foundTracks: Array<{
-    id: string;
-    name: string;
-    artists: string[];
-    albumArt: string | null;
-    uri: string;
-    previewUrl: string | null;
-  }> = [];
+  const foundTracks: SpotifyTrackResult[] = [];
 
-  for (const { artist, title } of aiResult.tracks) {
+  for (const { artist, title } of aiTracks) {
     try {
       const q = encodeURIComponent(`${artist} ${title}`);
       const r = await fetch(`${SPOTIFY_API}/search?q=${q}&type=track&limit=1`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) continue;
       const data = (await r.json()) as {
@@ -216,7 +217,7 @@ Include 12-15 diverse, real tracks that match the requested mood/genre. Vary art
           preview_url: string | null;
           artists: Array<{ name: string }>;
           album: { images: Array<{ url: string }> };
-        }> }
+        }> };
       };
       const item = data.tracks?.items?.[0];
       if (!item) continue;
@@ -226,21 +227,52 @@ Include 12-15 diverse, real tracks that match the requested mood/genre. Vary art
         artists: item.artists.map((a) => a.name),
         albumArt: item.album.images[0]?.url ?? null,
         uri: item.uri,
-        previewUrl: item.preview_url
+        previewUrl: item.preview_url,
       });
     } catch {
-      // Skip tracks that fail to search — best effort
+      /* best effort */
     }
   }
 
-  if (foundTracks.length === 0) {
+  if (foundTracks.length > 0) {
+    return { playlistName, tracks: foundTracks, source: "ai", aiProvider, aiWarning };
+  }
+
+  const searched = await searchSpotifyTracks(userId, prompt, 15);
+  if (searched.length === 0) {
     throw new HttpError(
       502,
-      "Could not match any suggested tracks on Spotify. Try a more specific mood or artist name."
+      "Could not find tracks for that prompt. Try a genre, artist, or mood (e.g. \"indie rock workout\").",
     );
   }
 
-  sendSuccess(res, { tracks: foundTracks, prompt, playlistName: aiResult.playlistName }, "live");
+  return { playlistName, tracks: searched, source: "spotify-search", aiProvider, aiWarning };
+}
+
+cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+  const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
+
+  const token = await getValidSpotifyToken(req.auth!.userId);
+
+  try {
+    const result = await resolveTracksFromAiPrompt(req.auth!.userId, prompt, token);
+    sendSuccess(res, {
+      tracks: result.tracks,
+      prompt,
+      playlistName: result.playlistName,
+      source: result.source,
+      aiProvider: result.aiProvider,
+      aiWarning: result.aiWarning,
+    }, "live");
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
+    throw new HttpError(
+      502,
+      err instanceof Error ? err.message : "Failed to generate playlist recommendations",
+    );
+  }
 });
 
 cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
@@ -252,36 +284,12 @@ cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 
     trackUris: z.array(z.string().min(1)).min(1).max(100)
   }).parse(req.body);
 
-  const token = await getValidSpotifyToken(req.auth!.userId);
-
-  // Step 1: Get the Spotify user's profile
-  const profileRes = await fetch(`${SPOTIFY_API}/me`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!profileRes.ok) throw new HttpError(502, "Failed to fetch Spotify profile");
-  const profile = (await profileRes.json()) as { id: string };
-
-  // Step 2: Create the playlist
-  const createRes = await fetch(`${SPOTIFY_API}/users/${profile.id}/playlists`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, description: "Created by Cortex AI", public: false })
-  });
-  if (!createRes.ok) throw new HttpError(502, "Failed to create Spotify playlist");
-  const playlist = (await createRes.json()) as { id: string; external_urls: { spotify: string } };
-
-  // Step 3: Add tracks to the playlist
-  const addRes = await fetch(`${SPOTIFY_API}/playlists/${playlist.id}/tracks`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ uris: trackUris })
-  });
-  if (!addRes.ok) throw new HttpError(502, "Failed to add tracks to playlist");
-
-  sendSuccess(res, {
-    playlistId: playlist.id,
-    playlistUrl: playlist.external_urls.spotify
-  });
+  try {
+    const result = await createSpotifyPlaylist(req.auth!.userId, name, trackUris);
+    sendSuccess(res, result);
+  } catch (err) {
+    throw new HttpError(502, err instanceof Error ? err.message : "Failed to create Spotify playlist");
+  }
 });
 
 // ── Queue view ──────────────────────────────────────────────────────────────

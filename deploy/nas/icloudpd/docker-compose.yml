@@ -1,0 +1,26 @@
+# Pull Apple iCloud Photos into a local folder (optional → Immich external library).
+# Requires Apple ID + app-specific password (appleid.apple.com → App-Specific Passwords).
+#
+#   cp .env.example .env && edit credentials
+#   docker compose --env-file .env up -d
+#
+# First run may need: docker compose run --rm icloudpd sync-icloud.sh --Initialise
+
+name: cortex-icloudpd
+
+services:
+  icloudpd:
+    image: icloudpd/icloudpd:latest
+    container_name: cortex-icloudpd
+    restart: unless-stopped
+    environment:
+      apple_id: ${ICLOUD_APPLE_ID:?Set ICLOUD_APPLE_ID}
+      authentication_type: ${ICLOUD_AUTH_TYPE:-MFA}
+      folder_format: "${ICLOUD_FOLDER_FORMAT:-{:%Y/%m/%d}}"
+      download_path: /icloud
+      synchronise_interval: ${ICLOUD_SYNC_INTERVAL:-86400}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ${NAS_DATA_ROOT}/photos/icloud-import:/icloud
+      - ${NAS_DATA_ROOT}/appdata/icloudpd:/config
+    command: sync-icloud.sh

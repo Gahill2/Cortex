@@ -33,15 +33,15 @@ export function resolveOAuthFrontendBase(returnOrigin?: string): string {
   return defaultFrontend();
 }
 
-/** OAuth redirect must match the browser origin that started connect (same host as returnOrigin). */
+/** OAuth redirect sent to Google/Microsoft. Prefer explicit env on homelab so one URI works for all Tailscale hostnames. */
 export function resolveGmailOAuthRedirectUri(returnOrigin?: string): string {
   const explicit = env.GOOGLE_REDIRECT_URI?.trim();
-  if (explicit && !returnOrigin?.trim()) return explicit;
+  if (explicit) return explicit;
   return `${resolveOAuthFrontendBase(returnOrigin)}/api/gmail/oauth/callback`;
 }
 
 export function resolveMicrosoftOAuthRedirectUri(returnOrigin?: string): string {
   const explicit = env.MICROSOFT_REDIRECT_URI?.trim();
-  if (explicit && !returnOrigin?.trim()) return explicit;
+  if (explicit) return explicit;
   return `${resolveOAuthFrontendBase(returnOrigin)}/api/microsoft/oauth/callback`;
 }

@@ -1,19 +1,20 @@
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
-interface EmptyStateProps {
-  icon?: LucideIcon;
-  title?: string;
-  message?: string;
-  children?: React.ReactNode;
-}
+type Props = {
+  icon?: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  className?: string;
+};
 
-export function EmptyState({ icon: Icon, title, message, children }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, className = "" }: Props) {
   return (
-    <div className="empty-state">
-      {Icon ? <Icon size={32} strokeWidth={1.5} className="empty-state-icon" aria-hidden /> : null}
-      {title ? <p className="empty-state-title">{title}</p> : null}
-      {message ? <p className="empty-state-message">{message}</p> : null}
-      {children}
+    <div className={`cortex-empty-state ${className}`.trim()} role="status">
+      {icon ? <div className="cortex-empty-state__icon">{icon}</div> : null}
+      <p className="cortex-empty-state__title">{title}</p>
+      {description ? <p className="cortex-empty-state__desc">{description}</p> : null}
+      {action ? <div className="cortex-empty-state__action">{action}</div> : null}
     </div>
   );
 }

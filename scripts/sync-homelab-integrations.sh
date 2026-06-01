@@ -60,9 +60,12 @@ KEYS=(
   SPOTIFY_CLIENT_ID SPOTIFY_CLIENT_SECRET
   NOTION_CLIENT_ID NOTION_CLIENT_SECRET
   NOTION_TOKEN NOTION_PERSONAL_TOKEN NOTION_INTERNAL_TOKEN
-  ANTHROPIC_API_KEY OPENAI_API_KEY OPENAI_MODEL
+  ANTHROPIC_API_KEY KIMI_API_KEY MOONSHOT_API_KEY KIMI_MODEL KIMI_BASE_URL OPENAI_API_KEY OPENAI_MODEL
   CANVA_APP_ID CANVA_CLIENT_ID CANVA_APP_ORIGIN CANVA_CLIENT_SECRET
   JWT_SECRET CORTEX_ENCRYPTION_KEY
+  HOMELAB_SERVICE_HOST HOMELAB_NEXTCLOUD_URL HOMELAB_JELLYFIN_URL HOMELAB_IMMICH_URL
+  HOMELAB_PROMETHEUS_URL HOMELAB_GRAFANA_URL
+  NEXTCLOUD_URL NEXTCLOUD_USERNAME NEXTCLOUD_PASSWORD NEXTCLOUD_APP_PASSWORD
 )
 
 for k in "${KEYS[@]}"; do
@@ -107,6 +110,18 @@ IP="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]')"
 [[ -n "$MAGIC_DNS" ]] && CORS="${CORS},http://${MAGIC_DNS}:8080,https://${MAGIC_DNS}"
 [[ -n "$IP" ]] && CORS="${CORS},http://${IP}:8080"
 upsert_key "$API_ENV" "CORS_ORIGINS" "$CORS"
+
+# Docker API reaches Nextcloud via host gateway — ensure URL works with trusted_domains
+LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}' | tr -d '[:space:]' || true)"
+if [[ -z "${NEXTCLOUD_URL:-}" && -n "${HOMELAB_NEXTCLOUD_URL:-}" ]]; then
+  upsert_key "$API_ENV" "NEXTCLOUD_URL" "$HOMELAB_NEXTCLOUD_URL"
+elif [[ -z "${NEXTCLOUD_URL:-}" && -n "$LAN_IP" ]]; then
+  upsert_key "$API_ENV" "NEXTCLOUD_URL" "http://${LAN_IP}:8081"
+fi
+
+if [[ -n "${NEXTCLOUD_USERNAME:-}" ]]; then
+  echo "Nextcloud: run scripts/nextcloud-trusted-domains.sh if Cloud tab shows trusted domain errors."
+fi
 
 if [[ -n "${SMTP_USER:-}" && -n "${SMTP_PASS:-}" ]]; then
   upsert_key "$API_ENV" "CORTEX_OTP_DEV_FALLBACK" "0"

@@ -1,0 +1,182 @@
+/**
+ * Layout spacing — single source of truth for route/page padding and gaps.
+ * Load last so it wins over page-level one-offs.
+ */
+
+/* ── Route shells ─────────────────────────────────────────────────────────── */
+
+.cortex-route-bootstrap--home-full,
+.cortex-route-bootstrap--planner-full,
+.cortex-route-bootstrap--goals-full {
+  padding: 0 !important;
+  gap: 0;
+}
+
+.cortex-route-bootstrap--padded > .page {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: var(--space-4);
+}
+
+.cortex-route-bootstrap--goals-full > .page.goals-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--route-pad-y, var(--space-3)) var(--route-pad-x, var(--space-4));
+  padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
+  gap: var(--space-4);
+}
+
+/* ── Home canvas ──────────────────────────────────────────────────────────── */
+
+.home-page.home-page--board {
+  gap: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.home-page--board .home-page__canvas-wrap {
+  padding: 0;
+  margin: 0;
+}
+
+/* ── Productivity (Tasks / Calendar) ─────────────────────────────────────── */
+
+.cortex-route-bootstrap--planner-full .pd-route {
+  gap: 0;
+}
+
+.cortex-route-bootstrap--planner-full .pd-route__body {
+  padding: 0 var(--route-pad-x, 0.75rem) var(--route-pad-y, 0.75rem);
+}
+
+.cortex-route-bootstrap--planner-full .pd-route__body--tasks {
+  padding-top: 0.125rem;
+}
+
+.cortex-route-bootstrap--planner-full .pd-route__banner,
+.cortex-route-bootstrap--planner-full .pd-route__quick-add {
+  margin-left: var(--route-pad-x, 1rem);
+  margin-right: var(--route-pad-x, 1rem);
+}
+
+.cortex-route-bootstrap--planner-full .pd-route__loading {
+  padding-left: var(--route-pad-x, 1.25rem);
+  padding-right: var(--route-pad-x, 1.25rem);
+}
+
+/* ── Canvas toolbar chrome ─────────────────────────────────────────────────── */
+
+.canvas-chrome-dock {
+  padding: 0;
+}
+
+.canvas-unified-toolbar__row {
+  padding: 0 6px;
+}
+
+/* ── Goals (avoid duplicate padding from .goals-page) ─────────────────────── */
+
+.goals-page {
+  padding: 0;
+  margin: 0;
+  gap: inherit;
+  max-width: none;
+}
+
+/* ── Homelab + generic padded pages ───────────────────────────────────────── */
+
+.cortex-route-bootstrap--padded {
+  padding: var(--route-pad-y, var(--space-3)) var(--route-pad-x, var(--space-4));
+  padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
+}
+
+/* productivity.css zeroes padding on topnav — restore it (this file loads last) */
+.desktop-shell--topnav .cortex-route-bootstrap--padded {
+  padding: var(--route-pad-y, var(--space-3)) var(--route-pad-x, var(--space-4));
+  padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
+}
+
+.cortex-route-bootstrap--padded > .page {
+  max-width: 1440px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.homelab-page__body {
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+
+/* ── Tablet: keep route padding stable (avoid edge-to-edge) ───────────────── */
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .cortex-route-bootstrap--padded {
+    padding-left: max(var(--route-pad-x, var(--space-4)), 12px);
+    padding-right: max(var(--route-pad-x, var(--space-4)), 12px);
+    padding-top: var(--route-pad-y, var(--space-3));
+  }
+
+  .cortex-route-bootstrap--padded > .page {
+    max-width: none;
+  }
+}
+
+/* ── Mobile: never stack bootstrap pad + .page pad ─────────────────────────── */
+
+@media (max-width: 768px) {
+  .cortex-route-bootstrap--padded {
+    padding-left: max(var(--route-pad-x, var(--space-4)), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--route-pad-x, var(--space-4)), env(safe-area-inset-right, 0px));
+    padding-top: var(--route-pad-y, var(--space-3));
+    padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
+  }
+
+  .cortex-route-bootstrap--padded > .page,
+  .cortex-route-bootstrap--goals-full > .page.goals-page,
+  .cortex-route-bootstrap--home-full > .page,
+  .cortex-route-bootstrap--planner-full .pd-route {
+    padding: 0;
+  }
+
+  .cortex-route-bootstrap--goals-full > .page.goals-page {
+    padding: 0;
+    gap: var(--space-4);
+  }
+
+  .cortex-route-bootstrap--goals-full {
+    padding: var(--route-pad-y, var(--space-3)) var(--route-pad-x, var(--space-4)) !important;
+    padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .desktop-shell--mobile .desktop-main {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .page-titlebar {
+    margin-bottom: 0;
+  }
+
+  .canvas-chrome-dock {
+    padding: 4px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-glance--compact .home-glance__chip-label {
+    display: none;
+  }
+
+  .canvas-toolbar__label {
+    display: none;
+  }
+
+  .canvas-toolbar--embedded .canvas-toolbar__inline-meta {
+    display: none;
+  }
+}

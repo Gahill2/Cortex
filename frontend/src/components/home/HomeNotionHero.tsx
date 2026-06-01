@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useToastStore } from "../../stores/toastStore";
 import type { Tab } from "../../App";
-import { usePersistentState } from "../../hooks/usePersistentState";
+import { useHomeHeroConfig } from "../../hooks/useHomeHeroConfig";
 import {
-  CORTEX_HOME_HERO_STORAGE_KEY,
   COVER_IMAGE_PRESETS,
   COVER_PRESETS,
   HERO_TAB_OPTIONS,
@@ -152,7 +151,7 @@ function HeroCalendar() {
 }
 
 export function HomeNotionHero({ onNavigate }: Props) {
-  const [config, setConfig] = usePersistentState<HomeHeroConfig>(CORTEX_HOME_HERO_STORAGE_KEY, defaultHomeHeroConfig());
+  const [config, setConfig] = useHomeHeroConfig();
   const safe = useMemo(() => normalizeHomeHeroConfig(config), [config]);
 
   const [customOpen, setCustomOpen] = useState(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { TccIconSparkles } from "./TccIcons";
 import { buildFocusSuggestion } from "./focusSuggestion";
@@ -60,20 +60,42 @@ export function TasksCalendarFocusPanel({
     null;
   const upcoming = nextEvent(events);
 
+  const aiContextKey = useMemo(
+    () =>
+      `${tasks.length}:${tasks.filter((t) => !t.completed).length}:${events.length}:${selectedTask?.id ?? ""}:${selectedEvent?.id ?? ""}`,
+    [tasks, events, selectedTask?.id, selectedEvent?.id],
+  );
+  const aiFetchRef = useRef(0);
+
   useEffect(() => {
-    const date = new Date().toISOString().split("T")[0];
     const fallback = buildFocusSuggestion(tasks, events);
-    setSuggestionLoading(true);
-    void api
-      .get("/ai/meeting-prep", { params: { date } })
-      .then((r) => {
-        const payload = (r.data?.data ?? r.data) as { summary?: string; briefing?: string };
-        const text = payload?.summary?.trim() || payload?.briefing?.trim();
-        setSuggestion(text || fallback);
-      })
-      .catch(() => setSuggestion(fallback))
-      .finally(() => setSuggestionLoading(false));
-  }, [tasks, events]);
+    setSuggestion(fallback);
+    setSuggestionLoading(false);
+
+    const date = new Date().toISOString().split("T")[0];
+    const fetchId = ++aiFetchRef.current;
+    const timer = window.setTimeout(() => {
+      setSuggestionLoading(true);
+      void api
+        .get("/ai/meeting-prep", { params: { date } })
+        .then((r) => {
+          if (aiFetchRef.current !== fetchId) return;
+          const payload = (r.data?.data ?? r.data) as { summary?: string; briefing?: string };
+          const text = payload?.summary?.trim() || payload?.briefing?.trim();
+          setSuggestion(text || fallback);
+        })
+        .catch(() => {
+          if (aiFetchRef.current !== fetchId) return;
+          setSuggestion(fallback);
+        })
+        .finally(() => {
+          if (aiFetchRef.current !== fetchId) return;
+          setSuggestionLoading(false);
+        });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [aiContextKey, tasks, events]);
 
   return (
     <aside className="tcc-detail" aria-label="Today focus">

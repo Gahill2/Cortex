@@ -1,8 +1,32 @@
 .goals-page {
   display: flex;
   flex-direction: column;
+  width: 100%;
+}
+
+.goals-loading {
+  padding: 2rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-2);
+}
+
+.goals-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.goals-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   gap: var(--space-4);
-  max-width: 920px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .goals-panels {
+    grid-template-columns: 1fr;
+  }
 }
 
 .goals-page-header {
@@ -109,6 +133,10 @@
   width: 5rem;
 }
 
+.goals-estimate-input[type="date"] {
+  width: 9.5rem;
+}
+
 .goals-list {
   list-style: none;
   margin: 0;
@@ -208,12 +236,26 @@
 }
 
 .goals-task-mini-list li {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
+}
+
+.goals-task-link {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
+  width: 100%;
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.8125rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.goals-task-link:hover .goals-task-title {
+  color: var(--accent);
 }
 
 .goals-task-mini-list li:last-child {

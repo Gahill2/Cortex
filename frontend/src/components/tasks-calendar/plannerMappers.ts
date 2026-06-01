@@ -20,7 +20,13 @@ export interface ApiTask {
   description?: string | null;
   status: "TODO" | "IN_PROGRESS" | "DONE";
   priority: "LOW" | "MEDIUM" | "HIGH";
+  progressPercent?: number;
   dueDate?: string | null;
+  planStart?: string | null;
+  planEnd?: string | null;
+  syncToCalendar?: boolean;
+  googleEventId?: string | null;
+  googleCalendarId?: string | null;
   createdAt: string;
   project?: { id: string; name: string } | null;
 }
@@ -45,17 +51,21 @@ function startOfDay(d: Date): Date {
 
 export function taskGroupForApi(task: ApiTask): TaskGroup {
   if (task.status === "DONE") return "completed";
+  if (!task.dueDate) return "upcoming";
   const today = startOfDay(new Date());
-  if (!task.dueDate) return "today";
   const due = startOfDay(new Date(task.dueDate));
   if (due.getTime() <= today.getTime()) return "today";
   return "upcoming";
 }
 
-export function plannerGroupForTask(task: Pick<PlannerTask, "dueAt" | "status" | "completed">): TaskGroup {
+export function plannerGroupForTask(
+  task: Pick<PlannerTask, "dueAt" | "status" | "completed" | "hasDueDate">,
+): TaskGroup {
   if (task.status === "DONE" || task.completed) return "completed";
+  if (!task.hasDueDate || !task.dueAt) return "upcoming";
   const today = startOfDay(new Date());
   const due = startOfDay(new Date(task.dueAt));
+  if (Number.isNaN(due.getTime())) return "upcoming";
   if (due.getTime() <= today.getTime()) return "today";
   return "upcoming";
 }
@@ -65,7 +75,8 @@ export function mapApiTaskToPlanner(task: ApiTask): PlannerTask {
   return {
     id: task.id,
     title: task.title,
-    dueAt: task.dueDate ?? task.createdAt,
+    dueAt: task.dueDate ?? "",
+    hasDueDate: Boolean(task.dueDate),
     priority: task.priority,
     category: projectToCategory(projectName),
     group: taskGroupForApi(task),
@@ -74,6 +85,11 @@ export function mapApiTaskToPlanner(task: ApiTask): PlannerTask {
     projectId: task.project?.id,
     projectName,
     status: task.status,
+    progressPercent: task.progressPercent ?? (task.status === "DONE" ? 100 : task.status === "IN_PROGRESS" ? 50 : 0),
+    planStart: task.planStart ?? null,
+    planEnd: task.planEnd ?? null,
+    syncToCalendar: task.syncToCalendar ?? true,
+    googleEventId: task.googleEventId ?? null,
   };
 }
 

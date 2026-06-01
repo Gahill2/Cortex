@@ -1,5 +1,5 @@
 [Unit]
-Description=Cortex homelab deploy if GitHub main changed
+Description=Cortex homelab deploy if git or source changed
 After=network-online.target docker.service
 Wants=network-online.target
 

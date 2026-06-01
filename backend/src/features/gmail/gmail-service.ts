@@ -2,11 +2,12 @@ import type { Credentials } from "google-auth-library";
 import { google } from "googleapis";
 import { env } from "../../config/env.js";
 import { resolveGmailOAuthRedirectUri } from "../oauth/oauth-frontend-redirect.js";
-import { getGoogleCredentials } from "./google-token-store.js";
+import { getGoogleCredentials, persistGoogleCredentials } from "./google-token-store.js";
 
 const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/userinfo.email"
 ];
 
@@ -48,18 +49,39 @@ export const exchangeAuthorizationCode = async (code: string, returnOrigin?: str
   return tokens;
 };
 
-const gmailClientForCredentials = (creds: Credentials) => {
+const gmailClientForCredentials = (
+  creds: Credentials,
+  opts?: { userId?: string; mailAccountId?: string }
+) => {
   const auth = createOAuth2Client();
   auth.setCredentials(creds);
+  if (opts?.userId) {
+    const userId = opts.userId;
+    const mailAccountId = opts.mailAccountId;
+    let latest = { ...creds };
+    auth.on("tokens", (tokens) => {
+      latest = { ...latest, ...tokens };
+      void persistGoogleCredentials(userId, latest, mailAccountId).catch((err) => {
+        console.warn("[gmail] failed to persist refreshed tokens:", err);
+      });
+    });
+  }
   return google.gmail({ version: "v1", auth });
 };
 
-const gmailForUser = async (userId: string, credsOverride?: Credentials) => {
+const gmailForUser = async (
+  userId: string,
+  credsOverride?: Credentials,
+  mailAccountId?: string
+) => {
   const creds = credsOverride ?? (await getGoogleCredentials(userId));
   if (!creds?.access_token && !creds?.refresh_token) {
     return null;
   }
-  return gmailClientForCredentials(creds);
+  return gmailClientForCredentials(creds, {
+    userId,
+    mailAccountId: credsOverride ? mailAccountId : undefined,
+  });
 };
 
 export async function fetchGoogleAccountEmail(tokens: Credentials): Promise<string | null> {
@@ -140,9 +162,10 @@ export const modifyMessageLabels = async (
   userId: string,
   messageId: string,
   opts: { addLabelIds?: string[]; removeLabelIds?: string[] },
-  credsOverride?: Credentials
+  credsOverride?: Credentials,
+  mailAccountId?: string
 ): Promise<void> => {
-  const gmail = await gmailForUser(userId, credsOverride);
+  const gmail = await gmailForUser(userId, credsOverride, mailAccountId);
   if (!gmail) {
     throw new Error("Gmail not connected");
   }
@@ -159,9 +182,10 @@ export const modifyMessageLabels = async (
 export const trashGmailMessage = async (
   userId: string,
   messageId: string,
-  credsOverride?: Credentials
+  credsOverride?: Credentials,
+  mailAccountId?: string
 ): Promise<void> => {
-  const gmail = await gmailForUser(userId, credsOverride);
+  const gmail = await gmailForUser(userId, credsOverride, mailAccountId);
   if (!gmail) throw new Error("Gmail not connected");
   await gmail.users.messages.trash({ userId: "me", id: messageId });
 };
@@ -204,9 +228,10 @@ export type GmailFullMessage = InboxRow & {
 export const getGmailMessage = async (
   userId: string,
   messageId: string,
-  credsOverride?: Credentials
+  credsOverride?: Credentials,
+  mailAccountId?: string
 ): Promise<GmailFullMessage | null> => {
-  const gmail = await gmailForUser(userId, credsOverride);
+  const gmail = await gmailForUser(userId, credsOverride, mailAccountId);
   if (!gmail) return null;
 
   const detail = await gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
@@ -235,9 +260,10 @@ export const listInboxUpTo = async (
   userId: string,
   cap: number,
   query: string,
-  credsOverride?: Credentials
+  credsOverride?: Credentials,
+  mailAccountId?: string
 ): Promise<{ connected: boolean; messages: InboxRow[] }> => {
-  const gmail = await gmailForUser(userId, credsOverride);
+  const gmail = await gmailForUser(userId, credsOverride, mailAccountId);
   if (!gmail) return { connected: false, messages: [] };
 
   const messages: InboxRow[] = [];

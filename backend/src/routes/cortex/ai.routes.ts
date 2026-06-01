@@ -7,6 +7,7 @@ import { HttpError } from "../../utils/http-error.js";
 import {
   callAI,
   callAIWithProvider,
+  formatAiErrorForUser,
   getAIStatus,
   resetOllamaCache,
   type ChatAIProviderId,
@@ -25,8 +26,8 @@ import {
 const chatSchema = z.object({
   message: z.string().min(1).max(4_000),
   conversationId: z.string().min(1).optional(),
-  /** claude | openai (ChatGPT) | ollama — when omitted, server picks default available provider */
-  provider: z.enum(["claude", "openai", "ollama"]).optional(),
+  /** claude | openai | ollama | kimi — when omitted, server picks default available provider */
+  provider: z.enum(["claude", "openai", "ollama", "kimi"]).optional(),
   systemContext: z.string().max(8_000).optional(),
   /** When true, append recent Obsidian + Notion excerpts to the system prompt. */
   includeWorkspaceContext: z.boolean().optional().default(false),
@@ -120,7 +121,9 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
           ? "Set ANTHROPIC_API_KEY on the API server."
           : requested === "openai"
             ? "Set OPENAI_API_KEY on the API server."
-            : "Start Ollama locally (ollama serve).";
+            : requested === "kimi"
+              ? "Set KIMI_API_KEY or MOONSHOT_API_KEY on the API server."
+              : "Start Ollama locally (ollama serve).";
       sendSuccess(res, {
         conversationId: input.conversationId ?? `conv_${Date.now()}`,
         reply: `⚠️ ${meta?.label ?? requested} is not available. ${hint}`,
@@ -180,13 +183,9 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
       obsidianLogged,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "AI error";
-    const isCredits = /credit|quota|limit|billing|overload/i.test(msg);
     sendSuccess(res, {
       conversationId: input.conversationId ?? `conv_${Date.now()}`,
-      reply: isCredits
-        ? "⚠️ AI credits exhausted. Install Ollama for free local AI — click \"Start Ollama\" in the header."
-        : `⚠️ AI error: ${msg}`,
+      reply: formatAiErrorForUser(e),
       model: "none",
       provider: "none"
     });
@@ -492,7 +491,7 @@ const organizeSchema = z.object({
     from: z.string(),
     subject: z.string(),
     snippet: z.string().optional().default(""),
-  })).max(50),
+  })).max(100),
   /** Skip LLM — rules + any partial AI merge only when false */
   rulesOnly: z.boolean().optional().default(false),
 });
@@ -525,7 +524,7 @@ ${emailList}`;
     try {
       const result = await callAI(
         [{ role: "user", content: prompt }],
-        { tier: "simple", maxTokens: 2000, systemPrompt: "You are an email classifier. Return only valid JSON." }
+        { tier: "simple", preferCloud: true, maxTokens: 4000, systemPrompt: "You are an email classifier. Return only valid JSON." }
       );
 
       const parsed = extractJsonArray(result.text);

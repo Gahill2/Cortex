@@ -64,6 +64,8 @@ export type TimedLayout = {
   top: number;
   height: number;
   column: number;
+  /** How many side-by-side columns share this event's time cluster */
+  columnCount: number;
 };
 
 /** Position a timed event inside a day column for the week grid */
@@ -92,7 +94,99 @@ export function layoutTimedEvent(ev: CalendarEvent, day: Date): TimedLayout | nu
 
   const top = ((startMs - gridStartMs) / (60 * 60 * 1000)) * HOUR_HEIGHT_PX;
   const height = Math.max(((endMs - startMs) / (60 * 60 * 1000)) * HOUR_HEIGHT_PX, 22);
-  return { top, height, column: 0 };
+  return { top, height, column: 0, columnCount: 1 };
+}
+
+type TimedSegment = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  top: number;
+  height: number;
+};
+
+function clusterTimedSegments(segments: TimedSegment[]): TimedSegment[][] {
+  if (segments.length === 0) return [];
+  const sorted = [...segments].sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+  const clusters: TimedSegment[][] = [];
+  let cluster: TimedSegment[] = [sorted[0]];
+  let clusterEnd = sorted[0].endMs;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const seg = sorted[i];
+    if (seg.startMs < clusterEnd) {
+      cluster.push(seg);
+      clusterEnd = Math.max(clusterEnd, seg.endMs);
+    } else {
+      clusters.push(cluster);
+      cluster = [seg];
+      clusterEnd = seg.endMs;
+    }
+  }
+  clusters.push(cluster);
+  return clusters;
+}
+
+function maxConcurrentInCluster(cluster: TimedSegment[]): number {
+  const points: { t: number; delta: number }[] = [];
+  for (const seg of cluster) {
+    points.push({ t: seg.startMs, delta: 1 });
+    points.push({ t: seg.endMs, delta: -1 });
+  }
+  points.sort((a, b) => a.t - b.t || a.delta - b.delta);
+  let active = 0;
+  let max = 0;
+  for (const p of points) {
+    active += p.delta;
+    max = Math.max(max, active);
+  }
+  return Math.max(max, 1);
+}
+
+/** Side-by-side columns for overlapping timed events on one day */
+export function layoutTimedEventsForDay(
+  events: CalendarEvent[],
+  day: Date,
+): Map<string, TimedLayout> {
+  const result = new Map<string, TimedLayout>();
+  const segments: TimedSegment[] = [];
+
+  for (const ev of events) {
+    if (ev.allDay) continue;
+    const base = layoutTimedEvent(ev, day);
+    if (!base) continue;
+    segments.push({
+      id: ev.id,
+      startMs: new Date(ev.start).getTime(),
+      endMs: new Date(ev.end).getTime(),
+      top: base.top,
+      height: base.height,
+    });
+  }
+
+  for (const cluster of clusterTimedSegments(segments)) {
+    const columnCount = maxConcurrentInCluster(cluster);
+    const columnEnds: number[] = [];
+    const sorted = [...cluster].sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+
+    for (const seg of sorted) {
+      let column = columnEnds.findIndex((end) => end <= seg.startMs);
+      if (column === -1) {
+        column = columnEnds.length;
+        columnEnds.push(seg.endMs);
+      } else {
+        columnEnds[column] = seg.endMs;
+      }
+      result.set(seg.id, {
+        top: seg.top,
+        height: seg.height,
+        column,
+        columnCount,
+      });
+    }
+  }
+
+  return result;
 }
 
 export function yToMinutes(y: number): number {

@@ -60,6 +60,12 @@ const envSchema = z.object({
   GOOGLE_REDIRECT_URL: z.string().optional().default(""),
   CORTEX_FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().optional().default("claude-haiku-4-5-20251001"),
+  /** Moonshot / Kimi — OpenAI-compatible API (platform.moonshot.ai or Kimi Code). */
+  KIMI_API_KEY: z.string().optional().default(""),
+  MOONSHOT_API_KEY: z.string().optional().default(""),
+  KIMI_BASE_URL: z.string().optional().default(""),
+  KIMI_MODEL: z.string().optional().default(""),
   OPENAI_API_KEY: z.string().optional().default(""),
   OPENAI_MODEL: z.string().optional().default("gpt-4o-mini"),
   OPENAI_BASE_URL: z.string().optional().default("https://api.openai.com"),
@@ -140,7 +146,38 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   /** Persistent API files (canvas images, obsidian sidecar, vault index). Homelab: `/app/data`. */
-  CORTEX_API_DATA_DIR: z.string().optional().default("")
+  CORTEX_API_DATA_DIR: z.string().optional().default(""),
+  /** Tailnet/LAN host for NAS + monitoring URLs (e.g. 100.x.x.x or cortex.tail….ts.net). */
+  HOMELAB_SERVICE_HOST: z.string().optional().default(""),
+  HOMELAB_PROMETHEUS_URL: z.string().optional().default(""),
+  HOMELAB_PROMETHEUS_PORT: z.string().optional().default("9090"),
+  HOMELAB_GRAFANA_URL: z.string().optional().default(""),
+  HOMELAB_GRAFANA_PORT: z.string().optional().default("3000"),
+  HOMELAB_JELLYFIN_URL: z.string().optional().default(""),
+  HOMELAB_JELLYFIN_PORT: z.string().optional().default("8096"),
+  HOMELAB_NEXTCLOUD_URL: z.string().optional().default(""),
+  HOMELAB_NEXTCLOUD_PORT: z.string().optional().default("8081"),
+  /** Self-hosted Nextcloud (WebDAV) — Cortex Cloud tab. */
+  NEXTCLOUD_URL: z.string().optional().default(""),
+  NEXTCLOUD_USERNAME: z.string().optional().default(""),
+  NEXTCLOUD_PASSWORD: z.string().optional().default(""),
+  NEXTCLOUD_APP_PASSWORD: z.string().optional().default(""),
+  HOMELAB_IMMICH_URL: z.string().optional().default(""),
+  HOMELAB_IMMICH_PORT: z.string().optional().default("2283"),
+  HOMELAB_PIHOLE_URL: z.string().optional().default(""),
+  HOMELAB_PIHOLE_PORT: z.string().optional().default("8090"),
+  /** Pi-hole admin password for Homelab stats API (session auth). */
+  HOMELAB_PIHOLE_API_PASSWORD: z.string().optional().default(""),
+  /** Apple ID for icloudpd status display (photos sync is host-side). */
+  HOMELAB_ICLOUD_APPLE_ID: z.string().optional().default(""),
+  HOMELAB_PORTAINER_URL: z.string().optional().default(""),
+  /** Host NAS root mounted in the API container (e.g. /nas) for storage breakdown. */
+  HOMELAB_NAS_ROOT: z.string().optional().default(""),
+  /** Host deploy listener (scripts/homelab-deploy-listener.mjs on :9092). */
+  HOMELAB_DEPLOY_LISTENER_URL: z.string().optional().default("http://host.docker.internal:9092"),
+  HOMELAB_DEPLOY_TOKEN: z.string().optional().default(""),
+  /** Repo root for host-side dev deploy spawn. */
+  HOMELAB_REPO_ROOT: z.string().optional().default(""),
 });
 
 const parsed = envSchema.parse(process.env);

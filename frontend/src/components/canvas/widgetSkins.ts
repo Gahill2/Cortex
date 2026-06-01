@@ -1,5 +1,5 @@
 /** Visual design family — separate from S/M/L size. */
-export type WidgetSkin = "cortex" | "notion" | "canva" | "ios";
+export type WidgetSkin = "cortex" | "notion" | "canva" | "ios" | "dash";
 
 export interface WidgetSkinDef {
   id: WidgetSkin;
@@ -46,10 +46,18 @@ export const WIDGET_SKINS: WidgetSkinDef[] = [
     description: "SF-style thin numbers, frosted glass, centered heroes.",
     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
   },
+  {
+    id: "dash",
+    label: "Dashboard",
+    shortLabel: "Db",
+    hint: "Dribbble-style glass data cards",
+    description: "Frosted tiles, soft glow, 16px radius, accent highlights.",
+    fontFamily: '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif',
+  },
 ];
 
 export function normalizeWidgetSkin(raw: string | undefined): WidgetSkin {
-  if (raw === "notion" || raw === "canva" || raw === "ios" || raw === "cortex") return raw;
+  if (raw === "notion" || raw === "canva" || raw === "ios" || raw === "cortex" || raw === "dash") return raw;
   return "cortex";
 }
 

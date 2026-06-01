@@ -96,7 +96,13 @@ model Task {
   description    String?
   status         String     @default("TODO")
   priority       String     @default("MEDIUM")  // LOW | MEDIUM | HIGH
+  progressPercent Int       @default(0)         // 0–100 planning progress
   dueDate        DateTime?
+  planStart      DateTime?  // optional time block start
+  planEnd        DateTime?
+  syncToCalendar Boolean    @default(true)
+  googleCalendarId String?
+  googleEventId  String?
   organizationId String
   projectId      String
   assigneeId     String?

@@ -4,8 +4,10 @@ import { BACKDROP_COLORS, DEFAULT_BACKDROP_COLOR } from "./backdropColors";
 import { buildWidgetRenderStyle } from "./widgetRenderStyle";
 import { WIDGET_SKINS, type WidgetSkin } from "./widgetSkins";
 import { getWidgetDisplayOptions } from "./widgetDisplayVariants";
+import { getRegistryEntry } from "../../dashboard/widgetRegistry";
 import { getWidgetTypeDef, type WidgetSizeVariant } from "./widgetVariants";
 import { WidgetVariantPicker } from "./WidgetVariantPicker";
+import { CanvasWidgetConfigSection } from "./CanvasWidgetConfigSection";
 
 export type WidgetStylePatch = {
   variant?: WidgetSizeVariant;
@@ -29,6 +31,7 @@ interface Props {
   onGeometryChange?: (patch: GeometryPatch) => void;
   onAppearanceChange?: (patch: AppearancePatch) => void;
   onWidgetStyleChange?: (patch: WidgetStylePatch) => void;
+  onWidgetConfigChange?: (config: Record<string, unknown>) => void;
   onBackdropChange?: (patch: BackdropStylePatch) => void;
   onBringForward?: () => void;
   onSendForward?: () => void;
@@ -37,6 +40,10 @@ interface Props {
   onDuplicate?: () => void;
   onRemove: () => void;
   onClearSelection?: () => void;
+  /** Inline segment inside unified toolbar */
+  embedded?: boolean;
+  /** In edit mode, show size/design/options without extra clicks */
+  preferExpanded?: boolean;
 }
 
 function ToolbarDivider() {
@@ -119,6 +126,7 @@ export function CanvasSelectionToolbar({
   onGeometryChange,
   onAppearanceChange,
   onWidgetStyleChange,
+  onWidgetConfigChange,
   onBackdropChange,
   onBringForward,
   onSendForward,
@@ -127,9 +135,16 @@ export function CanvasSelectionToolbar({
   onDuplicate,
   onRemove,
   onClearSelection,
+  embedded = false,
+  preferExpanded = false,
 }: Props) {
   const [aspectLocked, setAspectLocked] = useState(false);
   const [aspectRatio, setAspectRatio] = useState(() => (node.h > 0 ? node.w / node.h : 1));
+  const hasConfigFields = Boolean(
+    node.type === "widget" &&
+      node.widgetKey &&
+      (getRegistryEntry(node.widgetKey)?.configFields?.length ?? 0) > 0,
+  );
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
@@ -184,91 +199,94 @@ export function CanvasSelectionToolbar({
     Boolean(onBringForward) ||
     (isWidget && showLayout);
 
-  return (
-    <div
-      className={`canvas-selection-toolbar${detailsOpen ? " canvas-selection-toolbar--expanded" : ""}`}
-      role="toolbar"
-      aria-label={`Edit ${title}`}
-      onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
+  const panelStack = embedded && preferExpanded;
+
+  const titleBlock = (
+    <div className="canvas-selection-toolbar__title-block">
+      <span className="canvas-selection-toolbar__title">{title}</span>
+      <span className="canvas-selection-toolbar__meta">
+        {Math.round(node.w)}×{Math.round(node.h)}
+        {!embedded && detailsOpen ? ` · ${Math.round(node.x)}, ${Math.round(node.y)}` : null}
+      </span>
+    </div>
+  );
+
+  const actionsBlock = (
+    <div className="canvas-selection-toolbar__actions">
+      {onDuplicate ? (
+        <ToolbarBtn title="Duplicate" onClick={onDuplicate}>
+          ⧉
+        </ToolbarBtn>
+      ) : null}
+      <ToolbarBtn title="Delete" danger onClick={onRemove}>
+        ⌫
+      </ToolbarBtn>
+      {onClearSelection ? (
+        <ToolbarBtn title="Deselect" onClick={onClearSelection}>
+          ✕
+        </ToolbarBtn>
+      ) : null}
+    </div>
+  );
+
+  const moreBtn = hasAdvanced ? (
+    <ToolbarBtn
+      title={detailsOpen ? "Hide position, appearance, and layers" : "Show position, appearance, and layers"}
+      active={detailsOpen}
+      onClick={() => setDetailsOpen((v) => !v)}
     >
-      <div className="canvas-selection-toolbar__primary">
-      <div className="canvas-selection-toolbar__title-block">
-        <span className="canvas-selection-toolbar__title">{title}</span>
-        <span className="canvas-selection-toolbar__meta">
-          {Math.round(node.w)}×{Math.round(node.h)}
-          {detailsOpen ? ` · ${Math.round(node.x)}, ${Math.round(node.y)}` : null}
-        </span>
-      </div>
+      <span className="canvas-selection-toolbar__details-label">
+        {detailsOpen ? "Less" : "More"}
+      </span>
+    </ToolbarBtn>
+  ) : null;
 
-      {isWidget ? (
-        <>
-          <ToolbarDivider />
-          <div className="canvas-selection-toolbar__section">
-            <ToolbarLabel>Size</ToolbarLabel>
-            <WidgetVariantPicker
-              widgetKey={node.widgetKey!}
-              selected={widgetStyle!.variant}
-              onSelect={(variant) => onWidgetStyleChange!({ variant })}
+  const widgetSizeSection = isWidget ? (
+    <div className="canvas-selection-toolbar__section canvas-selection-toolbar__section--size">
+      <ToolbarLabel>Size</ToolbarLabel>
+      <WidgetVariantPicker
+        widgetKey={node.widgetKey!}
+        selected={widgetStyle!.variant}
+        onSelect={(variant) => onWidgetStyleChange!({ variant })}
+      />
+    </div>
+  ) : null;
+
+  const widgetDesignSection = isWidget ? (
+    <div className="canvas-selection-toolbar__section canvas-selection-toolbar__section--design">
+      <ToolbarLabel>Design</ToolbarLabel>
+      <div className="canvas-selection-toolbar__skin-row" role="radiogroup" aria-label="Widget design">
+        {WIDGET_SKINS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            role="radio"
+            aria-checked={widgetStyle!.skin === s.id}
+            title={`${s.label} — ${s.hint}`}
+            className={`canvas-selection-toolbar__skin-btn${widgetStyle!.skin === s.id ? " is-active" : ""}`}
+            onClick={() => onWidgetStyleChange!({ skin: s.id })}
+          >
+            <span
+              className={`widget-style-picker__skin-swatch widget-style-picker__skin-swatch--${s.id}`}
+              aria-hidden
             />
-          </div>
-          <ToolbarDivider />
-          <div className="canvas-selection-toolbar__section">
-            <ToolbarLabel>Design</ToolbarLabel>
-            <div className="canvas-selection-toolbar__skin-row" role="radiogroup" aria-label="Widget design">
-              {WIDGET_SKINS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={widgetStyle!.skin === s.id}
-                  title={`${s.label} — ${s.hint}`}
-                  className={`canvas-selection-toolbar__skin-btn${widgetStyle!.skin === s.id ? " is-active" : ""}`}
-                  onClick={() => onWidgetStyleChange!({ skin: s.id })}
-                >
-                  <span
-                    className={`widget-style-picker__skin-swatch widget-style-picker__skin-swatch--${s.id}`}
-                    aria-hidden
-                  />
-                  <span className="canvas-selection-toolbar__skin-text">{s.shortLabel}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      ) : null}
-
-      {hasAdvanced ? (
-        <ToolbarBtn
-          title={detailsOpen ? "Hide position, appearance, and layers" : "Show position, appearance, and layers"}
-          active={detailsOpen}
-          onClick={() => setDetailsOpen((v) => !v)}
-        >
-          <span className="canvas-selection-toolbar__details-label">
-            {detailsOpen ? "Less" : "More"}
-          </span>
-        </ToolbarBtn>
-      ) : null}
-
-      <div className="canvas-selection-toolbar__actions">
-        {onDuplicate ? (
-          <ToolbarBtn title="Duplicate" onClick={onDuplicate}>
-            ⧉
-          </ToolbarBtn>
-        ) : null}
-        <ToolbarBtn title="Delete" danger onClick={onRemove}>
-          ⌫
-        </ToolbarBtn>
-        {onClearSelection ? (
-          <ToolbarBtn title="Deselect" onClick={onClearSelection}>
-            ✕
-          </ToolbarBtn>
-        ) : null}
+            <span className="canvas-selection-toolbar__skin-text">{s.shortLabel}</span>
+          </button>
+        ))}
       </div>
-      </div>
+    </div>
+  ) : null;
 
-      {detailsOpen && hasAdvanced ? (
-      <div className="canvas-selection-toolbar__details">
+  const widgetConfigSection =
+    isWidget && onWidgetConfigChange && hasConfigFields ? (
+      <div className="canvas-selection-toolbar__section canvas-selection-toolbar__section--config">
+        <ToolbarLabel>Options</ToolbarLabel>
+        <CanvasWidgetConfigSection node={node} onChange={onWidgetConfigChange} />
+      </div>
+    ) : null;
+
+  const detailsPanel = detailsOpen && hasAdvanced ? (
+    <div className="canvas-selection-toolbar__details">
       {onGeometryChange ? (
         <>
           <ToolbarDivider />
@@ -433,7 +451,62 @@ export function CanvasSelectionToolbar({
       </div>
 
       </div>
-      ) : null}
+  ) : null;
+
+  return (
+    <div
+      className={`canvas-selection-toolbar${detailsOpen ? " canvas-selection-toolbar--expanded" : ""}${embedded ? " canvas-selection-toolbar--embedded" : ""}${panelStack ? " canvas-selection-toolbar--panel" : ""}`}
+      role="toolbar"
+      aria-label={`Edit ${title}`}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {panelStack ? (
+        <div className="canvas-selection-toolbar__stack">
+          <div className="canvas-selection-toolbar__stack-head">
+            {titleBlock}
+            {actionsBlock}
+          </div>
+          {widgetSizeSection ? (
+            <div className="canvas-selection-toolbar__stack-row">{widgetSizeSection}</div>
+          ) : null}
+          {widgetDesignSection ? (
+            <div className="canvas-selection-toolbar__stack-row canvas-selection-toolbar__stack-row--scroll">
+              {widgetDesignSection}
+            </div>
+          ) : null}
+          {widgetConfigSection ? (
+            <div className="canvas-selection-toolbar__stack-row">{widgetConfigSection}</div>
+          ) : null}
+          {moreBtn ? (
+            <div className="canvas-selection-toolbar__stack-row canvas-selection-toolbar__stack-row--tools">
+              {moreBtn}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="canvas-selection-toolbar__primary">
+          {titleBlock}
+          {isWidget ? (
+            <>
+              <ToolbarDivider />
+              {widgetSizeSection}
+              <ToolbarDivider />
+              {widgetDesignSection}
+            </>
+          ) : null}
+          {widgetConfigSection ? (
+            <>
+              <ToolbarDivider />
+              {widgetConfigSection}
+            </>
+          ) : null}
+          {moreBtn}
+          {actionsBlock}
+        </div>
+      )}
+
+      {detailsPanel}
     </div>
   );
 }

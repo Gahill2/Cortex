@@ -6,7 +6,6 @@ import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
 import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";
 import { DashboardDataProvider } from "../productivity-dashboard/hooks/useDashboardDataContext";
 import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
-import { HomeWorkbenchChrome } from "./HomeWorkbenchChrome";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -51,19 +50,13 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
     [onNavigate, boardTasks, boardDataLoading],
   );
 
-  const openLibrary = () => {
-    setLibraryOpen(true);
-    setEditMode(true);
-  };
-
   return (
     <DashboardDataProvider>
       <div className="page home-page home-page--board">
-        <HomeWorkbenchChrome onOpenLibrary={openLibrary} onCommand={onCommand} />
-
         <div className="home-page__canvas-wrap">
           <CanvasDashboard
             onNavigate={onNavigate}
+            onCommand={onCommand}
             renderWidget={renderWidget}
             editMode={editMode}
             onEditModeChange={setEditMode}

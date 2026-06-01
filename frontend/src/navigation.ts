@@ -10,7 +10,9 @@ export type NavIconName =
   | "file-text"
   | "mail"
   | "music"
-  | "settings";
+  | "settings"
+  | "server"
+  | "cloud";
 
 export type NavItem = { id: Tab; label: string; icon: NavIconName };
 
@@ -19,10 +21,11 @@ export const CORTEX_MAIN_NAV: NavItem[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "tasks", label: "Tasks", icon: "check-square" },
-  { id: "goals", label: "Goals", icon: "target" },
   { id: "ai", label: "AI", icon: "bot" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "mail", label: "Mail", icon: "mail" },
+  { id: "cloud", label: "Cloud", icon: "cloud" },
+  { id: "homelab", label: "Homelab", icon: "server" },
   { id: "spotify", label: "Music", icon: "music" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
@@ -32,14 +35,15 @@ export const CORTEX_MOBILE_TAB_NAV: NavItem[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "tasks", label: "Tasks", icon: "check-square" },
-  { id: "mail", label: "Mail", icon: "mail" },
 ];
 
 /** Mobile drawer — secondary destinations (design D2). */
 export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
-  { id: "goals", label: "Goals", icon: "target" },
+  { id: "mail", label: "Mail", icon: "mail" },
+  { id: "cloud", label: "Cloud", icon: "cloud" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "spotify", label: "Music", icon: "music" },
+  { id: "homelab", label: "Homelab", icon: "server" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 
@@ -47,11 +51,13 @@ export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
 export const TAB_SCREEN_TITLES: Record<Tab, string> = {
   home: "Dashboard",
   calendar: "Calendar",
-  tasks: "Tasks",
-  goals: "Goals & progress",
+  tasks: "Tasks & goals",
+  goals: "Tasks & goals",
   ai: "AI",
   notes: "Notes",
   mail: "Mail",
+  cloud: "Cloud",
+  homelab: "Homelab",
   spotify: "Music",
   settings: "Settings",
 };

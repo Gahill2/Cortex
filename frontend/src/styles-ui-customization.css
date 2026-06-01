@@ -40,9 +40,144 @@ html[data-ui-density="spacious"] .cortex-route-bootstrap {
 
 .home-page,
 .home-page .canvas-dashboard,
-.home-page .widget-glass {
+.home-page .widget-glass,
+.canvas-dashboard .canvas-widget-shell {
   font-family: var(--home-font-body, var(--font-brand));
-  font-size: calc(13px * var(--home-font-scale, 1));
+  font-size: calc(13px * var(--home-font-scale, 1) * var(--ui-density-scale, 1));
+}
+
+.canvas-dashboard[data-ui-density="compact"] .canvas-widget-shell {
+  --widget-density-scale: 0.92;
+}
+
+.canvas-dashboard[data-ui-density="spacious"] .canvas-widget-shell {
+  --widget-density-scale: 1.08;
+}
+
+.dashboard-customize-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dashboard-customize-strip__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+  margin-right: 2px;
+}
+
+.dashboard-customize-strip__group {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dashboard-customize-strip__chip {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.35rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-customize-strip__chip.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-1);
+}
+
+.dashboard-customize-strip__sep {
+  width: 1px;
+  height: 18px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.dashboard-customize-strip__swatches {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.dashboard-customize-strip__swatch {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dashboard-customize-strip__swatch.is-active {
+  border-color: var(--text-1);
+  box-shadow: 0 0 0 1px var(--bg);
+}
+
+.dashboard-customize-strip__scale input {
+  width: 72px;
+  accent-color: var(--accent);
+}
+
+.canvas-widget-config {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.canvas-widget-config__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canvas-widget-config__label {
+  font-size: 0.6875rem;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.canvas-widget-config__input {
+  width: 7rem;
+  max-width: 28vw;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-1);
+  font-size: 0.75rem;
+}
+
+.canvas-widget-config__color {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.canvas-widget-config__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.canvas-selection-toolbar__section--config {
+  flex-wrap: wrap;
+  max-width: none;
+  flex: 1 1 280px;
 }
 
 .settings-label {

@@ -1,0 +1,347 @@
+/**
+ * Spicetify-inspired Spotify Connect UI for Cortex (web).
+ * Desktop Spicetify themes don't apply here — this mirrors their look:
+ * dark base (#121212), Spotify green (#1DB954), blurred album art, rounded player.
+ */
+
+:root {
+  --spotify-green: #1db954;
+  --spotify-green-dim: rgba(29, 185, 84, 0.18);
+  --spotify-green-glow: rgba(29, 185, 84, 0.35);
+  --spotify-base: #121212;
+  --spotify-elevated: #181818;
+  --spotify-card: #282828;
+  --spotify-text: #ffffff;
+  --spotify-muted: #b3b3b3;
+  --spotify-subtle: #6a6a6a;
+}
+
+/* ── Canvas / home widget ─────────────────────────────────────────────────── */
+
+.widget--spotify.spotify-spicetify {
+  position: relative;
+  overflow: hidden;
+  background: var(--spotify-elevated);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: var(--spotify-text);
+}
+
+.widget--spotify.spotify-spicetify .widget-label {
+  position: relative;
+  z-index: 1;
+  color: var(--spotify-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spotify-spicetify__backdrop {
+  position: absolute;
+  inset: -20%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(1.4);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.spotify-spicetify__backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.35) 0%, rgba(18, 18, 18, 0.92) 70%);
+}
+
+.widget--spotify.spotify-spicetify > *:not(.spotify-spicetify__backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.widget--spotify.spotify-spicetify.widget--spotify-active {
+  box-shadow:
+    0 0 0 1px rgba(29, 185, 84, 0.12),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.spotify-spicetify .spotify-widget-body {
+  gap: 12px;
+}
+
+.spotify-spicetify .spotify-art-img,
+.spotify-spicetify .spotify-art-fallback-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.spotify-spicetify .spotify-track-name {
+  color: var(--spotify-text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.spotify-spicetify .spotify-artist-name {
+  color: var(--spotify-muted);
+  font-size: 12px;
+}
+
+.spotify-spicetify .spotify-widget-device {
+  color: var(--spotify-subtle) !important;
+}
+
+.spotify-spicetify .spotify-controls-row {
+  gap: 8px;
+}
+
+.spotify-spicetify .spotify-ctrl-btn {
+  color: var(--spotify-muted);
+  background: transparent;
+}
+
+.spotify-spicetify .spotify-ctrl-btn:hover {
+  color: var(--spotify-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spotify-spicetify .spotify-ctrl-btn--pp {
+  width: 40px;
+  height: 40px;
+  background: var(--spotify-green);
+  color: #000;
+  font-size: 16px;
+}
+
+.spotify-spicetify .spotify-ctrl-btn--pp:hover {
+  background: #1ed760;
+  transform: scale(1.04);
+}
+
+.spotify-spicetify .spotify-progress-bar-track {
+  position: relative;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.spotify-spicetify .spotify-progress-bar-fill {
+  background: var(--spotify-green);
+  animation: none;
+}
+
+.spotify-spicetify .spotify-cta-card {
+  background: rgba(40, 40, 40, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  gap: 10px;
+}
+
+.spotify-spicetify .spotify-cta-text {
+  color: var(--spotify-muted);
+}
+
+.spotify-spicetify .widget-cta-btn {
+  background: var(--spotify-green);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+}
+
+.spotify-spicetify .widget-cta-btn:hover {
+  background: #1ed760;
+}
+
+.spotify-spicetify .widget-empty {
+  color: var(--spotify-muted);
+}
+
+/* ── Full Spotify page ────────────────────────────────────────────────────── */
+
+.spotify-page.spotify-page--spicetify {
+  --accent: var(--spotify-green);
+  gap: 16px;
+}
+
+.spotify-page--spicetify .page-title {
+  letter-spacing: -0.03em;
+}
+
+.spotify-page--spicetify .spotify-now-playing {
+  position: relative;
+  overflow: hidden;
+  background: var(--spotify-elevated);
+  border-color: rgba(255, 255, 255, 0.06);
+  padding: 28px;
+  min-height: 160px;
+}
+
+.spotify-page--spicetify .spotify-now-playing--active {
+  background: var(--spotify-base);
+  border-color: rgba(29, 185, 84, 0.15);
+  align-items: stretch;
+}
+
+.spotify-page--spicetify .spotify-np-backdrop {
+  position: absolute;
+  inset: -30%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(64px) saturate(1.5);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.spotify-page--spicetify .spotify-np-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(18, 18, 18, 0.5) 0%, rgba(18, 18, 18, 0.95) 65%);
+}
+
+.spotify-page--spicetify .spotify-np-inner {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  gap: 28px;
+}
+
+.spotify-page--spicetify .spotify-np-art {
+  width: 148px;
+  height: 148px;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.spotify-page--spicetify .spotify-np-track {
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--spotify-text);
+}
+
+.spotify-page--spicetify .spotify-np-artist {
+  font-size: 14px;
+  color: var(--spotify-muted);
+}
+
+.spotify-page--spicetify .spotify-np-album,
+.spotify-page--spicetify .spotify-np-device {
+  color: var(--spotify-subtle);
+}
+
+.spotify-page--spicetify .spotify-np-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.spotify-page--spicetify .spotify-np-progress-fill {
+  background: var(--spotify-green);
+}
+
+.spotify-page--spicetify .spotify-np-time {
+  color: var(--spotify-subtle);
+  font-size: 11px;
+}
+
+.spotify-page--spicetify .spotify-ctrl-btn {
+  background: transparent;
+  border: none;
+  color: var(--spotify-muted);
+  font-size: 18px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spotify-page--spicetify .spotify-ctrl-btn:hover {
+  color: var(--spotify-text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.spotify-page--spicetify .spotify-ctrl-btn--play {
+  width: 48px;
+  height: 48px;
+  background: var(--spotify-green);
+  color: #000;
+  font-size: 20px;
+}
+
+.spotify-page--spicetify .spotify-ctrl-btn--play:hover {
+  background: #1ed760;
+  filter: none;
+  transform: scale(1.05);
+}
+
+.spotify-page--spicetify .spotify-np-empty-title {
+  color: var(--spotify-text);
+}
+
+.spotify-page--spicetify .spotify-np-empty-sub {
+  color: var(--spotify-muted);
+}
+
+.spotify-page--spicetify .spotify-np-icon {
+  color: var(--spotify-green);
+  opacity: 0.85;
+}
+
+.spotify-page--spicetify .btn-primary {
+  background: var(--spotify-green);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 24px;
+}
+
+.spotify-page--spicetify .btn-primary:hover {
+  background: #1ed760;
+}
+
+.spotify-page--spicetify .spotify-ai-dj,
+.spotify-page--spicetify .spotify-section {
+  background: var(--spotify-elevated);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.spotify-page--spicetify .spotify-ai-title,
+.spotify-page--spicetify .spotify-section-title {
+  color: var(--spotify-text);
+}
+
+.spotify-page--spicetify .spotify-ai-subtitle {
+  color: var(--spotify-muted);
+}
+
+.spotify-page--spicetify .spotify-ai-track--selected {
+  border-color: var(--spotify-green-dim);
+  background: var(--spotify-green-dim);
+}
+
+.spotify-page--spicetify .spotify-ai-track--selected .spotify-ai-track-check {
+  color: var(--spotify-green);
+}
+
+@media (max-width: 640px) {
+  .spotify-page--spicetify .spotify-np-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .spotify-page--spicetify .spotify-np-art {
+    width: 120px;
+    height: 120px;
+  }
+}

@@ -35,3 +35,10 @@ deploy/tailscale-hub/.env
 deploy/tailscale-hub/env/api.env
 deploy/insforge/.env
 data/backups/
+# Task-observer runtime logs (templates tracked; live log stays local)
+skill-observations/log.md
+skill-observations/archive/
+skill-observations/last-review-date.txt
+skill-observations/scheduled-review-decline.txt
+skill-observations/scheduler-registered.txt
+skill-updates/

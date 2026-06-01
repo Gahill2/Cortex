@@ -5,6 +5,7 @@ import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
 import { isGmailConfigured, buildGmailAuthUrl } from "../../features/gmail/gmail-service.js";
+import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-service.js";
 import { signMailOAuthState } from "../../features/mail/mail-oauth-state.js";
 import { signGmailOAuthState } from "../../features/gmail/gmail-state.js";
 import {
@@ -24,6 +25,8 @@ import {
   applyMailboxOrganize,
   scanMailCleanup
 } from "../../features/mail/mail-cleanup.js";
+import { generateMailInsights } from "../../features/mail/mail-insights.js";
+import { categorizeAllMail } from "../../features/mail/mail-sync.js";
 
 const inboxQuerySchema = z.object({
   accountId: z.string().min(1).optional(),
@@ -31,7 +34,7 @@ const inboxQuerySchema = z.object({
     .union([z.literal("true"), z.literal("false"), z.boolean()])
     .optional()
     .transform((v) => v === true || v === "true"),
-  maxResults: z.coerce.number().int().min(1).max(500).optional().default(100),
+  maxResults: z.coerce.number().int().min(1).max(2000).optional().default(100),
   q: z.string().max(500).optional()
 });
 
@@ -47,7 +50,7 @@ const organizeBodySchema = z.object({
 
 const cleanupScanSchema = z.object({
   accountId: z.string().min(1).optional(),
-  maxMessages: z.coerce.number().int().min(10).max(500).optional().default(200),
+  maxMessages: z.coerce.number().int().min(10).max(2000).optional().default(500),
   query: z.string().max(500).optional().default("in:inbox")
 });
 
@@ -61,7 +64,12 @@ const cleanupApplySchema = z.object({
       })
     )
     .min(1)
-    .max(300)
+    .max(500)
+});
+
+const deepScanSchema = z.object({
+  accountId: z.string().min(1).optional(),
+  maxMessages: z.coerce.number().int().min(50).max(2000).optional().default(1000)
 });
 
 export const cortexMailRouter = Router();
@@ -70,6 +78,7 @@ cortexMailRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async (
   const accounts = await listMailAccounts(req.auth!.userId);
   sendSuccess(res, {
     configured: isGmailConfigured(),
+    microsoftConfigured: isMicrosoftConfigured(),
     connected: accounts.length > 0,
     accountCount: accounts.length
   });
@@ -111,7 +120,8 @@ cortexMailRouter.get("/inbox", requireAuth, routeRateLimit(60, 60_000), async (r
 
   if (input.unified || !input.accountId) {
     const { messages } = await listUnifiedInbox(userId, input.maxResults, input.q);
-    sendSuccess(res, { connected: messages.length > 0, messages, unified: true }, "live");
+    const accounts = await listMailAccounts(userId);
+    sendSuccess(res, { connected: accounts.length > 0, messages, unified: true }, "live");
     return;
   }
 
@@ -163,6 +173,18 @@ cortexMailRouter.post("/cleanup/scan", requireAuth, routeRateLimit(3, 60_000), a
 cortexMailRouter.post("/cleanup/apply", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
   const body = cleanupApplySchema.parse(req.body ?? {});
   const result = await applyCleanupActions(req.auth!.userId, body.items);
+  sendSuccess(res, result, "live");
+});
+
+cortexMailRouter.post("/categorize-all", requireAuth, routeRateLimit(2, 60_000), async (req, res) => {
+  const body = deepScanSchema.parse(req.body ?? {});
+  const result = await categorizeAllMail(req.auth!.userId, body);
+  sendSuccess(res, result, "live");
+});
+
+cortexMailRouter.post("/insights", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
+  const body = deepScanSchema.parse(req.body ?? {});
+  const result = await generateMailInsights(req.auth!.userId, body);
   sendSuccess(res, result, "live");
 });
 

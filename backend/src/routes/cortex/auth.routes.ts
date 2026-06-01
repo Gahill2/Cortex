@@ -9,6 +9,14 @@ import { demoUserStore } from "../../features/auth/demo-user-store.js";
 import { sessionLockStore } from "../../features/auth/session-lock-store.js";
 import { otpStore } from "../../features/auth/otp-store.js";
 import { sendOtpEmail } from "../../features/auth/email-service.js";
+import {
+  confirmTotpSetup,
+  disableTotp,
+  getTotpStatusForEmail,
+  getTotpStatusForUser,
+  startTotpSetup,
+  verifyTotpLogin,
+} from "../../features/auth/totp-service.js";
 import { demoAuthEnabled, env } from "../../config/env.js";
 import { prisma } from "../../db/prisma.js";
 
@@ -33,9 +41,18 @@ const sendOtpSchema = z.object({
   email: z.email()
 });
 
+const verifyTotpSchema = z.object({
+  email: z.email(),
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
+});
+
 const verifyOtpSchema = z.object({
   email: z.email(),
-  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits")
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
+});
+
+const totpCodeSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
 });
 
 export const cortexAuthRouter = Router();
@@ -239,4 +256,107 @@ cortexAuthRouter.post("/verify-otp", routeRateLimit(10, 60_000), async (req, res
     token,
     user: { id: userId, email: resolvedEmail }
   });
+});
+
+/**
+ * POST /cortex/auth/begin-login
+ * After email entry: use authenticator if TOTP enabled, otherwise email OTP.
+ */
+cortexAuthRouter.post("/begin-login", routeRateLimit(OTP_SEND_LIMIT, 60_000), async (req, res) => {
+  const { email } = sendOtpSchema.parse(req.body);
+  const normalized = email.trim().toLowerCase();
+  const { enabled: totpEnabled } = await getTotpStatusForEmail(normalized);
+
+  if (totpEnabled) {
+    res.json({
+      ok: true,
+      method: "totp" as const,
+      message: "Enter the 6-digit code from your authenticator app.",
+    });
+    return;
+  }
+
+  const code = await otpStore.create(normalized);
+  const emailed = await sendOtpEmail(normalized, code);
+  const body: {
+    ok: true;
+    method: "email_otp";
+    message: string;
+    devOtpCode?: string;
+    devHint?: string;
+  } = {
+    ok: true,
+    method: "email_otp",
+    message: emailed
+      ? "If that address is recognized, a code has been sent."
+      : "Verification code could not be emailed (check server logs).",
+  };
+  const otpFallback = env.NODE_ENV === "development" || env.CORTEX_OTP_DEV_FALLBACK;
+  if (otpFallback && !emailed) {
+    body.devOtpCode = code;
+    body.devHint =
+      env.CORTEX_OTP_DEV_FALLBACK && env.NODE_ENV === "production"
+        ? "Homelab: email not sent. Use the code below, or set up Microsoft Authenticator in Settings after signing in."
+        : "Development only: email was not sent. Use the code below.";
+  }
+  res.json(body);
+});
+
+/**
+ * POST /cortex/auth/verify-totp
+ * Sign in with Microsoft Authenticator / any TOTP app.
+ */
+cortexAuthRouter.post("/verify-totp", routeRateLimit(10, 60_000), async (req, res) => {
+  const { email, code } = verifyTotpSchema.parse(req.body);
+  const valid = await verifyTotpLogin(email, code);
+  if (!valid) {
+    throw new HttpError(401, "Invalid authenticator code");
+  }
+
+  const { userId, email: resolvedEmail } = await resolveOtpUserId(email);
+  const token = signAccessToken({ userId, email: resolvedEmail });
+  if (demoAuthEnabled) {
+    sessionLockStore.lock(token);
+  }
+
+  res.json({
+    token,
+    user: { id: userId, email: resolvedEmail },
+  });
+});
+
+/** GET /cortex/auth/totp/status — is authenticator enabled for this user? */
+cortexAuthRouter.get("/totp/status", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  const status = await getTotpStatusForUser(req.auth!.userId);
+  res.json(status);
+});
+
+/** POST /cortex/auth/totp/setup — QR for Microsoft Authenticator */
+cortexAuthRouter.post("/totp/setup", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
+  const existing = await getTotpStatusForUser(req.auth!.userId);
+  if (existing.enabled) {
+    throw new HttpError(409, "Authenticator is already enabled");
+  }
+  const payload = await startTotpSetup(req.auth!.userId, req.auth!.email);
+  res.json(payload);
+});
+
+/** POST /cortex/auth/totp/confirm — verify first code and enable */
+cortexAuthRouter.post("/totp/confirm", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  const { code } = totpCodeSchema.parse(req.body);
+  const ok = await confirmTotpSetup(req.auth!.userId, code);
+  if (!ok) {
+    throw new HttpError(401, "Invalid code — check your authenticator app and try again");
+  }
+  res.json({ ok: true, enabled: true });
+});
+
+/** POST /cortex/auth/totp/disable — turn off authenticator login */
+cortexAuthRouter.post("/totp/disable", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
+  const { code } = totpCodeSchema.parse(req.body);
+  const ok = await disableTotp(req.auth!.userId, code);
+  if (!ok) {
+    throw new HttpError(401, "Invalid code");
+  }
+  res.json({ ok: true, enabled: false });
 });

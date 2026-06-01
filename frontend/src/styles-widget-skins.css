@@ -74,6 +74,75 @@
   --widget-weight-body: 400;
 }
 
+.widget-skin--dash {
+  --widget-weight-display: 650;
+  --widget-weight-body: 500;
+}
+
+/* —— Dashboard (Dribbble-style glass tiles) —— */
+.canvas-item--widget .canvas-widget-shell.widget-skin--dash .widget,
+.widget-skin--dash .widget,
+.canvas-widget-shell.widget-skin--dash .widget {
+  --radius-widget: 16px;
+  background:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.08) 45%,
+      rgba(91, 141, 255, 0.06) 100%
+    );
+  backdrop-filter: blur(14px) saturate(1.65);
+  -webkit-backdrop-filter: blur(14px) saturate(1.65);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-widget, 16px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 8px 32px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(91, 141, 255, 0.08);
+  padding: 18px 20px 16px;
+}
+
+.widget-skin--dash .widget-label,
+.canvas-widget-shell.widget-skin--dash .widget-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-2));
+}
+
+.widget-skin--dash .weather-temp-hero,
+.widget-skin--dash .worldclock-digital-hero__time {
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.canvas-widget-shell.widget-skin--dash.widget--size-small .widget,
+.canvas-widget-shell.widget-skin--dash.widget--size-small .pomodoro-widget,
+.canvas-widget-shell.widget-skin--dash.widget--size-small .quote-widget,
+.canvas-widget-shell.widget-skin--dash.widget--size-small .habit-widget,
+.canvas-widget-shell.widget-skin--dash.widget--size-small .mail-widget,
+.canvas-widget-shell.widget-skin--dash.widget--size-small .spotify-widget {
+  padding: 12px 14px;
+}
+
+.widget-skin--dash .worldclock-zone-card,
+.widget-skin--dash .habit-row {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.canvas-item--widget .canvas-widget-shell.widget-skin--dash .widget,
+.canvas-item--widget .canvas-widget-shell.widget-skin--ios .widget,
+.canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget {
+  padding: 14px 16px 12px;
+}
+
+.canvas-item--widget .canvas-widget-shell.widget-skin--dash .widget {
+  padding: 18px 20px 16px;
+}
 .canvas-widget-shell .weather-temp-hero,
 .canvas-widget-shell .worldclock-digital-hero__time {
   font-weight: var(--widget-weight-display, 600);
@@ -497,6 +566,13 @@
 .widget-style-picker__skin-swatch--ios {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(4px);
+}
+
+.widget-style-picker__skin-swatch--dash {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(91, 141, 255, 0.15));
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 4px 16px rgba(91, 141, 255, 0.2);
 }
 
 .canvas-item__style-btn {

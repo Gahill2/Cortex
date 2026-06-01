@@ -12,6 +12,7 @@ import { api, AUTH_CHANGED_EVENT, AUTH_LOGOUT_EVENT } from "../api/client";
 import type { ServerSettings } from "../lib/preferencesTypes";
 import { EMPTY_SETTINGS } from "../lib/preferencesTypes";
 import {
+  canvasLayoutChanged,
   clearMigratedLocalPreferences,
   collectLocalPreferences,
   hydrateLocalFromServerSettings,
@@ -19,6 +20,7 @@ import {
   mergeSettings,
   normalizeLoadedSettings,
 } from "../lib/preferencesMigrate";
+import { CORTEX_SETTINGS_SYNC_EVENT, type SettingsSyncDetail } from "../lib/settingsSyncEvents";
 
 type PreferencesContextValue = {
   settings: ServerSettings;
@@ -40,12 +42,31 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(Boolean(cachedSettings));
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pendingPatchRef = useRef<Partial<ServerSettings>>({});
+  const lastServerUpdatedAtRef = useRef<string | null>(cachedSettings?.updatedAt ?? null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const flushPatch = useCallback(() => {
     const body = pendingPatchRef.current;
     if (Object.keys(body).length === 0) return;
     pendingPatchRef.current = {};
-    void api.patch("/settings", body).catch((err) => {
+
+    const toSend = { ...body };
+    if (toSend.extraJson !== undefined) {
+      toSend.extraJson = settingsRef.current.extraJson;
+    }
+
+    void api.patch("/settings", toSend).then((r) => {
+      const updatedAt = r.data?.data?.updatedAt;
+      if (typeof updatedAt === "string") {
+        lastServerUpdatedAtRef.current = updatedAt;
+        setSettings((prev) => {
+          const next = { ...prev, updatedAt };
+          cachedSettings = next;
+          return next;
+        });
+      }
+    }).catch((err) => {
       console.warn("[preferences] save failed:", err);
     });
   }, []);
@@ -75,24 +96,48 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     [flushPatch],
   );
 
-  const loadFromServer = useCallback(async () => {
+  const applyLoadedSettings = useCallback((loaded: ServerSettings, opts?: { fromRemote?: boolean }) => {
+    const prev = settingsRef.current;
+    const remoteNewer =
+      opts?.fromRemote &&
+      loaded.updatedAt &&
+      lastServerUpdatedAtRef.current &&
+      loaded.updatedAt !== lastServerUpdatedAtRef.current;
+
+    hydrateLocalFromServerSettings(loaded);
+    cachedSettings = loaded;
+    lastServerUpdatedAtRef.current = loaded.updatedAt ?? null;
+    setSettings(loaded);
+    setReady(true);
+
+    if (remoteNewer && canvasLayoutChanged(prev, loaded)) {
+      window.dispatchEvent(
+        new CustomEvent<SettingsSyncDetail>(CORTEX_SETTINGS_SYNC_EVENT, {
+          detail: {
+            updatedAt: loaded.updatedAt ?? null,
+            canvasLayoutChanged: true,
+          },
+        }),
+      );
+    }
+  }, []);
+
+  const loadFromServer = useCallback(async (opts?: { fromRemote?: boolean }) => {
     const r = await api.get<{ data?: Partial<ServerSettings> }>("/settings");
     let loaded = normalizeLoadedSettings(r.data?.data);
 
-    if (isServerSettingsEmpty(loaded)) {
+    if (!opts?.fromRemote && isServerSettingsEmpty(loaded)) {
       const local = collectLocalPreferences();
       if (Object.keys(local).length > 0) {
         loaded = mergeSettings(loaded, local);
-        await api.patch("/settings", local);
+        const push = await api.patch("/settings", local);
+        loaded = normalizeLoadedSettings(push.data?.data ?? loaded);
         clearMigratedLocalPreferences();
       }
     }
 
-        hydrateLocalFromServerSettings(loaded);
-        cachedSettings = loaded;
-        setSettings(loaded);
-        setReady(true);
-  }, []);
+    applyLoadedSettings(loaded, opts);
+  }, [applyLoadedSettings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +150,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         const local = collectLocalPreferences();
         if (Object.keys(local).length > 0) {
           const merged = mergeSettings(EMPTY_SETTINGS, local);
+          hydrateLocalFromServerSettings(merged);
           cachedSettings = merged;
           setSettings(merged);
         }
@@ -115,14 +161,26 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     const onAuthChange = () => {
       clearPreferencesCache();
+      lastServerUpdatedAtRef.current = null;
       setReady(false);
       void loadFromServer().catch((err) => console.warn("[preferences] reload failed:", err));
     };
     window.addEventListener(AUTH_CHANGED_EVENT, onAuthChange);
 
+    const refreshFromServer = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadFromServer({ fromRemote: true }).catch((err) =>
+        console.warn("[preferences] refresh failed:", err),
+      );
+    };
+    window.addEventListener("focus", refreshFromServer);
+    document.addEventListener("visibilitychange", refreshFromServer);
+
     return () => {
       cancelled = true;
       window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChange);
+      window.removeEventListener("focus", refreshFromServer);
+      document.removeEventListener("visibilitychange", refreshFromServer);
     };
   }, [loadFromServer]);
 
@@ -130,6 +188,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     const onLogout = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       pendingPatchRef.current = {};
+      lastServerUpdatedAtRef.current = null;
       clearPreferencesCache();
       setSettings(EMPTY_SETTINGS);
       setReady(false);
@@ -159,10 +218,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     clearMigratedLocalPreferences();
     pendingPatchRef.current = {};
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    await api.patch("/settings", defaults);
-    cachedSettings = EMPTY_SETTINGS;
-    setSettings(EMPTY_SETTINGS);
-  }, []);
+    const r = await api.patch("/settings", defaults);
+    const loaded = normalizeLoadedSettings(r.data?.data ?? { ...EMPTY_SETTINGS, ...defaults });
+    applyLoadedSettings(loaded);
+  }, [applyLoadedSettings]);
 
   const value = useMemo(
     () => ({ settings, ready, patch, resetUiPreferences }),

@@ -4,6 +4,7 @@
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
 
 Key routing rules:
+- **Task observer / skill improvement** → invoke `@task-observer` (sync: `npm run sync:task-observer`, see `docs/task-observer.md`). Also trigger on "One skill to rule them all". Read `CORTEX-WORKSPACE.md` in that skill folder for Cortex paths.
 - Long-term memory (remember, recall, forget, past sessions) → use `@agentmemory-remember`, `@agentmemory-recall`, `@agentmemory-forget`, or `@agentmemory-session-history` after `npm run sync:agentmemory-skills` (see `docs/agentmemory-setup.md`)
 - Anthropic official skills (PDF, DOCX, frontend design, MCP builder, etc.) → sync with `npm run sync:anthropic-skills` (see `docs/anthropic-skills.md`); invoke as `@anthropic-<skill-name>` (e.g. `@anthropic-pdf`, `@anthropic-mcp-builder`)
 - Product ideas/brainstorming → invoke /office-hours
@@ -21,6 +22,15 @@ Key routing rules:
 - Terminal coding agent (Pi CLI on this repo) → `npm run pi:install` then `npm run pi`; see `docs/pi-coding-agent.md`
 - Terminal coding agent (Kimi Code CLI) → `npm run kimi:install` then `npm run kimi`; see `docs/kimi-code-cli.md`
 - Terminal coding agent (OpenClaw) → `npm run openclaw:setup` then `npm run openclaw:dev`; see `docs/openclaw-cortex.md`
+- Homelab auto-deploy (Docker rebuild on git/source changes) → `npm run server:deploy:setup` (no sudo); one-time `npm run server:docker:fix-once` if containers were started with sudo; see `docs/homelab-auto-deploy.md`
+
+## Task observer (meta-skill)
+
+At the start of any **task-oriented session** — any interaction where you will use tools and produce deliverables — invoke `@task-observer` before beginning work (after `npm run sync:task-observer`). Read `CORTEX-WORKSPACE.md` in that skill folder for observation log paths.
+
+When loading any skill, check `skill-observations/log.md` for OPEN observations tagged to that skill and apply their insights even if the skill file has not been updated yet.
+
+At session end (or when the user archives work), ask or offer: **"Any observations logged?"**
 
 ## OpenClaw (terminal)
 

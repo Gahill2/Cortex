@@ -14,7 +14,9 @@ import {
   fmtTime,
   isSameDay,
   layoutTimedEvent,
+  layoutTimedEventsForDay,
   snapDate,
+  type TimedLayout,
   startOfDay,
   startOfWeek,
   yToMinutes,
@@ -106,8 +108,18 @@ export function CalendarWeekGrid({
   );
 
   const timedByDay = useMemo(
-    () => days.map((day) => events.filter((e) => !e.allDay && layoutTimedEvent(e, day))),
-    [days, events]
+    () =>
+      days.map((day) => {
+        const timed = events.filter((e) => !e.allDay && layoutTimedEvent(e, day));
+        const layouts = layoutTimedEventsForDay(timed, day);
+        return timed
+          .map((ev) => {
+            const layout = layouts.get(ev.id);
+            return layout ? { ev, layout } : null;
+          })
+          .filter((x): x is { ev: CalendarEvent; layout: TimedLayout } => x !== null);
+      }),
+    [days, events],
   );
 
   const hours = useMemo(
@@ -317,28 +329,43 @@ export function CalendarWeekGrid({
                 </div>
                 <NowIndicator day={day} />
 
-                {timedByDay[dayIndex].map((ev) => {
+                {timedByDay[dayIndex].map(({ ev, layout }) => {
                   const times = getPreviewTimes(ev);
                   const layoutEv = {
                     ...ev,
                     start: times.start.toISOString(),
                     end: times.end.toISOString(),
                   };
-                  const layout = layoutTimedEvent(layoutEv, day);
-                  if (!layout) return null;
+                  const geom = layoutTimedEvent(layoutEv, day);
+                  const pos = geom
+                    ? {
+                        top: geom.top,
+                        height: geom.height,
+                        column: layout.column,
+                        columnCount: layout.columnCount,
+                      }
+                    : layout;
 
                   const dragging = drag?.eventId === ev.id;
                   const selected = selectedEventId === ev.id;
+                  const cols = pos.columnCount;
+                  const col = pos.column;
+                  const widthPct = 100 / cols;
+                  const leftPct = col * widthPct;
+                  const compact = pos.height < 48;
 
                   return (
                     <div
                       key={ev.id}
                       role="button"
                       tabIndex={0}
-                      className={`cal-week-event cal-week-event--${ev.source}${dragging ? " cal-week-event--dragging" : ""}${selected ? " tcc-event--selected" : ""}`}
+                      className={`cal-week-event cal-week-event--${ev.source}${dragging ? " cal-week-event--dragging" : ""}${selected ? " tcc-event--selected" : ""}${cols > 1 ? " cal-week-event--columned" : ""}${compact ? " cal-week-event--compact" : ""}`}
                       style={{
-                        top: layout.top,
-                        height: layout.height,
+                        top: pos.top,
+                        height: pos.height,
+                        left: `calc(3px + (100% - 6px) * ${leftPct / 100})`,
+                        width: `calc((100% - 6px) * ${widthPct / 100} - 2px)`,
+                        right: "auto",
                         ...(ev.color
                           ? {
                               borderLeftColor: ev.color,
@@ -355,9 +382,11 @@ export function CalendarWeekGrid({
                       <div className="cal-week-event-inner">
                         <SourceDot source={ev.source} />
                         <span className="cal-week-ev-title">{ev.title}</span>
-                        <span className="cal-week-ev-time">
-                          {fmtTime(times.start.toISOString())} – {fmtTime(times.end.toISOString())}
-                        </span>
+                        {!compact ? (
+                          <span className="cal-week-ev-time">
+                            {fmtTime(times.start.toISOString())} – {fmtTime(times.end.toISOString())}
+                          </span>
+                        ) : null}
                       </div>
                       <div
                         className="cal-week-event-resize"

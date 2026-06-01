@@ -1,12 +1,6 @@
 import { Calendar } from "lucide-react";
 import type { Tab } from "../../../App";
-
-const SAMPLE_EVENTS = [
-  { time: "9:00", title: "Standup", tone: "primary" },
-  { time: "11:30", title: "Design review", tone: "neutral" },
-  { time: "14:00", title: "Deep work block", tone: "focus" },
-  { time: "16:30", title: "1:1 sync", tone: "neutral" },
-];
+import { useDashboardDataContextOptional } from "../../../productivity-dashboard/hooks/useDashboardDataContext";
 
 export function CalendarWidget({
   onNavigate,
@@ -15,7 +9,11 @@ export function CalendarWidget({
   onNavigate?: (t: Tab) => void;
   compact?: boolean;
 }) {
+  const data = useDashboardDataContextOptional();
   const limit = compact ? 2 : 4;
+  const events = data?.todayEvents ?? [];
+  const loading = data?.eventsLoading ?? false;
+  const error = data?.eventsError;
 
   return (
     <div
@@ -27,18 +25,29 @@ export function CalendarWidget({
     >
       <div className="widget--calendar__head">
         <Calendar size={18} strokeWidth={1.75} aria-hidden />
-        <span>Upcoming</span>
+        <span>Today</span>
       </div>
-      <ul className="widget--calendar__list">
-        {SAMPLE_EVENTS.slice(0, limit).map((ev) => (
-          <li key={ev.title} className={`widget--calendar__row widget--calendar__row--${ev.tone}`}>
-            <span className="widget--calendar__time">{ev.time}</span>
-            <span className="widget--calendar__event">{ev.title}</span>
-          </li>
-        ))}
-      </ul>
-      {!compact && (
-        <p className="widget--calendar__foot">Connect calendar sync in a future release.</p>
+      {loading ? (
+        <p className="widget--calendar__foot">Loading calendar…</p>
+      ) : events.length === 0 ? (
+        <p className="widget--calendar__foot">
+          {error ? "Connect Google or Microsoft in Settings." : "No events today — open Calendar to schedule."}
+        </p>
+      ) : (
+        <ul className="widget--calendar__list">
+          {events.slice(0, limit).map((ev) => {
+            const start = new Date(ev.start);
+            const time = ev.allDay
+              ? "All day"
+              : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+            return (
+              <li key={ev.id} className="widget--calendar__row widget--calendar__row--neutral">
+                <span className="widget--calendar__time">{time}</span>
+                <span className="widget--calendar__event">{ev.title}</span>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

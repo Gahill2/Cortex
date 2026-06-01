@@ -82,10 +82,20 @@ export function CanvasItem({
   const widgetDef = node.widgetKey ? getWidgetTypeDef(node.widgetKey) : undefined;
   const variantPreset = node.widgetKey ? getVariantPreset(node.widgetKey, widgetVariant) : null;
 
-  const showChrome = editMode && (hovered || isSelected);
-  const showEditChrome = editMode;
   const isBackdrop = node.type === "backdrop";
   const isWidget = node.type === "widget";
+  const showChrome = editMode && (hovered || isSelected);
+  const dashboardWidget = isWidget && Boolean(renderWidget);
+  const showWidgetHeader = editMode && (!dashboardWidget || isSelected);
+  const showEditChrome = isWidget ? showWidgetHeader : editMode;
+  const showItemStylePicker =
+    !dashboardWidget &&
+    showStylePicker &&
+    !isSelected &&
+    isWidget &&
+    node.widgetKey &&
+    onWidgetStyleChange &&
+    widgetStyle;
 
   const itemShellStyle = (): CSSProperties => {
     const rotation = node.rotation ?? 0;
@@ -346,7 +356,7 @@ export function CanvasItem({
 
   return (
     <div
-      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
+      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${dashboardWidget ? " canvas-item--dashboard-widget" : ""}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
       style={{
         left: node.x,
         top: node.y,
@@ -378,6 +388,7 @@ export function CanvasItem({
           <span className="canvas-item__type-label">{typeLabel}</span>
         )}
         {node.type === "widget" &&
+          !dashboardWidget &&
           onWidgetStyleChange &&
           node.widgetKey &&
           widgetStyle &&
@@ -402,25 +413,20 @@ export function CanvasItem({
         )}
       </div>
 
-      {showStylePicker &&
-        !isSelected &&
-        node.type === "widget" &&
-        node.widgetKey &&
-        onWidgetStyleChange &&
-        widgetStyle && (
+      {showItemStylePicker ? (
         <div className="canvas-item__style-panel">
           <WidgetStylePicker
             variant="panel"
-            widgetKey={node.widgetKey}
+            widgetKey={node.widgetKey!}
             size={widgetVariant}
-            skin={widgetStyle.skin}
-            display={widgetStyle.display}
-            onSize={(v) => onWidgetStyleChange({ variant: v })}
-            onSkin={(skin) => onWidgetStyleChange({ skin })}
-            onDisplay={(display) => onWidgetStyleChange({ display })}
+            skin={widgetStyle!.skin}
+            display={widgetStyle!.display}
+            onSize={(v) => onWidgetStyleChange!({ variant: v })}
+            onSkin={(skin) => onWidgetStyleChange!({ skin })}
+            onDisplay={(display) => onWidgetStyleChange!({ display })}
           />
         </div>
-      )}
+      ) : null}
 
       <div className="canvas-item__body" onPointerDown={handleBodyPointerDown}>
         {renderContent()}

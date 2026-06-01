@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useToastStore } from "../stores/toastStore";
 import { IntegrationsPanel } from "../components/IntegrationsPanel";
+import { MicrosoftSetupCard } from "../components/settings/MicrosoftSetupCard";
 import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
@@ -12,6 +13,7 @@ import { SettingsShell } from "../components/settings/SettingsShell";
 import { UiCustomizationSettings } from "../components/settings/UiCustomizationSettings";
 import { MemoryPage } from "./MemoryPage";
 import { McpLinkPage } from "./McpLinkPage";
+import { AuthenticatorSetupForm } from "../components/settings/AuthenticatorSetupForm";
 import {
   readSettingsSection,
   writeSettingsSection,
@@ -567,6 +569,8 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
           <>
           <IntegrationsPanel compact={false} />
 
+          <MicrosoftSetupCard />
+
           <section className="settings-section" id="settings-integrations">
             <h2 className="settings-section-title">Integrations</h2>
 
@@ -792,7 +796,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
                 <div className="settings-item-icon">👤</div>
                 <div>
                   <p className="settings-item-name">Account</p>
-                  <p className="settings-item-desc">Signed in via email OTP</p>
+                  <p className="settings-item-desc">Signed in with email or authenticator app</p>
                 </div>
               </div>
               <div className="d-flex gap-2 flex-wrap justify-content-end">
@@ -816,6 +820,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
           {section === "security" && (
           <section className="settings-section settings-section--animated">
             <h2 className="settings-section-title">Security</h2>
+            <AuthenticatorSetupForm />
             <PinChangeForm />
           </section>
           )}

@@ -1,18 +1,22 @@
 import { LayoutGrid, Plus, SlidersHorizontal } from "lucide-react";
+import type { Tab } from "../tab";
 import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
+import { HomeGlanceBar } from "../components/home/HomeGlanceBar";
 
 interface Props {
   onOpenLibrary: () => void;
   onCommand?: () => void;
+  onNavigate: (tab: Tab) => void;
 }
 
 /** Home controls for the canvas board (add widget, customize). */
-export function HomeWorkbenchChrome({ onOpenLibrary, onCommand }: Props) {
+export function HomeWorkbenchChrome({ onOpenLibrary, onCommand, onNavigate }: Props) {
   const editMode = useDashboardLayoutStore((s) => s.editMode);
   const setEditMode = useDashboardLayoutStore((s) => s.setEditMode);
 
   return (
     <div className="home-workbench-chrome">
+      <HomeGlanceBar onNavigate={onNavigate} />
       <div className="home-workbench-chrome__actions">
         <button
           type="button"

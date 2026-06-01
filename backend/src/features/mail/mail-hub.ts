@@ -10,7 +10,7 @@ import {
   archiveOutlookMessage,
   deleteOutlookMessage,
   getOutlookMessage,
-  listOutlookInbox,
+  listOutlookInboxUpTo,
   markOutlookRead
 } from "../microsoft/microsoft-service.js";
 import {
@@ -79,11 +79,11 @@ export async function listUnifiedInbox(
     if (account.provider === "gmail") {
       const tok = await getMailAccountTokens(userId, account.id);
       if (!tok) continue;
-      const { messages } = await listInboxUpTo(userId, perAccount, q, tok.tokens);
+      const { messages } = await listInboxUpTo(userId, perAccount, q, tok.tokens, account.id);
       merged.push(...messages.map((m) => toHub(account, m)));
     } else if (account.provider === "microsoft") {
       try {
-        const rows = await listOutlookInbox(userId, account.email, account.id, perAccount);
+        const rows = await listOutlookInboxUpTo(userId, account.email, account.id, perAccount);
         merged.push(
           ...rows.map((m) => ({
             id: m.id,
@@ -133,7 +133,7 @@ export async function listAccountInbox(
   if (account.provider === "gmail") {
     const tok = await getMailAccountTokens(userId, account.id);
     if (!tok) return { connected: false, messages: [], accountId };
-    const { connected, messages } = await listInboxUpTo(userId, maxResults, q, tok.tokens);
+    const { connected, messages } = await listInboxUpTo(userId, maxResults, q, tok.tokens, account.id);
     return {
       connected,
       accountId,
@@ -143,7 +143,7 @@ export async function listAccountInbox(
 
   if (account.provider === "microsoft") {
     try {
-      const rows = await listOutlookInbox(userId, account.email, account.id, maxResults);
+      const rows = await listOutlookInboxUpTo(userId, account.email, account.id, maxResults);
       return {
         connected: true,
         accountId,
@@ -178,7 +178,7 @@ export async function getHubMessage(
   if (account.provider === "gmail") {
     const tok = await getMailAccountTokens(userId, account.id);
     if (!tok) return null;
-    const m = await getGmailMessage(userId, messageId, tok.tokens);
+    const m = await getGmailMessage(userId, messageId, tok.tokens, account.id);
     if (!m) return null;
     return hubFromGmail(account.id, account.email, m);
   }
@@ -239,10 +239,22 @@ export async function patchHubMessage(
     if (!tok) throw new Error("Gmail not connected");
     const creds = tok.tokens;
     if (patch.read === true) {
-      await modifyMessageLabels(userId, messageId, { removeLabelIds: ["UNREAD"] }, creds);
+      await modifyMessageLabels(
+        userId,
+        messageId,
+        { removeLabelIds: ["UNREAD"] },
+        creds,
+        account.id
+      );
     }
     if (patch.archived === true) {
-      await modifyMessageLabels(userId, messageId, { removeLabelIds: ["INBOX"] }, creds);
+      await modifyMessageLabels(
+        userId,
+        messageId,
+        { removeLabelIds: ["INBOX"] },
+        creds,
+        account.id
+      );
     }
     return;
   }
@@ -281,7 +293,7 @@ export async function deleteHubMessages(
           lastError = "Gmail not connected for this account.";
           continue;
         }
-        await trashGmailMessage(userId, messageId, tok.tokens);
+        await trashGmailMessage(userId, messageId, tok.tokens, account.id);
         deleted++;
       } else if (account.provider === "microsoft") {
         await deleteOutlookMessage(userId, account.email, messageId);
@@ -315,11 +327,11 @@ export async function listInboxMessagesForAccount(
     if (account.provider === "gmail") {
       const tok = await getMailAccountTokens(userId, account.id);
       if (!tok) continue;
-      const { messages } = await listInboxUpTo(userId, cap, query, tok.tokens);
+      const { messages } = await listInboxUpTo(userId, cap, query, tok.tokens, account.id);
       out.push(...messages.map((m) => toHub(account, m)));
     } else if (account.provider === "microsoft") {
       try {
-        const rows = await listOutlookInbox(userId, account.email, account.id, Math.min(cap, 100));
+        const rows = await listOutlookInboxUpTo(userId, account.email, account.id, cap);
         out.push(
           ...rows.map((m) => ({
             id: m.id,
@@ -341,4 +353,14 @@ export async function listInboxMessagesForAccount(
   }
 
   return out.slice(0, cap);
+}
+
+/** Fetch up to `cap` inbox messages across one or all accounts (paginated per provider). */
+export async function listDeepInbox(
+  userId: string,
+  accountId: string | undefined,
+  cap: number,
+  query = "in:inbox"
+): Promise<HubMessage[]> {
+  return listInboxMessagesForAccount(userId, accountId, cap, query);
 }

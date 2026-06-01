@@ -4,8 +4,9 @@ import type { AxiosError } from "axios";
 import { api, AUTH_CHANGED_EVENT, AUTH_USER_STORAGE_KEY } from "../api/client";
 import type { User } from "../types";
 
-type SendOtpResponse = {
+type BeginLoginResponse = {
   ok: boolean;
+  method: "totp" | "email_otp";
   message?: string;
   devOtpCode?: string;
   devHint?: string;
@@ -32,7 +33,8 @@ interface Props {
 
 export const LoginPage = ({ onLogin }: Props) => {
   const reduceMotion = useReducedMotion();
-  const [step, setStep] = useState<"email" | "otp">("email");
+  const [step, setStep] = useState<"email" | "otp" | "totp">("email");
+  const [loginMethod, setLoginMethod] = useState<"email_otp" | "totp" | null>(null);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,17 +50,26 @@ export const LoginPage = ({ onLogin }: Props) => {
     }
   };
 
-  const sendOtp = async () => {
+  const beginLogin = async () => {
     if (!email.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post<SendOtpResponse>(
-        "/auth/send-otp",
+      const res = await api.post<BeginLoginResponse>(
+        "/auth/begin-login",
         { email: email.trim().toLowerCase() },
         { timeout: 25_000 }
       );
       const data = res.data;
+      setLoginMethod(data.method);
+
+      if (data.method === "totp") {
+        setStep("totp");
+        setCode("");
+        setDevNotice(null);
+        return;
+      }
+
       applySendOtpPayload(data);
 
       if (data.devOtpCode) {
@@ -68,26 +79,27 @@ export const LoginPage = ({ onLogin }: Props) => {
 
       if (data.message?.toLowerCase().includes("could not be emailed")) {
         setError(
-          "Email is not configured on the server. Check backend SMTP settings or server logs for the code."
+          "Email is not configured on the server. Sign in once, then enable Microsoft Authenticator under Settings → Security."
         );
         return;
       }
 
       setStep("otp");
     } catch (err) {
-      setError(authErrorMessage(err, "Failed to send code. Check your email and try again."));
+      setError(authErrorMessage(err, "Could not continue sign-in. Try again."));
     } finally {
       setLoading(false);
     }
   };
 
-  const verifyOtp = async () => {
+  const verifyCode = async () => {
     if (code.length !== 6) return;
     setLoading(true);
     setError(null);
+    const endpoint = loginMethod === "totp" ? "/auth/verify-totp" : "/auth/verify-otp";
     try {
       const res = await api.post<{ token: string; user?: User }>(
-        "/auth/verify-otp",
+        endpoint,
         { email: email.trim().toLowerCase(), code: code.trim() },
         { timeout: 25_000 }
       );
@@ -102,7 +114,7 @@ export const LoginPage = ({ onLogin }: Props) => {
       window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
       onLogin(res.data.token, nextUser);
     } catch (err) {
-      setError(authErrorMessage(err, "Invalid or expired code. Try again."));
+      setError(authErrorMessage(err, loginMethod === "totp" ? "Invalid authenticator code." : "Invalid or expired code. Try again."));
     } finally {
       setLoading(false);
     }
@@ -153,7 +165,7 @@ export const LoginPage = ({ onLogin }: Props) => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void sendOtp()}
+                onKeyDown={(e) => e.key === "Enter" && void beginLogin()}
                 placeholder="you@example.com"
                 autoFocus
                 autoComplete="email"
@@ -161,12 +173,53 @@ export const LoginPage = ({ onLogin }: Props) => {
               {error && <p className="login-error">{error}</p>}
               <button
                 className="login-btn"
-                onClick={() => void sendOtp()}
+                onClick={() => void beginLogin()}
                 disabled={loading || !email.trim()}
               >
                 {loading ? "Sending..." : "Continue"}
               </button>
-              <p className="login-hint">We'll email you a sign-in code — no password needed</p>
+              <p className="login-hint">Email code or Microsoft Authenticator — no password needed</p>
+            </div>
+          ) : step === "totp" ? (
+            <div className="login-form">
+              <label className="login-label">Authenticator code</label>
+              <p className="login-subtext">
+                Open <strong>Microsoft Authenticator</strong> (or your TOTP app) for{" "}
+                <strong>{email}</strong> ·{" "}
+                <button
+                  className="login-link"
+                  onClick={() => {
+                    setStep("email");
+                    setCode("");
+                    setError(null);
+                    setDevNotice(null);
+                    setLoginMethod(null);
+                  }}
+                >
+                  Change
+                </button>
+              </p>
+              <input
+                className="login-input login-otp-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && void verifyCode()}
+                placeholder="000000"
+                autoFocus
+                autoComplete="one-time-code"
+              />
+              {error && <p className="login-error">{error}</p>}
+              <button
+                className="login-btn"
+                onClick={() => void verifyCode()}
+                disabled={loading || code.length !== 6}
+              >
+                {loading ? "Verifying..." : "Sign in"}
+              </button>
             </div>
           ) : (
             <div className="login-form">
@@ -199,7 +252,7 @@ export const LoginPage = ({ onLogin }: Props) => {
                 maxLength={6}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                onKeyDown={(e) => e.key === "Enter" && void verifyOtp()}
+                onKeyDown={(e) => e.key === "Enter" && void verifyCode()}
                 placeholder="000000"
                 autoFocus
                 autoComplete="one-time-code"
@@ -207,12 +260,12 @@ export const LoginPage = ({ onLogin }: Props) => {
               {error && <p className="login-error">{error}</p>}
               <button
                 className="login-btn"
-                onClick={() => void verifyOtp()}
+                onClick={() => void verifyCode()}
                 disabled={loading || code.length !== 6}
               >
                 {loading ? "Verifying..." : "Sign in"}
               </button>
-              <button className="login-resend" onClick={() => void sendOtp()} disabled={loading}>
+              <button className="login-resend" onClick={() => void beginLogin()} disabled={loading}>
                 Resend code
               </button>
             </div>

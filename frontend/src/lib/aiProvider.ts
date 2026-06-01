@@ -1,5 +1,5 @@
 /** User-facing chat provider ids (match backend /ai/chat `provider` field). */
-export type ChatAIProviderId = "claude" | "openai" | "ollama";
+export type ChatAIProviderId = "claude" | "openai" | "ollama" | "kimi";
 
 export const CORTEX_AI_PROVIDER_KEY = "cortex_ai_provider";
 
@@ -7,6 +7,7 @@ export const CHAT_AI_PROVIDER_LABELS: Record<ChatAIProviderId, string> = {
   claude: "Claude",
   openai: "ChatGPT",
   ollama: "Ollama",
+  kimi: "Kimi",
 };
 
 export type AIProviderOption = {
@@ -19,7 +20,7 @@ export type AIProviderOption = {
 export function readStoredAIProvider(): ChatAIProviderId | null {
   try {
     const raw = localStorage.getItem(CORTEX_AI_PROVIDER_KEY);
-    if (raw === "claude" || raw === "openai" || raw === "ollama") return raw;
+    if (raw === "claude" || raw === "openai" || raw === "ollama" || raw === "kimi") return raw;
     return null;
   } catch {
     return null;

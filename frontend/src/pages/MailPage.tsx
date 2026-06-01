@@ -26,6 +26,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "../api/client";
+import { AIProviderBanner } from "../components/ai/AIProviderBanner";
+import { EmptyState } from "../components/ui/EmptyState";
+import { useAIStatus } from "../hooks/useAIStatus";
 import { startOAuthFlow } from "../lib/oauth";
 import { useToastStore } from "../stores/toastStore";
 
@@ -295,6 +298,7 @@ const ComposeModal = ({ accounts, defaultAccountId, replyTo, initialBody, onClos
 
 export const MailPage = () => {
   const pushToast = useToastStore((s) => s.push);
+  const { status: aiStatus, loading: aiStatusLoading } = useAIStatus();
   const autoRulesBootstrapped = useRef(false);
   const [accounts, setAccounts]             = useState<MailAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
@@ -324,17 +328,43 @@ export const MailPage = () => {
   const [cleanupSelected, setCleanupSelected] = useState<Set<string>>(new Set());
   const [cleanupSummary, setCleanupSummary] = useState<CleanupApplySummary | null>(null);
   const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
-  const [inboxLimit, setInboxLimit] = useState(100);
-  const INBOX_LIMIT_MAX = 500;
-  const INBOX_LIMIT_STEP = 100;
+  const [inboxLimit, setInboxLimit] = useState(500);
+  const INBOX_LIMIT_MAX = 2000;
+  const INBOX_LIMIT_STEP = 500;
+  const [microsoftConfigured, setMicrosoftConfigured] = useState(true);
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [categorizingAll, setCategorizingAll] = useState(false);
+  const [insights, setInsights] = useState<{
+    trendsSummary: string | null;
+    watchlist: Array<{ messageId: string; accountId: string; subject: string; from: string; reason: string; urgency: string }>;
+    stats: { unread: number; byCategory: Record<string, number>; topSenders: Array<{ sender: string; count: number }>; volumeByDay: Array<{ label: string; count: number }>; newsletterShare: number };
+    scanned: number;
+    aiWarning?: string;
+  } | null>(null);
 
   // ── Load accounts ──────────────────────────────────────────────────────────
   const loadAccounts = useCallback(async () => {
     try {
-      const r = await api.get<{ data?: { accounts: MailAccount[] } }>("/mail/accounts");
-      setAccounts(r.data?.data?.accounts ?? []);
-    } catch { /* ignore */ }
-  }, []);
+      const [acc, status] = await Promise.all([
+        api.get<{ data?: { accounts: MailAccount[] } }>("/mail/accounts"),
+        api.get<{ data?: { microsoftConfigured?: boolean } }>("/mail/status"),
+      ]);
+      const list = acc.data?.data?.accounts ?? [];
+      setAccounts(list);
+      setMicrosoftConfigured(status.data?.data?.microsoftConfigured ?? true);
+      const saved = localStorage.getItem("cortex_mail_selected_account");
+      if (saved && (saved === "all" || list.some((a) => a.id === saved))) {
+        setSelectedAccountId(saved);
+      }
+    } catch (err) {
+      pushToast({
+        title: "Could not load mail accounts",
+        message: apiErrorMessage(err),
+        tone: "error",
+      });
+    }
+  }, [pushToast]);
 
   // ── Load categories ────────────────────────────────────────────────────────
   const loadCategories = useCallback(async (): Promise<number> => {
@@ -453,9 +483,10 @@ export const MailPage = () => {
   // ── Select account ─────────────────────────────────────────────────────────
   const selectAccount = (id: string) => {
     setSelectedAccountId(id);
+    localStorage.setItem("cortex_mail_selected_account", id);
     setSelectedFolder(null);
-    setInboxLimit(100);
-    void loadInbox(id, 100);
+    setInboxLimit(500);
+    void loadInbox(id, 500);
   };
 
   const selectFolder = (cat: MailCat | null) => {
@@ -469,44 +500,80 @@ export const MailPage = () => {
     if (allMessages.length === 0) return;
     setOrganizing(true);
     try {
-      const batch = allMessages.slice(0, 50).map((m) => ({
-        id: m.id,
-        accountId: m.accountId,
-        from: m.from,
-        subject: m.subject,
-        snippet: m.snippet,
-      }));
-      const r = await api.post<{ data?: { mode?: string } }>("/ai/mail/organize", { messages: batch, rulesOnly: false });
+      const r = await api.post<{ data?: { mode?: string; categorized?: number; fetched?: number; aiWarning?: string } }>(
+        "/mail/categorize-all",
+        {
+          accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
+          maxMessages: INBOX_LIMIT_MAX,
+        }
+      );
       await loadCategories();
+      await loadInbox(selectedAccountId, inboxLimit);
 
       const apply = await api.post<{ data?: { archived: number; failed?: number } }>("/mail/organize/apply", {
         accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
       });
       const archived = apply.data?.data?.archived ?? 0;
       const applyFailed = apply.data?.data?.failed ?? 0;
-      await loadInbox(selectedAccountId);
+      await loadInbox(selectedAccountId, inboxLimit);
 
-      const mode = r.data?.data?.mode;
-      const archiveNote =
-        archived > 0
-          ? ` Archived ${archived} newsletter/social message(s) in your real mailbox.`
-          : " No messages were archived (only newsletters, social, and media folders are auto-archived).";
-      const failNote =
-        applyFailed > 0
-          ? ` ${applyFailed} could not be moved — reconnect the account or use Gmail for personal mail.`
-          : "";
+      const payload = r.data?.data;
+      const aiWarning = payload?.aiWarning;
       pushToast({
-        title: "Inbox organized",
+        title: "Inbox categorized",
         message:
-          (mode === "ai+rules" ? "Categories saved in Cortex." : "Sorted with smart rules.") +
-          archiveNote +
-          failNote,
-        tone: applyFailed > 0 && archived === 0 ? "neutral" : "success",
+          `Sorted ${payload?.categorized ?? 0} of ${payload?.fetched ?? 0} messages.` +
+          (archived > 0 ? ` Archived ${archived} newsletters/social in your mailbox.` : "") +
+          (applyFailed > 0 ? ` ${applyFailed} could not be archived.` : "") +
+          (aiWarning ? ` ${aiWarning}` : ""),
+        tone: aiWarning ? "neutral" : "success",
       });
     } catch (err: unknown) {
       pushToast({ title: "Could not organize mail", message: apiErrorMessage(err), tone: "error" });
     }
     finally { setOrganizing(false); }
+  };
+
+  const loadInsights = async () => {
+    setInsightsLoading(true);
+    setInsightsOpen(true);
+    try {
+      const r = await api.post<{ data?: typeof insights }>("/mail/insights", {
+        accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
+        maxMessages: 1000,
+      });
+      setInsights(r.data?.data ?? null);
+    } catch (err: unknown) {
+      pushToast({ title: "Insights failed", message: apiErrorMessage(err), tone: "error" });
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
+  const categorizeAllOnly = async () => {
+    setCategorizingAll(true);
+    try {
+      const r = await api.post<{ data?: { categorized: number; fetched: number; aiWarning?: string } }>(
+        "/mail/categorize-all",
+        {
+          accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
+          maxMessages: INBOX_LIMIT_MAX,
+        }
+      );
+      await loadCategories();
+      const payload = r.data?.data;
+      pushToast({
+        title: "Full scan complete",
+        message:
+          `Categorized ${payload?.categorized ?? 0} of ${payload?.fetched ?? 0} inbox messages.` +
+          (payload?.aiWarning ? ` ${payload.aiWarning}` : ""),
+        tone: payload?.aiWarning ? "neutral" : "success",
+      });
+    } catch (err: unknown) {
+      pushToast({ title: "Scan failed", message: apiErrorMessage(err), tone: "error" });
+    } finally {
+      setCategorizingAll(false);
+    }
   };
 
   // ── Backlog cleanup scan ───────────────────────────────────────────────────
@@ -517,7 +584,7 @@ export const MailPage = () => {
         data?: { suggestions: CleanupSuggestion[]; scanned: number; mode: string };
       }>("/mail/cleanup/scan", {
         accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
-        maxMessages: 500,
+        maxMessages: 1000,
         query: "in:inbox",
       });
       const suggestions = (r.data?.data?.suggestions ?? []).filter((s) => s.action !== "keep");
@@ -767,6 +834,24 @@ export const MailPage = () => {
         <div className="page-actions">
           <button
             className="btn-ghost btn-sm mail-toolbar-btn"
+            onClick={() => void loadInsights()}
+            disabled={insightsLoading || accounts.length === 0}
+            title="AI trends and important emails to watch"
+          >
+            <Sparkles size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {insightsLoading ? "Analyzing…" : "Insights"}
+          </button>
+          <button
+            className="btn-ghost btn-sm mail-toolbar-btn"
+            onClick={() => void categorizeAllOnly()}
+            disabled={categorizingAll || accounts.length === 0}
+            title="Fetch up to 2000 messages and categorize all"
+          >
+            <Folder size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {categorizingAll ? "Scanning…" : "Scan all"}
+          </button>
+          <button
+            className="btn-ghost btn-sm mail-toolbar-btn"
             onClick={() => void scanBacklog()}
             disabled={cleanupScanning || accounts.length === 0}
             title="Scan inbox, review suggestions, then Apply to change your real mailbox"
@@ -797,6 +882,67 @@ export const MailPage = () => {
           </button>
         </div>
       </div>
+
+      {!microsoftConfigured && (
+        <div className="mail-config-banner" role="status">
+          Outlook is not configured on the server. Add <code>MICROSOFT_CLIENT_ID</code> and{" "}
+          <code>MICROSOFT_CLIENT_SECRET</code> to <code>deploy/homelab/env/api.env</code>, then redeploy the API.
+        </div>
+      )}
+
+      <AIProviderBanner status={aiStatus} loading={aiStatusLoading} compact />
+
+      {insightsOpen && (
+        <section className="mail-insights-panel" aria-label="Mail insights">
+          <div className="mail-insights-header">
+            <h2>Mail insights</h2>
+            <button type="button" className="btn-ghost btn-sm" onClick={() => setInsightsOpen(false)}>Dismiss</button>
+          </div>
+          {insightsLoading && !insights ? (
+            <p className="mail-insights-loading">Analyzing inbox patterns…</p>
+          ) : insights ? (
+            <>
+              {insights.aiWarning && <p className="mail-insights-warning">{insights.aiWarning}</p>}
+              {insights.trendsSummary && <p className="mail-insights-summary">{insights.trendsSummary}</p>}
+              <div className="mail-insights-stats">
+                <span>{insights.scanned} scanned</span>
+                <span>{insights.stats.unread} unread</span>
+                <span>{insights.stats.newsletterShare}% newsletters</span>
+              </div>
+              {insights.stats.topSenders.length > 0 && (
+                <div className="mail-insights-block">
+                  <h3>Top senders</h3>
+                  <ul>{insights.stats.topSenders.slice(0, 6).map((s) => (
+                    <li key={s.sender}>{s.sender} <span>({s.count})</span></li>
+                  ))}</ul>
+                </div>
+              )}
+              {insights.watchlist.length > 0 && (
+                <div className="mail-insights-block">
+                  <h3>Worth watching</h3>
+                  <ul className="mail-insights-watchlist">
+                    {insights.watchlist.map((w) => (
+                      <li key={`${w.accountId}:${w.messageId}`}>
+                        <button
+                          type="button"
+                          className="mail-insights-watch-item"
+                          onClick={() => {
+                            const msg = allMessages.find((m) => m.id === w.messageId && m.accountId === w.accountId);
+                            if (msg) void openMessage(msg);
+                          }}
+                        >
+                          <strong>{w.subject || "(no subject)"}</strong>
+                          <span>{w.reason}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : null}
+        </section>
+      )}
 
       {cleanupOpen && (cleanupSuggestions.length > 0 || cleanupSummary) && (
         <section className="mail-cleanup-panel" aria-label="Backlog cleanup suggestions">
@@ -1020,15 +1166,18 @@ export const MailPage = () => {
           {loading ? (
             <div className="inline-loading" role="status"><span className="inline-loading-spinner" aria-hidden="true" /><span>Loading…</span></div>
           ) : accounts.length === 0 ? (
-            <div className="mail-empty-state">
-              <Mail size={48} strokeWidth={1.5} className="mail-empty-state-icon" aria-hidden />
-              <h2>No mail accounts</h2>
-              <p>Add a Gmail account or connect via IMAP/SMTP to get started.</p>
-              <div className="mail-empty-actions">
-                <button className="btn-primary" onClick={() => void addGmailAccount()}>Connect Gmail</button>
-                <button className="btn-ghost" onClick={() => setShowImapModal(true)}>Add IMAP/SMTP</button>
-              </div>
-            </div>
+            <EmptyState
+              className="mail-empty-state"
+              icon={<Mail size={48} strokeWidth={1.5} className="mail-empty-state-icon" aria-hidden />}
+              title="No mail accounts"
+              description="Add a Gmail account or connect via IMAP/SMTP to get started."
+              action={
+                <div className="mail-empty-actions">
+                  <button className="btn-primary" onClick={() => void addGmailAccount()}>Connect Gmail</button>
+                  <button className="btn-ghost" onClick={() => setShowImapModal(true)}>Add IMAP/SMTP</button>
+                </div>
+              }
+            />
           ) : filteredMessages.length === 0 ? (
             selectedFolder ? (
               <div className="mail-folder-empty">

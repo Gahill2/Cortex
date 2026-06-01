@@ -6,8 +6,10 @@ import {
   Home,
   Mail,
   Music,
+  Server,
   Settings,
   Target,
+  Cloud,
   type LucideIcon,
 } from "lucide-react";
 import type { NavIconName } from "../navigation";
@@ -21,6 +23,8 @@ const ICON_MAP: Record<NavIconName, LucideIcon> = {
   "file-text": FileText,
   mail: Mail,
   music: Music,
+  server: Server,
+  cloud: Cloud,
   settings: Settings,
 };
 

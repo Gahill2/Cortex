@@ -1,8 +1,4 @@
-/**
- * Repository interfaces — backend-agnostic data access contracts.
- * Prisma implements these today; Firestore can implement them later
- * behind a `DATA_BACKEND=firestore` flag (Phase 0 roadmap).
- */
+/** Repository interfaces — Postgres (Prisma) is the homelab source of truth for user prefs. */
 
 export interface UserSettingsData {
   userId: string;
@@ -15,6 +11,7 @@ export interface UserSettingsData {
   pinHash: string | null;
   canvasLayout: unknown | null;
   extraJson: Record<string, unknown> | null;
+  updatedAt?: Date;
 }
 
 export interface SettingsRepository {

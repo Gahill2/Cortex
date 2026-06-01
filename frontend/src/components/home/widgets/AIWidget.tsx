@@ -13,7 +13,7 @@ export function AIWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   const [prompt, setPrompt] = useState("");
   const [reply, setReply] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState<ChatAIProviderId>(() => readStoredAIProvider() ?? "claude");
+  const [provider, setProvider] = useState<ChatAIProviderId>(() => readStoredAIProvider() ?? "kimi");
 
   const loadProviderDefault = async () => {
     try {
@@ -56,7 +56,7 @@ export function AIWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
   };
 
   const aiBrand: BrandId =
-    provider === "openai" ? "openai" : provider === "ollama" ? "cortex" : "anthropic";
+    provider === "openai" ? "openai" : provider === "kimi" ? "cortex" : provider === "ollama" ? "cortex" : "anthropic";
 
   return (
     <div className="widget widget--ai">

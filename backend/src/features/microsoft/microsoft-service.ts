@@ -189,32 +189,60 @@ export async function listOutlookInbox(
   accountId: string,
   maxResults = 20
 ): Promise<OutlookMessage[]> {
-  const token = await getValidMicrosoftToken(userId, email);
-  const data = await graphGet<{
-    value: Array<{
-      id: string;
-      conversationId: string;
-      subject: string;
-      isRead: boolean;
-      receivedDateTime: string;
-      bodyPreview: string;
-      from: { emailAddress: { name: string; address: string } };
-    }>;
-  }>(token, `/me/mailFolders/inbox/messages?$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,conversationId,subject,isRead,receivedDateTime,bodyPreview,from`);
+  return listOutlookInboxUpTo(userId, email, accountId, maxResults);
+}
 
-  return (data.value ?? []).map((m) => ({
-    id: m.id,
-    accountId,
-    accountEmail: email,
-    subject: m.subject || "(no subject)",
-    from: m.from?.emailAddress
-      ? `${m.from.emailAddress.name} <${m.from.emailAddress.address}>`
-      : "",
-    date: m.receivedDateTime,
-    snippet: m.bodyPreview ?? "",
-    unread: !m.isRead,
-    threadId: m.conversationId ?? m.id,
-  }));
+export async function listOutlookInboxUpTo(
+  userId: string,
+  email: string,
+  accountId: string,
+  cap: number
+): Promise<OutlookMessage[]> {
+  const token = await getValidMicrosoftToken(userId, email);
+  const select =
+    "id,conversationId,subject,isRead,receivedDateTime,bodyPreview,from";
+  const messages: OutlookMessage[] = [];
+  let url: string | null =
+    `/me/mailFolders/inbox/messages?$top=${Math.min(50, cap)}&$orderby=receivedDateTime desc&$select=${select}`;
+
+  while (url && messages.length < cap) {
+    const res = await graphRequest(token, url);
+    const data = (await res.json()) as {
+      value: Array<{
+        id: string;
+        conversationId: string;
+        subject: string;
+        isRead: boolean;
+        receivedDateTime: string;
+        bodyPreview: string;
+        from: { emailAddress: { name: string; address: string } };
+      }>;
+      "@odata.nextLink"?: string;
+    };
+
+    for (const m of data.value ?? []) {
+      if (messages.length >= cap) break;
+      messages.push({
+        id: m.id,
+        accountId,
+        accountEmail: email,
+        subject: m.subject || "(no subject)",
+        from: m.from?.emailAddress
+          ? `${m.from.emailAddress.name} <${m.from.emailAddress.address}>`
+          : "",
+        date: m.receivedDateTime,
+        snippet: m.bodyPreview ?? "",
+        unread: !m.isRead,
+        threadId: m.conversationId ?? m.id,
+      });
+    }
+
+    const next = data["@odata.nextLink"];
+    if (!next || messages.length >= cap) break;
+    url = next.startsWith(GRAPH) ? next.slice(GRAPH.length) : next.replace(GRAPH, "");
+  }
+
+  return messages;
 }
 
 export async function getOutlookMessage(userId: string, email: string, messageId: string) {

@@ -4,6 +4,8 @@ import type { AppTheme } from "../hooks/useTheme";
 import type { CanvasBackground } from "../components/canvas/canvasBackground";
 import type { CanvasNode } from "../components/canvas/CanvasDashboard";
 
+import type { CanvasViewPrefs } from "../components/canvas/canvasViewPrefsTypes";
+
 export interface WeatherLocationPref {
   lat: number;
   lon: number;
@@ -36,9 +38,11 @@ export interface ServerSettings {
     weatherLocation?: WeatherLocationPref | null;
     habits?: HabitPref[];
     homeHero?: Record<string, unknown>;
+    canvasViewPrefs?: CanvasViewPrefs;
     [key: string]: unknown;
   } | null;
   hasPinSet?: boolean;
+  updatedAt?: string | null;
 }
 
 export const EMPTY_SETTINGS: ServerSettings = {

@@ -19,6 +19,24 @@ docker compose --env-file .env up -d
 docker compose --profile backup --env-file .env up -d
 ```
 
+## Media downloads (NordVPN + Gluetun)
+
+Jellyfin plays media; the **media-stack** routes qBittorrent + Sonarr/Radarr/Prowlarr through NordVPN only.
+
+**Immich** (photos): `cd deploy/nas/immich && docker compose up -d` — UI on `:2283`.
+
+**Pi-hole** (DNS): see [pihole/README.md](pihole/README.md).
+
+**iCloud Photos → Immich** (optional): see [icloudpd/README.md](icloudpd/README.md).
+
+```bash
+cp deploy/nas/media-stack/.env.example deploy/nas/media-stack/.env
+# Add Nord service credentials — see deploy/nas/media-stack/README.md
+
+cd deploy/nas/media-stack
+docker compose --env-file .env up -d
+```
+
 ## Point Cortex data at the same tree
 
 In `deploy/homelab/.env`:

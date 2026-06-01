@@ -4,6 +4,7 @@ import type { HomeBoardTask } from "../home/HomeDashboardTop";
 import {
   AIWidget,
   MailWidget,
+  HomelabWidget,
   SpotifyWidget,
   TasksWidget,
   WeatherWidget,
@@ -14,6 +15,7 @@ import { HabitTrackerWidget } from "./widgets/HabitTrackerWidget";
 import { QuoteWidget } from "./widgets/QuoteWidget";
 import { TodayOverviewWidget } from "./widgets/TodayOverviewWidget";
 import { CalendarWidget } from "./widgets/CalendarWidget";
+import { GoalsWidget } from "./widgets/GoalsWidget";
 import { NotesWidget } from "./widgets/NotesWidget";
 import { AutomationsWidget } from "./widgets/AutomationsWidget";
 import { SystemStatusWidget } from "./widgets/SystemStatusWidget";
@@ -36,8 +38,8 @@ function widgetShell(key: string, style: WidgetRenderStyle, child: ReactNode) {
       data-widget-display={style.display}
       style={
         {
-          "--widget-font-body": style.fontFamily,
-          "--widget-font-display": style.displayFontFamily,
+          "--widget-font-body": `var(--home-font-body, ${style.fontFamily})`,
+          "--widget-font-display": `var(--home-font-body, ${style.displayFontFamily})`,
         } as React.CSSProperties
       }
     >
@@ -73,6 +75,7 @@ export function createCanvasWidgetRenderer(
             style={style}
             customTitle={customTitle}
             accentColor={accentColor}
+            onNavigate={onNavigate}
           />,
         );
       case "calendar":
@@ -80,6 +83,12 @@ export function createCanvasWidgetRenderer(
           key,
           style,
           <CalendarWidget onNavigate={onNavigate} compact={compact} />,
+        );
+      case "goals":
+        return widgetShell(
+          key,
+          style,
+          <GoalsWidget onNavigate={onNavigate} compact={compact} />,
         );
       case "notes":
         return widgetShell(key, style, <NotesWidget compact={compact} />);
@@ -126,6 +135,12 @@ export function createCanvasWidgetRenderer(
         return widgetShell(key, style, <HabitTrackerWidget />);
       case "quote":
         return widgetShell(key, style, <QuoteWidget />);
+      case "homelab":
+        return widgetShell(
+          key,
+          style,
+          <HomelabWidget onNavigate={onNavigate} compact={compact} />,
+        );
       default:
         return null;
     }

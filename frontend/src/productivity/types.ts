@@ -11,6 +11,7 @@ export type {
 export type CalendarViewMode = "day" | "week" | "month" | "agenda";
 
 export type TaskListKey =
+  | "all"
   | "inbox"
   | "today"
   | "upcoming"

@@ -21,10 +21,16 @@ export const OAuthBootstrap = ({ enabled }: { enabled: boolean }) => {
 
     void (async () => {
       try {
+        const mailStatus = await api.get<{ data?: { connected?: boolean } }>("/mail/status");
+        if (mailStatus.data?.data?.connected) return;
+
         const r = await api.get<IntegrationStatusResponse>("/integrations/status");
         const items = r.data?.data?.items ?? [];
         const gmail = items.find((i) => i.id === "gmail");
         if (!gmail?.configured || gmail.connected) return;
+
+        const dismissKey = "cortex_oauth_auto_gmail_dismissed";
+        if (localStorage.getItem(dismissKey) === "1") return;
 
         const sessionKey = "cortex_oauth_auto_gmail";
         if (sessionStorage.getItem(sessionKey)) return;

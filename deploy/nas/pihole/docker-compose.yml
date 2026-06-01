@@ -1,0 +1,33 @@
+# Pi-hole — network-wide ad blocking DNS.
+# Admin UI on :8090 (Cortex uses :8080). DNS on host :53.
+#
+#   cp .env.example .env && edit PIHOLE_WEBPASSWORD + PIHOLE_LOCAL_IP
+#   docker compose --env-file .env up -d
+#
+# Point your router DHCP DNS (or Tailscale admin DNS) at this host IP.
+
+name: cortex-pihole
+
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: cortex-pihole
+    restart: unless-stopped
+    ports:
+      - "${PIHOLE_LOCAL_IP:?Set PIHOLE_LOCAL_IP}:${PIHOLE_DNS_PORT:-53}:53/tcp"
+      - "${PIHOLE_LOCAL_IP:?Set PIHOLE_LOCAL_IP}:${PIHOLE_DNS_PORT:-53}:53/udp"
+      - "${PIHOLE_TAILSCALE_IP:?Set PIHOLE_TAILSCALE_IP}:${PIHOLE_DNS_PORT:-53}:53/tcp"
+      - "${PIHOLE_TAILSCALE_IP:?Set PIHOLE_TAILSCALE_IP}:${PIHOLE_DNS_PORT:-53}:53/udp"
+      - "${PIHOLE_WEB_PORT:-8090}:80/tcp"
+    environment:
+      TZ: ${TZ:-America/Chicago}
+      WEBPASSWORD: ${PIHOLE_WEBPASSWORD:?Set PIHOLE_WEBPASSWORD in .env}
+      FTLCONF_LOCAL_IPV4: ${PIHOLE_LOCAL_IP:?Set PIHOLE_LOCAL_IP to this machine LAN IP}
+      # Required for Tailscale (and Docker bridge) clients to reach Pi-hole DNS
+      FTLCONF_dns_listeningMode: ALL
+      PIHOLE_DNS_: ${PIHOLE_UPSTREAM_DNS:-1.1.1.1;1.0.0.1}
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/pihole/etc-pihole:/etc/pihole
+      - ${NAS_DATA_ROOT}/appdata/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN

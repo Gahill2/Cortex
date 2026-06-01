@@ -5,6 +5,8 @@ import {
   Inbox,
   LayoutGrid,
   List,
+  Menu,
+  PanelRight,
   Plus,
   Search,
   Sun,
@@ -25,6 +27,9 @@ interface Props {
   loading?: boolean;
   onRefresh?: () => void;
   onOpenGoals?: () => void;
+  onOpenSidebar?: () => void;
+  onOpenInspector?: () => void;
+  showInspectorButton?: boolean;
 }
 
 export function TasksTopBar({
@@ -41,10 +46,23 @@ export function TasksTopBar({
   loading,
   onRefresh,
   onOpenGoals,
+  onOpenSidebar,
+  onOpenInspector,
+  showInspectorButton,
 }: Props) {
   return (
     <header className="pd-tasks-topbar">
       <div className="pd-tasks-topbar__start">
+        {onOpenSidebar ? (
+          <button
+            type="button"
+            className="pd-icon-btn pd-mobile-only"
+            onClick={onOpenSidebar}
+            aria-label="Open lists"
+          >
+            <Menu size={18} />
+          </button>
+        ) : null}
         <Sun size={18} className="pd-tasks-topbar__icon" aria-hidden />
         <div>
           <h1 className="pd-tasks-topbar__title">{title}</h1>
@@ -65,6 +83,16 @@ export function TasksTopBar({
         <TaskFilters sort={sort} onSortChange={onSortChange} />
       </div>
       <div className="pd-tasks-topbar__end">
+        {showInspectorButton && onOpenInspector ? (
+          <button
+            type="button"
+            className="pd-icon-btn pd-mobile-only"
+            onClick={onOpenInspector}
+            aria-label="Open task details"
+          >
+            <PanelRight size={18} />
+          </button>
+        ) : null}
         {onOpenGoals ? (
           <button type="button" className="pd-btn pd-btn--ghost pd-btn--sm" onClick={onOpenGoals}>
             Goals
@@ -123,6 +151,7 @@ function TaskFilters({ sort, onSortChange }: { sort: TaskSortKey; onSortChange: 
 
 export function getListTitle(listKey: string): string {
   const titles: Record<string, string> = {
+    all: "Tasks & goals",
     inbox: "Inbox",
     today: "Today",
     upcoming: "Upcoming",
@@ -134,10 +163,13 @@ export function getListTitle(listKey: string): string {
 }
 
 /** Count open tasks for sidebar badges */
-export function countByList(tasks: { group: string; completed: boolean }[], listKey: string): number {
+export function countByList(
+  tasks: { group: string; completed: boolean; hasDueDate?: boolean }[],
+  listKey: string,
+): number {
   if (listKey === "completed") return tasks.filter((t) => t.completed).length;
   if (listKey === "today") return tasks.filter((t) => t.group === "today" && !t.completed).length;
   if (listKey === "upcoming") return tasks.filter((t) => t.group === "upcoming" && !t.completed).length;
-  if (listKey === "inbox") return tasks.filter((t) => !t.completed).length;
+  if (listKey === "inbox") return tasks.filter((t) => !t.completed && !t.hasDueDate).length;
   return tasks.filter((t) => !t.completed).length;
 }

@@ -80,7 +80,13 @@ export async function organizeInbox(
     return { scanned: 0, archived: 0, markedRead: 0, actions: [] };
   }
 
-  const { messages } = await listInboxUpTo(userId, 80, "in:inbox is:unread", account.tokens);
+  const { messages } = await listInboxUpTo(
+    userId,
+    80,
+    "in:inbox is:unread",
+    account.tokens,
+    account.accountId
+  );
   const unread = messages.filter((m) => m.unread);
   const plan = unread.length > 0 ? await aiOrganize(messages) : ruleBasedOrganize(messages);
 
@@ -89,10 +95,22 @@ export async function organizeInbox(
 
   for (const step of plan) {
     if (step.action === "archive") {
-      await modifyMessageLabels(userId, step.messageId, { removeLabelIds: ["INBOX"] }, account.tokens);
+      await modifyMessageLabels(
+        userId,
+        step.messageId,
+        { removeLabelIds: ["INBOX"] },
+        account.tokens,
+        account.accountId
+      );
       archived++;
     } else if (step.action === "mark_read") {
-      await modifyMessageLabels(userId, step.messageId, { removeLabelIds: ["UNREAD"] }, account.tokens);
+      await modifyMessageLabels(
+        userId,
+        step.messageId,
+        { removeLabelIds: ["UNREAD"] },
+        account.tokens,
+        account.accountId
+      );
       markedRead++;
     }
   }

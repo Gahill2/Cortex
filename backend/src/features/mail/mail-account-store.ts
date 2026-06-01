@@ -118,9 +118,14 @@ export async function upsertGmailAccount(
   };
 }
 
+import { deleteMicrosoftTokens } from "../microsoft/microsoft-service.js";
+
 export async function removeMailAccount(userId: string, accountId: string): Promise<void> {
   const row = await prisma.mailAccount.findFirst({ where: { id: accountId, userId } });
   if (!row) return;
+  if (row.provider === "microsoft") {
+    await deleteMicrosoftTokens(userId, row.email);
+  }
   await prisma.mailAccount.delete({ where: { id: accountId } });
   if (row.provider === "gmail" && row.isPrimary) {
     const next = await prisma.mailAccount.findFirst({

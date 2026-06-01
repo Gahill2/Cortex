@@ -25,6 +25,7 @@ function toData(row: {
   pinHash: string | null;
   canvasLayout: string | null;
   extraJson: string | null;
+  updatedAt: Date;
 }): UserSettingsData {
   return {
     userId: row.userId,
@@ -37,6 +38,7 @@ function toData(row: {
     pinHash: row.pinHash,
     canvasLayout: parseJson(row.canvasLayout),
     extraJson: parseJson(row.extraJson),
+    updatedAt: row.updatedAt,
   };
 }
 

@@ -850,9 +850,16 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 
 /* Full-bleed Figma-style canvas on Home (title lives in burger app bar) */
 .cortex-route-bootstrap--home-full,
-.cortex-route-bootstrap--planner-full {
+.cortex-route-bootstrap--planner-full,
+.cortex-route-bootstrap--goals-full {
   padding: 0 !important;
   max-width: 100%;
+}
+
+.cortex-route-bootstrap--goals-full > .page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .cortex-route-bootstrap--planner-full > .pd-route {
@@ -2384,6 +2391,7 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
 .spotify-ai-input--sm { flex: none; width: 220px; }
 
 .spotify-ai-error { color: var(--red); font-size: 13px; }
+.spotify-ai-warning { color: var(--text-3); font-size: 12px; margin: 0.35rem 0 0; }
 
 .spotify-ai-loading {
   display: flex;
@@ -3138,8 +3146,8 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   }
 
   .page {
-    padding: var(--space-5) var(--space-4) var(--space-7);
-    gap: var(--space-5);
+    padding: 0;
+    gap: var(--space-4);
   }
 
   .page-titlebar {

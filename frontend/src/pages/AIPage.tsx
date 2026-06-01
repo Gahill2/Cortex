@@ -1,8 +1,9 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { AIProviderBanner } from "../components/ai/AIProviderBanner";
+import { useAIStatus } from "../hooks/useAIStatus";
 import { useToastStore } from "../stores/toastStore";
 import {
-  type AIProviderOption,
   type ChatAIProviderId,
   CHAT_AI_PROVIDER_LABELS,
   pickDefaultProvider,
@@ -16,17 +17,6 @@ interface Message {
   content: string;
   provider?: string;
   timestamp: string;
-}
-
-interface AIStatus {
-  ollama: boolean;
-  ollamaModel: string;
-  anthropic: boolean;
-  openai: boolean;
-  openaiModel: string;
-  activeProvider: "ollama" | "anthropic" | "openai" | "none";
-  providers: AIProviderOption[];
-  defaultProvider: ChatAIProviderId | null;
 }
 
 interface ElectronBridge {
@@ -51,6 +41,7 @@ const STARTERS = [
 function providerBadgeClass(id: ChatAIProviderId | "none"): string {
   if (id === "ollama") return "ollama";
   if (id === "openai") return "openai";
+  if (id === "kimi") return "kimi";
   if (id === "claude") return "anthropic";
   return "none";
 }
@@ -67,9 +58,9 @@ export const AIPage = () => {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<AIStatus | null>(null);
+  const { status, loading: statusLoading, refresh: fetchStatus } = useAIStatus();
   const [selectedProvider, setSelectedProvider] = useState<ChatAIProviderId>(
-    () => readStoredAIProvider() ?? "claude"
+    () => readStoredAIProvider() ?? "kimi"
   );
   const [starting, setStarting] = useState(false);
   const [includeWorkspaceContext, setIncludeWorkspaceContext] = useState(true);
@@ -80,26 +71,14 @@ export const AIPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await api.get("/ai/status");
-      const data = (res.data?.data ?? res.data) as AIStatus;
-      setStatus(data);
-      if (data.providers?.length) {
-        setSelectedProvider((prev) =>
-          data.providers.find((p) => p.id === prev)?.available
-            ? prev
-            : pickDefaultProvider(data.providers, data.defaultProvider)
-        );
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   useEffect(() => {
-    void fetchStatus();
-  }, [fetchStatus]);
+    if (!status?.providers?.length) return;
+    setSelectedProvider((prev) =>
+      status.providers.find((p) => p.id === prev)?.available
+        ? prev
+        : pickDefaultProvider(status.providers, status.defaultProvider)
+    );
+  }, [status]);
 
   const handleProviderChange = (id: ChatAIProviderId) => {
     setSelectedProvider(id);
@@ -227,7 +206,7 @@ export const AIPage = () => {
               disabled={loading}
               aria-label="AI model"
             >
-              {(["claude", "openai", "ollama"] as const).map((id) => {
+              {(["kimi", "claude", "openai", "ollama"] as const).map((id) => {
                 const p = providers.find((x) => x.id === id);
                 const available = p?.available ?? false;
                 return (
@@ -278,6 +257,8 @@ export const AIPage = () => {
           </button>
         </div>
       </div>
+
+      <AIProviderBanner status={status} loading={statusLoading} />
 
       <div className="ai-layout">
         <div className="ai-messages">

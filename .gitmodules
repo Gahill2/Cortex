@@ -7,3 +7,6 @@
 [submodule "vendor/anthropic-skills"]
 	path = vendor/anthropic-skills
 	url = https://github.com/anthropics/skills.git
+[submodule "vendor/task-observer"]
+	path = vendor/task-observer
+	url = https://github.com/rebelytics/one-skill-to-rule-them-all.git

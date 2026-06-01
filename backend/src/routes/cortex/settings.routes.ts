@@ -44,12 +44,17 @@ cortexSettingsRouter.get("/", routeRateLimit(30, 60_000), async (req, res) => {
       homeGoals: null,
       canvasLayout: null,
       extraJson: null,
+      updatedAt: null,
     });
     return;
   }
 
   const { pinHash: _pin, ...safe } = settings;
-  sendSuccess(res, { ...safe, hasPinSet: Boolean(settings.pinHash) });
+  sendSuccess(res, {
+    ...safe,
+    hasPinSet: Boolean(settings.pinHash),
+    updatedAt: settings.updatedAt?.toISOString() ?? null,
+  });
 });
 
 /** PATCH /api/settings — update user preferences (partial) */
@@ -57,9 +62,21 @@ cortexSettingsRouter.patch("/", routeRateLimit(30, 60_000), async (req, res) => 
   const { userId } = req.auth!;
   const input = patchSettingsSchema.parse(req.body);
 
+  if (input.extraJson !== undefined && input.extraJson !== null) {
+    const existing = await settingsRepo.get(userId);
+    input.extraJson = {
+      ...(existing?.extraJson ?? {}),
+      ...input.extraJson,
+    };
+  }
+
   const updated = await settingsRepo.upsert(userId, input);
   const { pinHash: _pin, ...safe } = updated;
-  sendSuccess(res, { ...safe, hasPinSet: Boolean(updated.pinHash) });
+  sendSuccess(res, {
+    ...safe,
+    hasPinSet: Boolean(updated.pinHash),
+    updatedAt: updated.updatedAt?.toISOString() ?? null,
+  });
 });
 
 /** POST /api/settings/change-pin — update session PIN */

@@ -1,52 +1,83 @@
 import {
-  Briefcase,
   Calendar,
   CalendarClock,
-  Filter,
+  CheckCircle2,
   FolderKanban,
   Inbox,
-  Infinity,
-  Sun,
-  Tag,
+  LayoutList,
 } from "lucide-react";
+import type { CortexGoal } from "../../lib/uiCustomization";
 import type { TaskListKey } from "../types";
-import { MOCK_AREAS, MOCK_LABELS, MOCK_PROJECTS } from "../mockData";
 import { ProductivitySidebar, SidebarNavItem, SidebarSection } from "../ProductivitySidebar";
 import type { PlannerTask } from "../../components/tasks-calendar/types";
 
-interface Props {
-  listKey: TaskListKey;
-  onListChange: (key: TaskListKey, meta?: { projectId?: string; areaId?: string; labelId?: string }) => void;
-  tasks: PlannerTask[];
+export interface TaskSidebarProject {
+  id: string;
+  name: string;
+  taskCount?: number;
 }
 
-const SMART: { key: TaskListKey; label: string; icon: typeof Inbox }[] = [
-  { key: "inbox", label: "Inbox", icon: Inbox },
-  { key: "today", label: "Today", icon: Sun },
-  { key: "upcoming", label: "Upcoming", icon: CalendarClock },
-  { key: "anytime", label: "Anytime", icon: Calendar },
-  { key: "someday", label: "Someday", icon: Infinity },
+interface Props {
+  listKey: TaskListKey;
+  listMeta?: { projectId?: string };
+  onListChange: (key: TaskListKey, meta?: { projectId?: string }) => void;
+  tasks: PlannerTask[];
+  goals: CortexGoal[];
+  projects: TaskSidebarProject[];
+  onCreateProject?: () => void;
+  onOpenCalendar?: () => void;
+}
+
+const LISTS: { key: TaskListKey; label: string; icon: typeof LayoutList }[] = [
+  { key: "all", label: "All work", icon: LayoutList },
+  { key: "inbox", label: "No due date", icon: Inbox },
+  { key: "upcoming", label: "Scheduled", icon: CalendarClock },
+  { key: "completed", label: "Completed", icon: CheckCircle2 },
 ];
 
-function badge(tasks: PlannerTask[], key: TaskListKey): number | undefined {
-  if (key === "today") return tasks.filter((t) => t.group === "today" && !t.completed).length || undefined;
-  if (key === "upcoming") return tasks.filter((t) => t.group === "upcoming" && !t.completed).length || undefined;
-  if (key === "inbox") return tasks.filter((t) => !t.completed).length || undefined;
+const PROJECT_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#14b8a6", "#8b5cf6"];
+
+function badge(tasks: PlannerTask[], goals: CortexGoal[], key: TaskListKey): number | undefined {
+  if (key === "all") {
+    const n = tasks.filter((t) => !t.completed).length + goals.filter((g) => !g.done).length;
+    return n || undefined;
+  }
+  if (key === "upcoming") {
+    return tasks.filter((t) => t.hasDueDate && !t.completed).length || undefined;
+  }
+  if (key === "inbox") {
+    const n =
+      tasks.filter((t) => !t.completed && !t.hasDueDate).length + goals.filter((g) => !g.done).length;
+    return n || undefined;
+  }
+  if (key === "completed") {
+    const n = tasks.filter((t) => t.completed).length + goals.filter((g) => g.done).length;
+    return n || undefined;
+  }
   return undefined;
 }
 
-export function TaskSidebar({ listKey, onListChange, tasks }: Props) {
+export function TaskSidebar({
+  listKey,
+  listMeta,
+  onListChange,
+  tasks,
+  goals,
+  projects,
+  onCreateProject,
+  onOpenCalendar,
+}: Props) {
   return (
-    <ProductivitySidebar title="Tasks">
-      <SidebarSection label="Lists">
-        {SMART.map((item) => {
+    <ProductivitySidebar title="Tasks & goals">
+      <SidebarSection label="Views">
+        {LISTS.map((item) => {
           const Icon = item.icon;
           return (
             <SidebarNavItem
               key={item.key}
               icon={<Icon size={16} />}
               label={item.label}
-              count={badge(tasks, item.key)}
+              count={badge(tasks, goals, item.key)}
               active={listKey === item.key}
               onClick={() => onListChange(item.key)}
             />
@@ -54,46 +85,38 @@ export function TaskSidebar({ listKey, onListChange, tasks }: Props) {
         })}
       </SidebarSection>
       <SidebarSection label="Projects">
-        {MOCK_PROJECTS.map((p) => (
-          <SidebarNavItem
-            key={p.id}
-            icon={<FolderKanban size={16} style={{ color: p.color }} />}
-            label={p.name}
-            active={listKey === "project"}
-            indent
-            onClick={() => onListChange("project", { projectId: p.id })}
-          />
-        ))}
-      </SidebarSection>
-      <SidebarSection label="Areas">
-        {MOCK_AREAS.map((a) => (
-          <SidebarNavItem
-            key={a.id}
-            icon={<Briefcase size={16} />}
-            label={a.name}
-            active={listKey === "area"}
-            indent
-            onClick={() => onListChange("area", { areaId: a.id })}
-          />
-        ))}
-      </SidebarSection>
-      <SidebarSection label="Labels">
-        {MOCK_LABELS.map((l) => (
-          <SidebarNavItem
-            key={l.id}
-            icon={<Tag size={16} style={{ color: l.color }} />}
-            label={l.name}
-            active={listKey === "label"}
-            indent
-            onClick={() => onListChange("label", { labelId: l.id })}
-          />
-        ))}
+        {projects.length === 0 ? (
+          <p className="pd-sidebar-empty">
+            No projects yet.{" "}
+            {onCreateProject ? (
+              <button type="button" className="pd-sidebar-link" onClick={onCreateProject}>
+                Create one
+              </button>
+            ) : null}
+          </p>
+        ) : (
+          projects.map((p, i) => (
+            <SidebarNavItem
+              key={p.id}
+              icon={<FolderKanban size={16} style={{ color: PROJECT_COLORS[i % PROJECT_COLORS.length] }} />}
+              label={p.name}
+              count={p.taskCount || undefined}
+              active={listKey === "project" && listMeta?.projectId === p.id}
+              indent
+              onClick={() => onListChange("project", { projectId: p.id })}
+            />
+          ))
+        )}
+        {projects.length > 0 && onCreateProject ? (
+          <button type="button" className="pd-sidebar-add" onClick={onCreateProject}>
+            + New project
+          </button>
+        ) : null}
       </SidebarSection>
       <SidebarNavItem
-        icon={<Filter size={16} />}
-        label="Filters"
-        active={listKey === "filter"}
-        onClick={() => onListChange("filter")}
+        icon={<Calendar size={16} />}
+        label="Open calendar"
+        onClick={() => (onOpenCalendar ? onOpenCalendar() : onListChange("upcoming"))}
       />
     </ProductivitySidebar>
   );

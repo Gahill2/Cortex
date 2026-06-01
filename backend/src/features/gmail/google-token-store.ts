@@ -9,6 +9,27 @@ export const saveGoogleCredentials = async (userId: string, credentials: Credent
   });
 };
 
+/** Persist refreshed OAuth tokens (access + refresh) for legacy store and linked Mail accounts. */
+export const persistGoogleCredentials = async (
+  userId: string,
+  credentials: Credentials,
+  mailAccountId?: string
+): Promise<void> => {
+  await saveGoogleCredentials(userId, credentials);
+  const json = JSON.stringify(credentials);
+  if (mailAccountId) {
+    await prisma.mailAccount.updateMany({
+      where: { id: mailAccountId, userId, provider: "gmail" },
+      data: { tokens: json },
+    });
+    return;
+  }
+  await prisma.mailAccount.updateMany({
+    where: { userId, provider: "gmail" },
+    data: { tokens: json },
+  });
+};
+
 export const getGoogleCredentials = async (userId: string): Promise<Credentials | null> => {
   const row = await prisma.oAuthToken.findUnique({
     where: { userId_provider: { userId, provider: "google" } },

@@ -8,6 +8,7 @@ import "bootstrap/dist/css/bootstrap-utilities.min.css";
 import "./styles.css";
 import "./styles-mail.css";
 import "./styles-widgets.css";
+import "./styles-spotify-spicetify.css";
 import "./styles-ai-settings.css";
 import "./styles-design.css";
 import "./styles-tasks-cal.css";
@@ -24,8 +25,11 @@ import "./styles-widget-skins.css";
 import "./styles-shell.css";
 import "./styles-ui-customization.css";
 import "./styles-goals.css";
+import "./styles-homelab.css";
+import "./styles-cloud.css";
 import "./styles-productivity-dashboard.css";
 import "./styles-productivity.css";
+import "./styles-layout-spacing.css";
 
 if ("serviceWorker" in navigator) {
   const w = window as Window & { __ELECTRON__?: boolean };

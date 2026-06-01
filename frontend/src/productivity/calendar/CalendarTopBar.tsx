@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu, PanelRight } from "lucide-react";
 import type { CalendarViewMode } from "../types";
 import { CalendarViewSwitcher } from "./CalendarViewSwitcher";
 
@@ -11,6 +11,9 @@ interface Props {
   onQuickAdd: () => void;
   loading?: boolean;
   onRefresh?: () => void;
+  onOpenSidebar?: () => void;
+  onOpenInspector?: () => void;
+  showInspectorButton?: boolean;
 }
 
 function formatHeading(date: Date, view: CalendarViewMode): string {
@@ -60,16 +63,39 @@ export function CalendarTopBar({
   onQuickAdd,
   loading,
   onRefresh,
+  onOpenSidebar,
+  onOpenInspector,
+  showInspectorButton,
 }: Props) {
   return (
     <header className="pd-cal-topbar">
       <div className="pd-cal-topbar__start">
+        {onOpenSidebar ? (
+          <button
+            type="button"
+            className="pd-icon-btn pd-mobile-only"
+            onClick={onOpenSidebar}
+            aria-label="Open calendar sidebar"
+          >
+            <Menu size={18} />
+          </button>
+        ) : null}
         <h1 className="pd-cal-topbar__title">{formatHeading(viewDate, view)}</h1>
       </div>
       <div className="pd-cal-topbar__center">
         <CalendarViewSwitcher view={view} onChange={onViewChange} />
       </div>
       <div className="pd-cal-topbar__end">
+        {showInspectorButton && onOpenInspector ? (
+          <button
+            type="button"
+            className="pd-icon-btn pd-mobile-only"
+            onClick={onOpenInspector}
+            aria-label="Open event details"
+          >
+            <PanelRight size={18} />
+          </button>
+        ) : null}
         {onRefresh ? (
           <button
             type="button"

@@ -24,11 +24,17 @@ Use a top-level data root (pick one and stick to it):
 ├── media/
 │   ├── movies/
 │   ├── tv/
-│   └── music/
+│   ├── music/
+│   └── downloads/          # qBittorrent (incomplete + complete)
 ├── photos/                 # Immich library root
 ├── cloud/                  # Nextcloud data/
 ├── appdata/
 │   ├── jellyfin/config/
+│   ├── gluetun/
+│   ├── qbittorrent/
+│   ├── prowlarr/
+│   ├── radarr/
+│   ├── sonarr/
 │   ├── nextcloud/          # db + config volumes
 │   ├── immich/             # immich postgres, redis, model cache
 │   └── backup/             # restic cache
@@ -46,6 +52,9 @@ Use a top-level data root (pick one and stick to it):
 |-------|-----------|---------|
 | **Cortex** | `deploy/homelab/` | Postgres, API, web — your tailnet app |
 | **NAS** | `deploy/nas/` | Jellyfin, Nextcloud, Immich, backup job |
+| **Media (VPN)** | `deploy/nas/media-stack/` | Gluetun + NordVPN, qBittorrent, Sonarr, Radarr, Prowlarr |
+| **Pi-hole** | `deploy/nas/pihole/` | DNS ad blocking (:8090 admin) |
+| **iCloud Photos import** | `deploy/nas/icloudpd/` | Optional pull from Apple Photos → Immich |
 
 They share the host paths above but **do not share databases**. Each service has its own DB container under `appdata/`.
 
@@ -68,6 +77,12 @@ cd deploy/nas && docker compose --env-file .env up -d
 | Jellyfin | 8096 | http://100.x.x.x:8096 |
 | Nextcloud | 8081 | http://100.x.x.x:8081 |
 | Immich | 2283 | http://100.x.x.x:2283 |
+| Pi-hole | 8090 | http://100.x.x.x:8090/admin/ |
+| qBittorrent (via Nord) | 8089 | http://100.x.x.x:8089 |
+| SABnzbd (Usenet) | 8082 | http://100.x.x.x:8082 |
+| Sonarr / Radarr / Prowlarr | 8989 / 7878 / 9696 | same host |
+
+Jellyfin is **not** on the VPN. Only the media-stack download containers use NordVPN (Gluetun). See [deploy/nas/media-stack/README.md](../deploy/nas/media-stack/README.md).
 
 Use [Tailscale ACLs](https://tailscale.com/kb/1018/acls) to limit who reaches each port.
 

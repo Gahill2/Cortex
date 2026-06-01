@@ -16,7 +16,7 @@ export const CORTEX_UI_PREFERENCE_KEYS = [
   "cortex_briefing_at",
   "cortex_photo_widget",
   "cortex-canvas-background",
-  "cortex-canvas-state",
+  "cortex-canvas-view-prefs",
   "cortex-habits",
   CORTEX_HOME_HERO_STORAGE_KEY,
 ] as const;

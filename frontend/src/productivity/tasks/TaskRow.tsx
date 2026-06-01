@@ -13,7 +13,8 @@ interface Props {
 }
 
 export function TaskRow({ task, selected, completing, onSelect, onToggle }: Props) {
-  const overdue = !task.completed && new Date(task.dueAt).getTime() < Date.now();
+  const overdue =
+    task.hasDueDate && !task.completed && new Date(task.dueAt).getTime() < Date.now();
 
   return (
     <article
@@ -38,8 +39,16 @@ export function TaskRow({ task, selected, completing, onSelect, onToggle }: Prop
       </span>
       <div className="pd-task-row__body">
         <p className="pd-task-row__title">{task.title}</p>
+        {!task.completed && (task.progressPercent ?? 0) > 0 ? (
+          <div className="pd-task-row__progress" aria-hidden>
+            <span style={{ width: `${task.progressPercent}%` }} />
+          </div>
+        ) : null}
         <div className="pd-task-row__meta">
-          <DateChip date={task.dueAt} overdue={overdue} compact />
+          {task.hasDueDate ? <DateChip date={task.dueAt} overdue={overdue} compact /> : null}
+          {(task.progressPercent ?? 0) > 0 && !task.completed ? (
+            <span className="pd-task-row__progress-pill">{task.progressPercent}%</span>
+          ) : null}
           {task.projectName ? <ProjectPill name={task.projectName} compact /> : null}
           <PriorityBadge priority={task.priority} compact />
           <span className="pd-task-row__cat">{task.category}</span>

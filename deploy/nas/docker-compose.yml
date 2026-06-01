@@ -17,7 +17,8 @@ services:
       - ${NAS_DATA_ROOT}/appdata/jellyfin/config:/config
       - ${NAS_DATA_ROOT}/media:/media:ro
     environment:
-      - JELLYFIN_PublishedServerUrl=
+      # LAN URL so TVs/phones get playable stream links (not Docker bridge IP)
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_URL:-http://10.0.0.49:8096}
 
   nextcloud-db:
     image: mariadb:11
@@ -52,7 +53,7 @@ services:
       MYSQL_PASSWORD: ${NEXTCLOUD_DB_PASSWORD}
       NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:?Set NEXTCLOUD_ADMIN_PASSWORD}
-      NEXTCLOUD_TRUSTED_DOMAINS: localhost ${TAILSCALE_HOST:-}
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost 127.0.0.1 host.docker.internal 10.0.0.49 100.104.120.29 cortex.tail4f977b.ts.net ${TAILSCALE_HOST:-}
     volumes:
       - ${NAS_DATA_ROOT}/cloud:/var/www/html
 

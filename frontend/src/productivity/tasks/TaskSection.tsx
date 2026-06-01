@@ -1,11 +1,12 @@
 interface Props {
   title: string;
+  subtitle?: string;
   count?: number;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
 
-export function TaskSection({ title, count, collapsed, onToggleCollapse }: Props) {
+export function TaskSection({ title, subtitle, count, collapsed, onToggleCollapse }: Props) {
   return (
     <div className={`pd-task-section${collapsed ? " pd-task-section--collapsed" : ""}`}>
       <button
@@ -14,7 +15,10 @@ export function TaskSection({ title, count, collapsed, onToggleCollapse }: Props
         onClick={onToggleCollapse}
         aria-expanded={!collapsed}
       >
-        <span className="pd-task-section__title">{title}</span>
+        <span className="pd-task-section__title-wrap">
+          <span className="pd-task-section__title">{title}</span>
+          {subtitle ? <span className="pd-task-section__subtitle">{subtitle}</span> : null}
+        </span>
         {count !== undefined ? <span className="pd-task-section__count">{count}</span> : null}
       </button>
     </div>

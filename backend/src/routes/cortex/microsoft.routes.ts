@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { resolveOAuthFrontendBase } from "../../features/oauth/oauth-frontend-redirect.js";
+import { resolveOAuthFrontendBase, resolveMicrosoftOAuthRedirectUri } from "../../features/oauth/oauth-frontend-redirect.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
@@ -17,6 +17,14 @@ import {
 } from "../../features/microsoft/microsoft-service.js";
 
 export const cortexMicrosoftRouter = Router();
+
+cortexMicrosoftRouter.get("/setup", requireAuth, routeRateLimit(30, 60_000), (_req, res) => {
+  sendSuccess(res, {
+    configured: isMicrosoftConfigured(),
+    redirectUri: resolveMicrosoftOAuthRedirectUri(),
+    docsPath: "docs/microsoft-oauth-homelab.md",
+  });
+});
 
 // ── Connect (get OAuth URL) ───────────────────────────────────────────────────
 cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), (req, res) => {

@@ -110,7 +110,7 @@ export async function scanMailCleanup(
     return { scanned: messages.length, suggestions, mode: "rules" };
   }
 
-  const sample = messages.slice(0, 80);
+  const sample = messages.slice(0, 120);
   const emailList = sample
     .map(
       (m, i) =>
@@ -134,7 +134,7 @@ ${emailList}`;
   try {
     const result = await callAI(
       [{ role: "user", content: prompt }],
-      { tier: "simple", maxTokens: 4000, systemPrompt: "Return only valid JSON arrays." }
+      { tier: "simple", preferCloud: true, maxTokens: 4000, systemPrompt: "Return only valid JSON arrays." }
     );
     const parsed = extractJsonArray(result.text);
     if (!parsed?.length) {

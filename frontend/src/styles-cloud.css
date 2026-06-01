@@ -1,0 +1,201 @@
+/* Cloud / Nextcloud file browser */
+
+.cloud-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+}
+
+.cloud-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+}
+
+.cloud-spin {
+  animation: cloud-spin 0.8s linear infinite;
+}
+
+@keyframes cloud-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cloud-quota {
+  margin-bottom: var(--space-4, 16px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--surface-elevated, #1a1a22) 90%, transparent);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.cloud-quota__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-2, 8px);
+  color: var(--text-secondary, #a0a0b0);
+}
+
+.cloud-quota__labels span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cloud-quota__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary, #fff) 8%, transparent);
+  overflow: hidden;
+}
+
+.cloud-quota__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent, #6366f1), color-mix(in srgb, var(--accent, #6366f1) 70%, #22d3ee));
+  transition: width 0.3s ease;
+}
+
+.cloud-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--space-3, 12px);
+  font-size: 0.875rem;
+}
+
+.cloud-breadcrumb__segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted, #707080);
+}
+
+.cloud-breadcrumb__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #a0a0b0);
+  cursor: pointer;
+}
+
+.cloud-breadcrumb__item:hover {
+  background: color-mix(in srgb, var(--text-primary, #fff) 6%, transparent);
+  color: var(--text-primary, #fff);
+}
+
+.cloud-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.cloud-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.cloud-table th,
+.cloud-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.cloud-table th {
+  font-weight: 600;
+  color: var(--text-muted, #707080);
+  background: color-mix(in srgb, var(--surface-elevated, #1a1a22) 60%, transparent);
+}
+
+.cloud-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cloud-file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-primary, #fff);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cloud-file-name--dir {
+  font-weight: 500;
+}
+
+.cloud-file-name:hover {
+  color: var(--accent, #6366f1);
+}
+
+.cloud-table__actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.cloud-loading,
+.cloud-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-8, 48px) var(--space-4, 16px);
+  text-align: center;
+  color: var(--text-secondary, #a0a0b0);
+}
+
+.cloud-empty h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--text-primary, #fff);
+}
+
+.cloud-empty__lead {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--text-secondary, #a0a0b0);
+}
+
+.cloud-empty__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-width: 36rem;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.cloud-empty__steps code {
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.cloud-empty--inline {
+  padding: var(--space-6, 32px);
+}
+
+.cloud-error {
+  padding: var(--space-3, 12px);
+  margin-bottom: var(--space-3, 12px);
+  border-radius: var(--radius-sm, 8px);
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #fca5a5;
+}

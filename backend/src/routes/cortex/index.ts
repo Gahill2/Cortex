@@ -22,12 +22,16 @@ import { cortexIntegrationsRouter } from "./integrations.routes.js";
 import { cortexMemoryRouter } from "./memory.routes.js";
 import { cortexSettingsRouter } from "./settings.routes.js";
 import { cortexCanvasRouter } from "./canvas.routes.js";
+import { cortexHomelabRouter } from "./homelab.routes.js";
+import { cortexCloudRouter } from "./cloud.routes.js";
 import { pingAgentmemory } from "../../features/agentmemory/client.js";
 import { getObsidianVaultPaths } from "../../features/obsidian/vault-index.js";
 import { isN8nConfigured } from "../../features/n8n/n8n-client.js";
 import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
 import { isNotionConfigured } from "../../features/notion/notion-service.js";
 import { isSpotifyConfigured } from "../../features/spotify/spotify-service.js";
+import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-service.js";
+import { getAIStatus } from "../../features/ai/ai-provider.js";
 import { env } from "../../config/env.js";
 import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 
@@ -41,11 +45,22 @@ cortexRouter.get("/health/live", (_req, res) => {
 cortexRouter.get("/health", async (_req, res) => {
   const agentmemory = await pingAgentmemory();
   const obsidianVaults = getObsidianVaultPaths(env);
+  let ollamaRunning = false;
+  try {
+    const ai = await getAIStatus();
+    ollamaRunning = ai.ollama;
+  } catch {
+    ollamaRunning = false;
+  }
   res.json({
     status: "ok",
     service: "cortex-api",
     phase: "phase-1-foundation",
     anthropic_configured: Boolean(env.ANTHROPIC_API_KEY),
+    kimi_configured: Boolean(env.KIMI_API_KEY?.trim() || env.MOONSHOT_API_KEY?.trim()),
+    ollama_configured: Boolean(env.OLLAMA_BASE_URL?.trim()),
+    ollama_running: ollamaRunning,
+    microsoft_configured: isMicrosoftConfigured(),
     firebase_configured: getFirebaseAdminStatus().configured,
     n8n_configured: isN8nConfigured(),
     spotify_configured: isSpotifyConfigured(),
@@ -94,3 +109,5 @@ cortexRouter.use("/integrations", cortexIntegrationsRouter);
 cortexRouter.use("/memory", cortexMemoryRouter);
 cortexRouter.use("/settings", cortexSettingsRouter);
 cortexRouter.use("/canvas", cortexCanvasRouter);
+cortexRouter.use("/homelab", cortexHomelabRouter);
+cortexRouter.use("/cloud", cortexCloudRouter);

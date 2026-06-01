@@ -43,6 +43,8 @@ services:
       PORT: ${API_PORT:-4000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-cortex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cortex}
       CORTEX_API_DATA_DIR: /app/data
+      HOMELAB_NAS_ROOT: /nas
+      HOMELAB_DEPLOY_LISTENER_URL: http://host.docker.internal:9092
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:
@@ -51,8 +53,12 @@ services:
     volumes:
       # Canvas photos, obsidian-vaults.json, vault-index cache (see npm run server:sync-local)
       - ${CORTEX_DATA_DIR:-./data}/api:/app/data
+      # NAS folder sizes for Homelab → Storage (read-only)
+      - ${NAS_DATA_ROOT:-/home/greyhill/nas-data}:/nas:ro
       # Grey Hill Brain — override OBSIDIAN_VAULT_HOST_PATH in deploy/homelab/.env
-      - ${OBSIDIAN_VAULT_HOST_PATH:-C:/Users/greyh/Documents/GitHub/greyhill_brain}:/vault:rw
+      - ${OBSIDIAN_VAULT_HOST_PATH:-/mnt/cortex/obsidian/greyhill_brain}:/vault:rw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   cortex-web:
     build:
@@ -62,6 +68,8 @@ services:
         # Empty = same-origin /api via nginx (works for 127.0.0.1:8080 and Tailscale :8080).
         # Set in .env only for split API/UI deploys (e.g. API on :4000, UI elsewhere).
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        # PIN gate after inactivity (minutes). 0 = disabled. Homelab default 4h.
+        VITE_IDLE_LOCK_MINUTES: ${VITE_IDLE_LOCK_MINUTES:-240}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"

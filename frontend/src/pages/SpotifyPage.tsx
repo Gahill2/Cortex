@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Music } from "lucide-react";
 import { api } from "../api/client";
+import { AIProviderBanner } from "../components/ai/AIProviderBanner";
+import { useAIStatus } from "../hooks/useAIStatus";
 import { startOAuthFlow } from "../lib/oauth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -167,6 +169,13 @@ function NowPlayingSection() {
 
   return (
     <section className="spotify-now-playing spotify-now-playing--active">
+      {track.albumArt ? (
+        <div
+          className="spotify-np-backdrop"
+          style={{ backgroundImage: `url(${track.albumArt})` }}
+          aria-hidden
+        />
+      ) : null}
       <div className="spotify-np-inner">
         <div className="spotify-np-art">
           {track.albumArt
@@ -216,6 +225,7 @@ function NowPlayingSection() {
 // ── AI DJ section ─────────────────────────────────────────────────────────────
 
 function AIDJSection() {
+  const { status: aiStatus, loading: aiStatusLoading } = useAIStatus();
   const [connected, setConnected] = useState<boolean | null>(null);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -226,6 +236,7 @@ function AIDJSection() {
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ name: string; url: string } | null>(null);
   const [queueBusy, setQueueBusy] = useState<string | null>(null);
+  const [recommendMeta, setRecommendMeta] = useState<{ source?: string; aiWarning?: string } | null>(null);
 
   useEffect(() => {
     api.get<{ data?: { connected?: boolean } }>("/spotify/status")
@@ -241,8 +252,9 @@ function AIDJSection() {
     setTracks([]);
     setSaveResult(null);
     setSelected(new Set());
+    setRecommendMeta(null);
     try {
-      const r = await api.post<{ data?: { tracks: AIDJTrack[]; playlistName: string } }>(
+      const r = await api.post<{ data?: { tracks: AIDJTrack[]; playlistName: string; source?: string; aiWarning?: string } }>(
         "/spotify/ai/recommend",
         { prompt: msg }
       );
@@ -251,10 +263,15 @@ function AIDJSection() {
       setTracks(result.tracks);
       setPlaylistName(result.playlistName);
       setSelected(new Set(result.tracks.map((t) => t.uri)));
+      setRecommendMeta({ source: result.source, aiWarning: result.aiWarning });
     } catch (e: unknown) {
       const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
       const msg = ax.response?.data?.error?.message ?? ax.message ?? "Request failed";
-      setError(`Failed to generate playlist: ${msg}`);
+      if (/credit balance|anthropic|openai|ollama|ai provider|kimi|moonshot|quota|recharge/i.test(msg)) {
+        setError(`Playlist search failed: ${msg}. Try a simpler prompt like an artist or genre name.`);
+      } else {
+        setError(`Failed to generate playlist: ${msg}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -294,7 +311,7 @@ function AIDJSection() {
       if (result) setSaveResult({ name: playlistName, url: result.playlistUrl });
     } catch (e: unknown) {
       const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
-      setError(ax.response?.data?.error?.message ?? "Failed to save playlist. Check Spotify playlist permissions.");
+      setError(ax.response?.data?.error?.message ?? "Failed to save playlist. Try disconnecting and reconnecting Spotify in Settings.");
     } finally {
       setSaving(false);
     }
@@ -329,6 +346,8 @@ function AIDJSection() {
         <p className="spotify-ai-subtitle">Describe a mood or genre — the AI will find real tracks for you.</p>
       </div>
 
+      <AIProviderBanner status={aiStatus} loading={aiStatusLoading} compact />
+
       <form
         className="spotify-ai-form"
         onSubmit={(e) => { e.preventDefault(); void generate(); }}
@@ -350,6 +369,12 @@ function AIDJSection() {
       </form>
 
       {error && <p className="spotify-ai-error">{error}</p>}
+      {recommendMeta?.aiWarning && !error && (
+        <p className="spotify-ai-warning">{recommendMeta.aiWarning}</p>
+      )}
+      {recommendMeta?.source === "spotify-search" && !recommendMeta.aiWarning && !error && (
+        <p className="spotify-ai-warning">Results from Spotify search (AI did not pick tracks).</p>
+      )}
 
       {loading && (
         <div className="spotify-ai-loading">
@@ -570,7 +595,7 @@ export const SpotifyPage = () => {
   };
 
   return (
-    <div className="page spotify-page">
+    <div className="page spotify-page spotify-page--spicetify">
       <div className="page-titlebar">
         <h1 className="page-title">♫ Spotify</h1>
         {connected && (

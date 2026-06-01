@@ -8,6 +8,9 @@ import { isN8nConfigured } from "../n8n/n8n-client.js";
 import { isNotionConfigured, testNotionConnection } from "../notion/notion-service.js";
 import { isSpotifyConfigured } from "../spotify/spotify-service.js";
 import { isSpotifyConnected } from "../spotify/spotify-token-store.js";
+import { isMicrosoftConfigured } from "../microsoft/microsoft-service.js";
+import { getAIStatus } from "../ai/ai-provider.js";
+import { getCloudStatus, isNextcloudConfigured } from "../nextcloud/nextcloud-service.js";
 
 export type IntegrationStatus = {
   id: string;
@@ -39,6 +42,23 @@ export async function getIntegrationsStatus(userId?: string): Promise<Integratio
       name: "AI (Anthropic)",
       configured: Boolean(env.ANTHROPIC_API_KEY),
       connected: Boolean(env.ANTHROPIC_API_KEY)
+    },
+    {
+      id: "kimi",
+      name: "AI (Kimi)",
+      configured: Boolean(env.KIMI_API_KEY?.trim() || env.MOONSHOT_API_KEY?.trim()),
+      connected: Boolean(env.KIMI_API_KEY?.trim() || env.MOONSHOT_API_KEY?.trim()),
+      detail: "Moonshot / Kimi API for chat and mail AI"
+    },
+    ...(await buildOllamaStatus()),
+    {
+      id: "microsoft",
+      name: "Outlook (Microsoft)",
+      configured: isMicrosoftConfigured(),
+      connected: isMicrosoftConfigured(),
+      detail: isMicrosoftConfigured()
+        ? "OAuth ready — connect from Mail"
+        : "Set MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET in api.env"
     },
     {
       id: "firebase",
@@ -76,7 +96,23 @@ export async function getIntegrationsStatus(userId?: string): Promise<Integratio
         : "Set CORTEX_MCP_* in env"
     },
     await buildGmailStatus(userId),
-    await buildSpotifyStatus(userId)
+    await buildSpotifyStatus(userId),
+    await buildNextcloudStatus()
+  ];
+}
+
+async function buildOllamaStatus(): Promise<IntegrationStatus[]> {
+  const ai = await getAIStatus();
+  return [
+    {
+      id: "ollama",
+      name: "AI (Ollama local)",
+      configured: true,
+      connected: ai.ollama,
+      detail: ai.ollama
+        ? `Running · ${ai.ollamaModel}`
+        : `Not reachable at ${env.OLLAMA_BASE_URL} — run npm run server:ollama:setup`
+    }
   ];
 }
 
@@ -109,5 +145,32 @@ async function buildSpotifyStatus(userId?: string): Promise<IntegrationStatus> {
     configured,
     connected,
     detail: connected ? "Playback linked" : configured ? "Link account in Settings" : "Set Spotify credentials in backend .env"
+  };
+}
+
+async function buildNextcloudStatus(): Promise<IntegrationStatus> {
+  const configured = isNextcloudConfigured();
+  if (!configured) {
+    return {
+      id: "nextcloud",
+      name: "Cloud storage",
+      configured: false,
+      connected: false,
+      detail: "Set NEXTCLOUD_URL + credentials in api.env"
+    };
+  }
+  const status = await getCloudStatus();
+  const quota = status.quota;
+  const detail = status.connected
+    ? quota?.usedPercent != null
+      ? `${quota.usedHuman} / ${quota.totalHuman} used`
+      : "Nextcloud connected"
+    : status.message ?? "Unreachable";
+  return {
+    id: "nextcloud",
+    name: "Cloud storage",
+    configured: true,
+    connected: status.connected,
+    detail
   };
 }

@@ -6,6 +6,7 @@ When the user's request matches an available skill, invoke it via the Skill tool
 **Vendored libraries:** 260+ skills from [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) (`vendor/claude-skills/`, `.\scripts\sync-claude-skills.ps1`, see `docs/claude-skills.md`). Official Anthropic skills from [anthropics/skills](https://github.com/anthropics/skills) (`vendor/anthropic-skills/`, `npm run sync:anthropic-skills`, see `docs/anthropic-skills.md`) — e.g. `@anthropic-pdf`, `@anthropic-frontend-design`, `@anthropic-mcp-builder`. Claude-skills examples: `@senior-architect`, `@senior-frontend`, `@content-creator`, `@product-manager-toolkit`.
 
 Key routing rules:
+- **Task observer / skill improvement** → `@task-observer` (`npm run sync:task-observer`, `docs/task-observer.md`); also "One skill to rule them all"
 - Product ideas/brainstorming → invoke /office-hours
 - Strategy/scope → invoke /plan-ceo-review
 - Architecture → invoke /plan-eng-review
@@ -19,6 +20,10 @@ Key routing rules:
 - Ship/deploy/PR → invoke /ship or /land-and-deploy
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
+
+## Task observer
+
+At the start of task-oriented sessions (tools + deliverables), invoke `@task-observer` and read `CORTEX-WORKSPACE.md` in that skill folder. Check `skill-observations/log.md` for OPEN items affecting skills in use. End sessions with "Any observations logged?" when work was substantive.
 
 ## OpenClaw as primary host
 

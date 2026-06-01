@@ -167,8 +167,9 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
           projectId,
           priority: fields.priority ?? "MEDIUM",
           status: fields.status ?? "TODO",
-          dueDate: fields.dueDate ? new Date(fields.dueDate).toISOString() : new Date().toISOString(),
+          dueDate: fields.dueDate ? new Date(fields.dueDate).toISOString() : null,
           description: fields.description || undefined,
+          progressPercent: 0,
         });
         const created = (r.data?.data ?? r.data) as ApiTask;
         const planner = mapApiTaskToPlanner(created);
@@ -187,6 +188,17 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
   const createTask = useCallback(async () => {
     return createTaskFields({ title: "New task" });
   }, [createTaskFields]);
+
+  const createOpenTask = useCallback(
+    async (title: string, description?: string | null) => {
+      return createTaskFields({
+        title: title.trim(),
+        dueDate: null,
+        description: description ?? null,
+      });
+    },
+    [createTaskFields],
+  );
 
   const quickAddTask = useCallback(
     async (status: ApiTask["status"], title: string) => {
@@ -255,6 +267,104 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
     [loadTasks],
   );
 
+  const updateTask = useCallback(
+    async (
+      id: string,
+      patch: {
+        title?: string;
+        description?: string | null;
+        status?: ApiTask["status"];
+        priority?: TaskPriority;
+        progressPercent?: number;
+        dueDate?: string | null;
+        planStart?: string | null;
+        planEnd?: string | null;
+        syncToCalendar?: boolean;
+        projectId?: string;
+      },
+    ): Promise<{ calendarError?: string } | void> => {
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id !== id) return t;
+          const hasDue = patch.dueDate !== undefined ? Boolean(patch.dueDate) : t.hasDueDate;
+          const next = {
+            ...t,
+            ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.description !== undefined ? { notes: patch.description?.trim() || undefined } : {}),
+            ...(patch.status !== undefined
+              ? {
+                  status: patch.status,
+                  completed: patch.status === "DONE",
+                }
+              : {}),
+            ...(patch.progressPercent !== undefined ? { progressPercent: patch.progressPercent } : {}),
+            ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+            ...(patch.dueDate !== undefined
+              ? { dueAt: patch.dueDate ?? t.dueAt, hasDueDate: Boolean(patch.dueDate) }
+              : {}),
+            ...(patch.planStart !== undefined ? { planStart: patch.planStart } : {}),
+            ...(patch.planEnd !== undefined ? { planEnd: patch.planEnd } : {}),
+            ...(patch.syncToCalendar !== undefined ? { syncToCalendar: patch.syncToCalendar } : {}),
+            ...(patch.projectId !== undefined ? { projectId: patch.projectId } : {}),
+            hasDueDate: patch.dueDate !== undefined ? Boolean(patch.dueDate) : hasDue,
+          };
+          return { ...next, group: plannerGroupForTask(next) };
+        }),
+      );
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const r = await api.patch(`/tasks/${id}`, {
+          ...(patch.title !== undefined ? { title: patch.title } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.status !== undefined ? { status: patch.status } : {}),
+          ...(patch.progressPercent !== undefined ? { progressPercent: patch.progressPercent } : {}),
+          ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+          ...(patch.dueDate !== undefined ? { dueDate: patch.dueDate } : {}),
+          ...(patch.planStart !== undefined ? { planStart: patch.planStart } : {}),
+          ...(patch.planEnd !== undefined ? { planEnd: patch.planEnd } : {}),
+          ...(patch.syncToCalendar !== undefined ? { syncToCalendar: patch.syncToCalendar } : {}),
+          ...(patch.projectId !== undefined ? { projectId: patch.projectId } : {}),
+        }, { headers: { "X-Timezone": tz } });
+        const body = (r.data?.data ?? r.data) as ApiTask & {
+          calendarSync?: { ok: boolean; error?: string; needsReconnect?: boolean };
+        };
+        if (body?.id) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === id ? mapApiTaskToPlanner(body) : t)),
+          );
+        } else {
+          await loadTasks();
+        }
+        const sync = body?.calendarSync;
+        if (sync && !sync.ok && sync.error && sync.error !== "calendar_sync_skipped") {
+          return { calendarError: sync.error };
+        }
+      } catch {
+        await loadTasks();
+      }
+    },
+    [loadTasks],
+  );
+
+  const createProject = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return null;
+      try {
+        const r = await api.post("/projects", { name: trimmed });
+        const body = (r.data?.data ?? r.data) as { id: string; name: string };
+        if (body?.id) {
+          setProjects((prev) => [...prev, { id: body.id, name: body.name }]);
+          return body.id;
+        }
+      } catch {
+        setTasksError("Could not create project.");
+      }
+      return null;
+    },
+    [],
+  );
+
   const rescheduleEvent = useCallback(
     async (ev: PlannerEvent, start: Date, end: Date) => {
       setCalendarSaving(true);
@@ -298,10 +408,13 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
     refresh,
     toggleTask,
     createTask,
+    createOpenTask,
     quickAddTask,
     createTaskFromNl,
     updateTaskStatus,
+    updateTask,
     deleteTask,
+    createProject,
     rescheduleEvent,
     loadTasks,
   };

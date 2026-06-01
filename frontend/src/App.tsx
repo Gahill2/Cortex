@@ -28,6 +28,7 @@ import { AppTopNav } from "./components/shell/AppTopNav";
 import { QuickCaptureDialog } from "./components/shell/QuickCaptureDialog";
 import { ToastViewport } from "./components/shell/ToastViewport";
 import { useDesktopShortcuts } from "./hooks/useDesktopShortcuts";
+import { getIdleLockMs, isIdleLockEnabled } from "./lib/idleLock";
 
 export type { Tab } from "./tab";
 
@@ -56,8 +57,13 @@ const CalendarPage = lazy(() =>
 const TasksPage = lazy(() =>
   import("./pages/TasksPage").then((m) => ({ default: m.TasksPage }))
 );
-/** Renderer idle lock — must match server expectations for `/auth/lock` */
-const IDLE_LOCK_MS = 15 * 60 * 1000;
+const HomelabPage = lazy(() =>
+  import("./pages/HomelabPage").then((m) => ({ default: m.HomelabPage }))
+);
+const CloudPage = lazy(() =>
+  import("./pages/CloudPage").then((m) => ({ default: m.CloudPage }))
+);
+/** Renderer idle lock — configure with VITE_IDLE_LOCK_MINUTES (0 = off). */
 
 type ElectronWindow = Window & {
   electron?: {
@@ -118,62 +124,20 @@ export default function App() {
 
   const paletteActions = useMemo<PaletteAction[]>(
     () => [
-      { id: "nav-home", label: "Go to Home", group: "Navigate", keywords: "dashboard home", onSelect: () => setTab("home") },
-      {
-        id: "nav-calendar",
-        label: "Go to Calendar",
-        group: "Navigate",
-        keywords: "calendar schedule events",
-        onSelect: () => setTab("calendar"),
-      },
-      {
-        id: "nav-tasks",
-        label: "Go to Tasks",
-        group: "Navigate",
-        keywords: "tasks todo inbox today",
-        onSelect: () => setTab("tasks"),
-      },
-      {
-        id: "nav-goals",
-        label: "Go to Goals",
-        group: "Navigate",
-        keywords: "progress etc targets",
-        onSelect: () => setTab("goals"),
-      },
-      { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant", onSelect: () => setTab("ai") },
-      {
-        id: "nav-notes",
-        label: "Go to Notes",
-        group: "Navigate",
-        keywords: "brain obsidian graph vault",
-        onSelect: () => setTab("notes"),
-      },
-      { id: "nav-mail", label: "Go to Mail", group: "Navigate", keywords: "email gmail", onSelect: () => setTab("mail") },
-      {
-        id: "nav-settings",
-        label: "Go to Settings",
-        group: "Navigate",
-        keywords: "preferences integrations",
-        onSelect: () => setTab("settings"),
-      },
-      {
-        id: "brain-capture",
-        label: "Quick capture",
-        group: "Brain",
-        keywords: "obsidian note inbox daily capture",
-        shortcut: "⌃⇧N",
-        onSelect: () => setCaptureOpen(true),
-      },
-      {
-        id: "session-lock",
-        label: "Lock session",
-        group: "Session",
-        keywords: "pin security logout",
-        shortcut: "⌃L",
-        onSelect: () => {
-          void lockSession();
-        },
-      },
+      { id: "nav-home", label: "Go to Home", group: "Navigate", keywords: "dashboard home canvas", shortcut: "G H", onSelect: () => setTab("home") },
+      { id: "nav-calendar", label: "Go to Calendar", group: "Navigate", keywords: "calendar schedule events", shortcut: "G C", onSelect: () => setTab("calendar") },
+      { id: "nav-tasks", label: "Go to Tasks", group: "Navigate", keywords: "tasks todo inbox today", shortcut: "G T", onSelect: () => setTab("tasks") },
+      { id: "nav-goals", label: "Go to Tasks & goals", group: "Navigate", keywords: "progress targets", onSelect: () => setTab("tasks") },
+      { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant kimi claude", shortcut: "G A", onSelect: () => setTab("ai") },
+      { id: "nav-notes", label: "Go to Notes", group: "Navigate", keywords: "brain obsidian notion vault", onSelect: () => setTab("notes") },
+      { id: "nav-mail", label: "Go to Mail", group: "Navigate", keywords: "email gmail outlook inbox", shortcut: "G M", onSelect: () => setTab("mail") },
+      { id: "nav-cloud", label: "Go to Cloud", group: "Navigate", keywords: "nextcloud files storage upload", onSelect: () => setTab("cloud") },
+      { id: "nav-homelab", label: "Go to Homelab", group: "Navigate", keywords: "server docker grafana monitoring deploy", onSelect: () => setTab("homelab") },
+      { id: "nav-spotify", label: "Go to Spotify", group: "Navigate", keywords: "music ai dj playlist", onSelect: () => setTab("spotify") },
+      { id: "nav-settings", label: "Go to Settings", group: "Navigate", keywords: "preferences integrations security", shortcut: "G S", onSelect: () => setTab("settings") },
+      { id: "brain-capture", label: "Quick capture", group: "Actions", keywords: "obsidian note inbox daily capture", shortcut: "⌃⇧N", onSelect: () => setCaptureOpen(true) },
+      { id: "palette-self", label: "Command palette", group: "Actions", keywords: "search commands", shortcut: "⌃K", onSelect: () => setPaletteOpen(true) },
+      { id: "session-lock", label: "Lock session", group: "Session", keywords: "pin security logout", shortcut: "⌃L", onSelect: () => { void lockSession(); } },
     ],
     [lockSession]
   );
@@ -267,7 +231,8 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (!token || !sessionUnlocked || !pinUnlockRequired) return;
+    if (!token || !sessionUnlocked || !pinUnlockRequired || !isIdleLockEnabled()) return;
+    const idleMs = getIdleLockMs();
     let timeoutId: ReturnType<typeof setTimeout>;
     const schedule = () => {
       clearTimeout(timeoutId);
@@ -279,7 +244,7 @@ export default function App() {
             setPinGateReason("idle");
             setSessionUnlocked(false);
           });
-      }, IDLE_LOCK_MS);
+      }, idleMs);
     };
     schedule();
     const onActivity = () => {
@@ -287,15 +252,19 @@ export default function App() {
     };
     const opts: AddEventListenerOptions = { passive: true };
     window.addEventListener("pointerdown", onActivity, opts);
+    window.addEventListener("pointermove", onActivity, opts);
     window.addEventListener("keydown", onActivity, opts);
     window.addEventListener("touchstart", onActivity, opts);
     window.addEventListener("wheel", onActivity, opts);
+    window.addEventListener("scroll", onActivity, opts);
     return () => {
       clearTimeout(timeoutId);
       window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("pointermove", onActivity);
       window.removeEventListener("keydown", onActivity);
       window.removeEventListener("touchstart", onActivity);
       window.removeEventListener("wheel", onActivity);
+      window.removeEventListener("scroll", onActivity);
     };
   }, [token, sessionUnlocked, pinUnlockRequired]);
 
@@ -557,7 +526,9 @@ export default function App() {
                 ? " cortex-route-bootstrap--home-full"
                 : tab === "calendar" || tab === "tasks"
                   ? " cortex-route-bootstrap--planner-full"
-                  : " cortex-route-bootstrap--padded"
+                  : tab === "goals"
+                    ? " cortex-route-bootstrap--goals-full"
+                    : " cortex-route-bootstrap--padded"
             }`}
           >
             {tab === "calendar" || tab === "tasks" ? (
@@ -570,7 +541,7 @@ export default function App() {
                 {tab === "home" && (
                   <HomePage onNavigate={goTab} onCommand={() => setPaletteOpen(true)} />
                 )}
-                {tab === "goals" && <GoalsPage onNavigate={goTab} />}
+                {tab === "goals" && <TasksPage onNavigate={goTab} />}
                 {tab === "ai" && <AIPage />}
                 {tab === "notes" && <NotesPage />}
                 {tab === "settings" && (
@@ -584,6 +555,8 @@ export default function App() {
                   />
                 )}
                 {tab === "mail" && <MailPage />}
+                {tab === "cloud" && <CloudPage />}
+                {tab === "homelab" && <HomelabPage />}
                 {tab === "spotify" && <SpotifyPage />}
               </Suspense>
             )}

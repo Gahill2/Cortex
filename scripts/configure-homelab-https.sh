@@ -13,11 +13,17 @@ API_ENV="$COMPOSE_DIR/env/api.env"
 MAGIC_DNS="$(tailscale status --json 2>/dev/null | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-name = (d.get('Self') or {}).get('DNSName') or ''
-print(name.rstrip('.'))
+print((d.get('Self') or {}).get('DNSName', '').rstrip('.'))
 " 2>/dev/null || true)"
 
-if [[ -z "$MAGIC_DNS" ]]; then
+# Optional override from deploy/homelab/.env (CORTEX_PUBLIC_HOST=cortex.yourdomain.com)
+if [[ -f "$ENV_FILE" ]]; then
+  CUSTOM_HOST="$(grep -E '^CORTEX_PUBLIC_HOST=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d ' \"' || true)"
+  [[ -n "$CUSTOM_HOST" ]] && PUBLIC_HOST="$CUSTOM_HOST"
+fi
+PUBLIC_HOST="${PUBLIC_HOST:-$MAGIC_DNS}"
+
+if [[ -z "$PUBLIC_HOST" ]]; then
   echo "Could not read MagicDNS name. Is Tailscale connected?" >&2
   exit 1
 fi
@@ -30,7 +36,7 @@ if ! tailscale serve status 2>/dev/null | grep -q .; then
   exit 1
 fi
 
-WEB_BASE="https://${MAGIC_DNS}"
+WEB_BASE="https://${PUBLIC_HOST}"
 API_BASE="${WEB_BASE}/api"
 
 set_env_key() {
@@ -44,12 +50,13 @@ set_env_key() {
 
 echo "Configuring homelab for HTTPS at ${WEB_BASE} ..."
 
-set_env_key "$ENV_FILE" "VITE_API_BASE_URL" "$API_BASE"
+set_env_key "$ENV_FILE" "VITE_API_BASE_URL" ""
 
 IP="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]')"
 CORS="${WEB_BASE}"
+[[ -n "$MAGIC_DNS" ]] && CORS="${CORS},http://${MAGIC_DNS}:8080"
 [[ -n "$IP" ]] && CORS="${CORS},http://${IP}:8080,https://${IP}"
-CORS="${CORS},http://127.0.0.1:8080,http://localhost:8080,http://${MAGIC_DNS}:8080"
+CORS="${CORS},http://127.0.0.1:8080,http://localhost:8080"
 
 set_env_key "$API_ENV" "CORTEX_FRONTEND_URL" "$WEB_BASE"
 set_env_key "$API_ENV" "CORS_ORIGINS" "$CORS"

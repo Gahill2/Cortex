@@ -8,6 +8,8 @@ export interface PlannerTask {
   id: string;
   title: string;
   dueAt: string;
+  /** True when the task has an explicit due date from the API. */
+  hasDueDate: boolean;
   priority: TaskPriority;
   category: TaskCategory;
   group: TaskGroup;
@@ -17,6 +19,11 @@ export interface PlannerTask {
   projectId?: string;
   projectName?: string;
   status?: "TODO" | "IN_PROGRESS" | "DONE";
+  progressPercent?: number;
+  planStart?: string | null;
+  planEnd?: string | null;
+  syncToCalendar?: boolean;
+  googleEventId?: string | null;
 }
 
 export interface PlannerEvent {

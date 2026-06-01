@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { buildVaultTree, type VaultFileRow, type VaultTreeNode } from "../../lib/vaultTree";
+import { EmptyState } from "../ui/EmptyState";
 
 function FolderIcon() {
   return (
@@ -133,7 +134,14 @@ export function VaultBrowser(props: {
   };
 
   if (tree.length === 0) {
-    return <p className="notes-muted notes-tree-empty">No notes in vault.</p>;
+    return (
+      <EmptyState
+        className="notes-tree-empty"
+        icon={<NoteIcon />}
+        title="No notes in vault"
+        description="Create your first note in Obsidian, then refresh this page."
+      />
+    );
   }
 
   return (

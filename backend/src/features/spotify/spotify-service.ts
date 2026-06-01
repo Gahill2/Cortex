@@ -228,3 +228,102 @@ export async function setVolume(userId: string, volumePercent: number): Promise<
   );
   if (!res.ok && res.status !== 204) throw new Error(`Spotify volume error: ${res.status}`);
 }
+
+export type SpotifyTrackResult = {
+  id: string;
+  name: string;
+  artists: string[];
+  albumArt: string | null;
+  uri: string;
+  previewUrl: string | null;
+};
+
+type SpotifyTrackItem = {
+  id: string;
+  name: string;
+  uri: string;
+  preview_url: string | null;
+  artists: Array<{ name: string }>;
+  album: { images: Array<{ url: string }> };
+};
+
+function mapSpotifyTrackItem(item: SpotifyTrackItem): SpotifyTrackResult {
+  return {
+    id: item.id,
+    name: item.name,
+    artists: item.artists.map((a) => a.name),
+    albumArt: item.album.images[0]?.url ?? null,
+    uri: item.uri,
+    previewUrl: item.preview_url,
+  };
+}
+
+/** Search Spotify for tracks matching a free-text query (no AI required). */
+export async function searchSpotifyTracks(
+  userId: string,
+  query: string,
+  limit = 15,
+): Promise<SpotifyTrackResult[]> {
+  const token = await getValidSpotifyToken(userId);
+  const q = encodeURIComponent(query.trim());
+  const r = await fetch(`${SPOTIFY_API}/search?q=${q}&type=track&limit=${Math.min(limit, 50)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) {
+    const detail = await readSpotifyError(r, "Spotify search failed");
+    throw new Error(detail);
+  }
+  const data = (await r.json()) as { tracks?: { items?: SpotifyTrackItem[] } };
+  return (data.tracks?.items ?? []).map(mapSpotifyTrackItem);
+}
+
+async function readSpotifyError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: { message?: string; status?: number } };
+    const msg = body.error?.message?.trim();
+    if (msg) return msg;
+  } catch {
+    /* ignore */
+  }
+  return `${fallback} (HTTP ${res.status})`;
+}
+
+export async function createSpotifyPlaylist(
+  userId: string,
+  name: string,
+  trackUris: string[],
+): Promise<{ playlistId: string; playlistUrl: string }> {
+  const token = await getValidSpotifyToken(userId);
+
+  const createRes = await fetch(`${SPOTIFY_API}/me/playlists`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description: "Created by Cortex AI", public: false }),
+  });
+  if (!createRes.ok) {
+    const detail = await readSpotifyError(createRes, "Failed to create Spotify playlist");
+    if (createRes.status === 403) {
+      throw new Error(
+        `${detail}. Disconnect and reconnect Spotify in Settings to grant playlist permissions.`,
+      );
+    }
+    throw new Error(detail);
+  }
+
+  const playlist = (await createRes.json()) as { id: string; external_urls: { spotify: string } };
+
+  const addRes = await fetch(`${SPOTIFY_API}/playlists/${playlist.id}/items`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ uris: trackUris }),
+  });
+  if (!addRes.ok) {
+    const detail = await readSpotifyError(addRes, "Failed to add tracks to playlist");
+    throw new Error(detail);
+  }
+
+  return {
+    playlistId: playlist.id,
+    playlistUrl: playlist.external_urls.spotify,
+  };
+}

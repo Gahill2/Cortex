@@ -69,8 +69,15 @@ cortexGmailRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_000
   const gmailState = verifyGmailOAuthState(state);
   if (gmailState.userId !== req.auth!.userId) throw new HttpError(403, "State userId mismatch");
   const tokens = await exchangeAuthorizationCode(code, gmailState.returnOrigin);
+  const auth = createOAuth2Client(gmailState.returnOrigin);
+  auth.setCredentials(tokens);
+  const oauth2 = google.oauth2({ version: "v2", auth });
+  const userInfo = await oauth2.userinfo.get();
+  const email = userInfo.data.email;
+  if (!email) throw new HttpError(400, "no_email_returned");
+  await upsertGmailAccount(req.auth!.userId, email, tokens, { label: email });
   await saveGoogleCredentials(req.auth!.userId, tokens);
-  sendSuccess(res, { connected: true });
+  sendSuccess(res, { connected: true, email });
 });
 
 cortexGmailRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {

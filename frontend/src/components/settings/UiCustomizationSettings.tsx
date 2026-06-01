@@ -14,8 +14,8 @@ export function UiCustomizationSettings() {
       <section className="settings-section">
         <h2 className="settings-section-title">Home &amp; widgets</h2>
         <p className="settings-section-desc">
-          Typography and scale for the home canvas and widget chrome. Tuned for responsive,
-          Apple-like layouts.
+          Typography and scale for the home dashboard. In customize mode on Home, use the Theme strip in the
+          toolbar for quick changes — these settings sync across devices.
         </p>
 
         <p className="settings-label">Font</p>

@@ -23,6 +23,8 @@ export function CalendarPage({ onNavigate }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
 
   const calView = useMemo(() => toPlannerCalView(view), [view]);
   const {
@@ -53,6 +55,7 @@ export function CalendarPage({ onNavigate }: Props) {
   const onSelectEvent = (ev: PlannerEvent) => {
     setSelectedEventId(ev.id);
     setSelectedTaskId(null);
+    setMobileInspectorOpen(true);
   };
 
   const statusMessage =
@@ -66,13 +69,20 @@ export function CalendarPage({ onNavigate }: Props) {
   return (
     <div className="pd-route pd-route--calendar">
       <ProductivityShell
+        mobileSidebarOpen={mobileSidebarOpen}
+        onMobileSidebarOpenChange={setMobileSidebarOpen}
+        mobileInspectorOpen={mobileInspectorOpen}
+        onMobileInspectorOpenChange={setMobileInspectorOpen}
         left={
           <CalendarLeftRail
             viewDate={viewDate}
             categoryFilter={categoryFilter}
             onCategoryChange={setCategoryFilter}
             onViewDateChange={setViewDate}
-            onGoTasks={() => onNavigate("tasks")}
+            onGoTasks={() => {
+              onNavigate("tasks");
+              setMobileSidebarOpen(false);
+            }}
           />
         }
         main={
@@ -84,6 +94,9 @@ export function CalendarPage({ onNavigate }: Props) {
               onViewDateChange={setViewDate}
               onToday={() => setViewDate(new Date())}
               onQuickAdd={() => void createTask().then((id) => id && onNavigate("tasks"))}
+              onOpenSidebar={() => setMobileSidebarOpen(true)}
+              onOpenInspector={() => setMobileInspectorOpen(true)}
+              showInspectorButton={Boolean(selectedEvent || selectedTask)}
             />
             {statusMessage ? (
               <p className="pd-route__banner pd-route__banner--error" role="alert">

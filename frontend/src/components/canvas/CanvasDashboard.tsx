@@ -39,6 +39,9 @@ import type { WidgetRegistryEntry } from "../../dashboard/types";
 import { useCanvasViewPrefs } from "./canvasViewPrefs";
 import { computeFitView } from "./canvasFit";
 import { CanvasViewControls } from "./CanvasViewControls";
+import { HomeGlanceBar } from "../home/HomeGlanceBar";
+import { DashboardCustomizeStrip } from "./DashboardCustomizeStrip";
+import { useUiCustomization } from "../../hooks/useUiCustomization";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -95,6 +98,8 @@ interface Props {
   /** Controlled widget library (e.g. home workbench “Add widget”). */
   libraryOpen?: boolean;
   onLibraryOpenChange?: (open: boolean) => void;
+  /** Command palette shortcut (home toolbar). */
+  onCommand?: () => void;
 }
 
 const STORAGE_KEY = "cortex-canvas-state";
@@ -177,12 +182,15 @@ export function CanvasDashboard({
   onEditModeChange,
   libraryOpen: libraryOpenProp,
   onLibraryOpenChange,
+  onCommand,
 }: Props) {
   const { settings, ready, patch } = usePreferences();
+  const { ui } = useUiCustomization();
   const { prefs: viewPrefs, patch: patchViewPrefs } = useCanvasViewPrefs();
   const viewPrefsRef = useRef(viewPrefs);
   viewPrefsRef.current = viewPrefs;
   const canvasHydratedRef = useRef(false);
+  const appliedLayoutRef = useRef<string>("");
   const saved = loadState();
   const [nodes, setNodes] = useState<CanvasNode[]>(() =>
     normalizeNodes(saved?.nodes ?? initialCanvasNodes()),
@@ -302,11 +310,13 @@ export function CanvasDashboard({
     };
   }, []);
 
-  // Hydrate from server once preferences are loaded (re-upload local data: images if assets missing)
+  // Hydrate from server when preferences load or another device saves layout
   useEffect(() => {
-    if (!ready || canvasHydratedRef.current) return;
+    if (!ready) return;
     const layout = settings.canvasLayout as CanvasLayoutPref | null;
-    canvasHydratedRef.current = true;
+    const fp = JSON.stringify(layout ?? null);
+    if (fp === appliedLayoutRef.current) return;
+    appliedLayoutRef.current = fp;
 
     void (async () => {
       const local = loadCanvasFromLocalStorage();
@@ -332,6 +342,7 @@ export function CanvasDashboard({
         const bg = loadCanvasBackground();
         if (bg.kind !== "default") setBackground(bg);
       }
+      canvasHydratedRef.current = true;
     })();
   }, [ready, settings.canvasLayout]);
 
@@ -961,6 +972,20 @@ export function CanvasDashboard({
     setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
   }, []);
 
+  const updateWidgetConfig = useCallback((id: string, widgetConfig: Record<string, unknown>) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const next = { ...n, widgetConfig };
+        const title = widgetConfig.title;
+        if (typeof title === "string" && title.trim()) {
+          next.title = title.trim();
+        }
+        return next;
+      }),
+    );
+  }, []);
+
   // Animated zoom for toolbar buttons
   const animateZoom = useCallback((targetZoom: number) => {
     cancelAnimationFrame(zoomAnimRef.current);
@@ -1054,11 +1079,13 @@ export function CanvasDashboard({
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [selectedNode?.id, selectedNode?.type]);
+  }, [selectedNode?.id, selectedNode?.type, editMode]);
 
   return (
     <div
       className={`canvas-dashboard canvas-dashboard--fixed-chrome${editMode ? " canvas-dashboard--edit-mode" : ""}`}
+      data-ui-density={ui.density}
+      data-surface-tone={ui.surfaceTone}
       ref={containerRef}
     >
       <WidgetLibrary
@@ -1067,63 +1094,85 @@ export function CanvasDashboard({
         onAdd={addWidgetFromRegistry}
       />
       <div
-        className={`canvas-chrome-dock${selectedNode ? " canvas-chrome-dock--inspector" : ""}`}
+        className={`canvas-chrome-stack${editMode ? " canvas-chrome-stack--edit-mode" : ""}${selectedNode ? " canvas-chrome-stack--has-selection" : ""}`}
         ref={chromeDockRef}
       >
-        <div className="canvas-chrome-dock__row canvas-chrome-dock__row--main">
-          <CanvasToolbar
-            zoom={zoom}
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onZoomReset={() => zoomTo(1)}
-            editMode={editMode}
-            onToggleEditMode={() => setEditMode((v) => !v)}
-            onOpenWidgetLibrary={() => {
-              setLibraryOpen(true);
-              setEditMode(true);
-            }}
-            onResetLayout={resetDashboardLayout}
-            widgetCount={widgetNodeCount}
-            onAddWidget={addWidget}
-            onAddImage={addImage}
-            onAddNote={addNote}
-            onAddCustom={addCustom}
-            onAddEmbed={addEmbed}
-            onAddBackdrop={addBackdrop}
-            background={background}
-            onBackgroundChange={onBackgroundChange}
-          />
-        </div>
-        {selectedNode && (
-          <div className="canvas-chrome-dock__row canvas-chrome-dock__row--inspector">
-            <CanvasSelectionToolbar
-              node={selectedNode}
-              onGeometryChange={(patch) => updateNodeGeometry(selectedNode.id, patch)}
-              onAppearanceChange={
-                selectedNode.type !== "backdrop"
-                  ? (patch) => updateNodeAppearance(selectedNode.id, patch)
-                  : undefined
-              }
-              onWidgetStyleChange={
-                selectedNode.type === "widget"
-                  ? (patch) => setWidgetStyle(selectedNode.id, patch)
-                  : undefined
-              }
-              onBackdropChange={
-                selectedNode.type === "backdrop"
-                  ? (patch) => updateBackdrop(selectedNode.id, patch)
-                  : undefined
-              }
-              onBringForward={() => bringForward(selectedNode.id)}
-              onSendForward={() => bringToFront(selectedNode.id)}
-              onSendBackward={() => sendBackward(selectedNode.id)}
-              onSendToBack={() => sendToBack(selectedNode.id)}
-              onDuplicate={() => duplicateNode(selectedNode.id)}
-              onRemove={() => removeNode(selectedNode.id)}
-              onClearSelection={() => setSelected(new Set())}
+        <div className={`canvas-chrome-dock${selectedNode ? " canvas-chrome-dock--has-selection" : ""}`}>
+        <div className={`canvas-unified-toolbar${editMode || selectedNode ? " canvas-unified-toolbar--expanded" : ""}`}>
+          {renderWidget ? (
+            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--nav">
+              <HomeGlanceBar compact onNavigate={onNavigate} onCommand={onCommand} />
+            </div>
+          ) : null}
+          <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--main canvas-unified-toolbar__row--toolbar">
+            <CanvasToolbar
+              embedded
+              zoom={zoom}
+              onZoomIn={zoomIn}
+              onZoomOut={zoomOut}
+              onZoomReset={() => zoomTo(1)}
+              editMode={editMode}
+              onToggleEditMode={() => setEditMode((v) => !v)}
+              onOpenWidgetLibrary={() => {
+                setLibraryOpen(true);
+                setEditMode(true);
+              }}
+              onResetLayout={resetDashboardLayout}
+              widgetCount={widgetNodeCount}
+              onAddWidget={addWidget}
+              onAddImage={addImage}
+              onAddNote={addNote}
+              onAddCustom={addCustom}
+              onAddEmbed={addEmbed}
+              onAddBackdrop={addBackdrop}
+              background={background}
+              onBackgroundChange={onBackgroundChange}
             />
           </div>
-        )}
+          {editMode ? (
+            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--secondary">
+              <DashboardCustomizeStrip />
+            </div>
+          ) : null}
+          {selectedNode ? (
+            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--selection">
+              <CanvasSelectionToolbar
+                embedded
+                preferExpanded={false}
+                node={selectedNode}
+                  onGeometryChange={(patch) => updateNodeGeometry(selectedNode.id, patch)}
+                  onAppearanceChange={
+                    selectedNode.type !== "backdrop"
+                      ? (patch) => updateNodeAppearance(selectedNode.id, patch)
+                      : undefined
+                  }
+                  onWidgetStyleChange={
+                    selectedNode.type === "widget"
+                      ? (patch) => setWidgetStyle(selectedNode.id, patch)
+                      : undefined
+                  }
+                  onWidgetConfigChange={
+                    selectedNode.type === "widget"
+                      ? (config) => updateWidgetConfig(selectedNode.id, config)
+                      : undefined
+                  }
+                  onBackdropChange={
+                    selectedNode.type === "backdrop"
+                      ? (patch) => updateBackdrop(selectedNode.id, patch)
+                      : undefined
+                  }
+                  onBringForward={() => bringForward(selectedNode.id)}
+                  onSendForward={() => bringToFront(selectedNode.id)}
+                  onSendBackward={() => sendBackward(selectedNode.id)}
+                  onSendToBack={() => sendToBack(selectedNode.id)}
+                  onDuplicate={() => duplicateNode(selectedNode.id)}
+                  onRemove={() => removeNode(selectedNode.id)}
+                  onClearSelection={() => setSelected(new Set())}
+                />
+            </div>
+          ) : null}
+        </div>
+        </div>
       </div>
 
       <div

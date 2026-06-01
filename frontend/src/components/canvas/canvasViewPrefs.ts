@@ -1,24 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+import { usePreferencesOptional } from "../../context/PreferencesContext";
+import { DEFAULT_CANVAS_VIEW_PREFS, type CanvasViewPrefs, type GridStyle } from "./canvasViewPrefsTypes";
 
-export type GridStyle = "dots" | "lines";
-
-export interface CanvasViewPrefs {
-  showGrid: boolean;
-  snapToGrid: boolean;
-  gridStyle: GridStyle;
-  gridSize: 8 | 16 | 24;
-}
+export type { CanvasViewPrefs, GridStyle } from "./canvasViewPrefsTypes";
+export { DEFAULT_CANVAS_VIEW_PREFS } from "./canvasViewPrefsTypes";
 
 const STORAGE_KEY = "cortex-canvas-view-prefs";
 
-export const DEFAULT_CANVAS_VIEW_PREFS: CanvasViewPrefs = {
-  showGrid: true,
-  snapToGrid: true,
-  gridStyle: "dots",
-  gridSize: 24,
-};
-
-function loadPrefs(): CanvasViewPrefs {
+function loadPrefsFromStorage(): CanvasViewPrefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_CANVAS_VIEW_PREFS;
@@ -34,7 +23,7 @@ function loadPrefs(): CanvasViewPrefs {
   }
 }
 
-function savePrefs(prefs: CanvasViewPrefs) {
+function savePrefsToStorage(prefs: CanvasViewPrefs) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
   } catch {
@@ -43,15 +32,34 @@ function savePrefs(prefs: CanvasViewPrefs) {
 }
 
 export function useCanvasViewPrefs() {
-  const [prefs, setPrefs] = useState<CanvasViewPrefs>(loadPrefs);
+  const prefsCtx = usePreferencesOptional();
+  const ready = prefsCtx?.ready ?? false;
+  const patch = prefsCtx?.patch;
+  const serverPrefs = prefsCtx?.settings.extraJson?.canvasViewPrefs;
+
+  const [prefs, setPrefs] = useState<CanvasViewPrefs>(() =>
+    ready && serverPrefs ? serverPrefs : loadPrefsFromStorage(),
+  );
 
   useEffect(() => {
-    savePrefs(prefs);
-  }, [prefs]);
+    if (!ready) return;
+    if (serverPrefs) {
+      setPrefs(serverPrefs);
+      savePrefsToStorage(serverPrefs);
+    }
+  }, [ready, serverPrefs]);
 
-  const patch = useCallback((next: Partial<CanvasViewPrefs>) => {
-    setPrefs((p) => ({ ...p, ...next }));
-  }, []);
+  const patchPrefs = useCallback(
+    (next: Partial<CanvasViewPrefs>) => {
+      setPrefs((prev) => {
+        const merged = { ...prev, ...next };
+        savePrefsToStorage(merged);
+        patch?.({ extraJson: { canvasViewPrefs: merged } });
+        return merged;
+      });
+    },
+    [patch],
+  );
 
-  return { prefs, patch, setPrefs };
+  return { prefs, patch: patchPrefs, setPrefs };
 }

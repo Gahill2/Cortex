@@ -8,4 +8,6 @@ export type Tab =
   | "notes"
   | "settings"
   | "spotify"
-  | "mail";
+  | "mail"
+  | "homelab"
+  | "cloud";

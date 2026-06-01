@@ -39,8 +39,19 @@ export function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) 
     }
   };
 
+  const albumArt = np?.track?.albumArt;
+
   return (
-    <div className={`widget widget--spotify ${connected && np?.playing ? "widget--spotify-active" : ""}`}>
+    <div
+      className={`widget widget--spotify spotify-spicetify ${connected && np?.playing ? "widget--spotify-active" : ""}`}
+    >
+      {albumArt ? (
+        <div
+          className="spotify-spicetify__backdrop"
+          style={{ backgroundImage: `url(${albumArt})` }}
+          aria-hidden
+        />
+      ) : null}
       <div className="widget-label widget-label--brand">
         <BrandIcon brand="spotify" size={18} title="Spotify" />
         <span>Spotify</span>

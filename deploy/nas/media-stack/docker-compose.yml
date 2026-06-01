@@ -1,0 +1,135 @@
+# Media download stack — qBittorrent + *arr through NordVPN (Gluetun).
+# SABnzbd (Usenet) runs on the host network for full speed (SSL to provider; no VPN needed).
+# Jellyfin stays in ../docker-compose.yml (direct Tailscale/LAN, no VPN).
+#
+#   cp .env.example .env   # add Nord credentials
+#   docker compose --env-file .env up -d
+#
+# Docs: README.md · Gluetun NordVPN: https://github.com/qdm12/gluetun-wiki/blob/main/setup/providers/nordvpn.md
+
+name: cortex-media
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: cortex-gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: nordvpn
+      VPN_TYPE: ${VPN_TYPE:-openvpn}
+      OPENVPN_USER: ${OPENVPN_USER:-}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD:-}
+      OPENVPN_PROTOCOL: ${OPENVPN_PROTOCOL:-udp}
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
+      SERVER_COUNTRIES: ${SERVER_COUNTRIES:-United States}
+      SERVER_CATEGORIES: ${SERVER_CATEGORIES:-P2P}
+      TZ: ${TZ:-UTC}
+      # Allow LAN/Tailscale to reach published UI ports (adjust to your subnets)
+      FIREWALL_OUTBOUND_SUBNETS: ${FIREWALL_OUTBOUND_SUBNETS:-192.168.0.0/16,10.0.0.0/8,100.64.0.0/10,172.16.0.0/12}
+      DOT: "on"
+      BLOCK_MALICIOUS: "on"
+      UPDATER_PERIOD: 24h
+    ports:
+      - "${QBITTORRENT_PORT:-8089}:8089"
+      - "${PROWLARR_PORT:-9696}:9696"
+      - "${RADARR_PORT:-7878}:7878"
+      - "${SONARR_PORT:-8989}:8989"
+      # SABnzbd is NOT on Gluetun — published on sabnzbd service below
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/gluetun:/gluetun
+    healthcheck:
+      test: ["CMD", "/gluetun-entrypoint", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: cortex-qbittorrent
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      WEBUI_PORT: 8089
+      TORRENTING_PORT: ${TORRENTING_PORT:-6881}
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/qbittorrent:/config
+      - ${NAS_DATA_ROOT}/media/downloads:/downloads
+      - ${NAS_DATA_ROOT}/media:/media
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: cortex-prowlarr
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/prowlarr:/config
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: cortex-radarr
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/radarr:/config
+      - ${NAS_DATA_ROOT}/media:/media
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: cortex-sonarr
+    restart: unless-stopped
+    network_mode: service:gluetun
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/sonarr:/config
+      - ${NAS_DATA_ROOT}/media:/media
+
+  # Usenet — direct connection (no VPN) for max speed; *arr reach via host IP (see README)
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: cortex-sabnzbd
+    restart: unless-stopped
+    ports:
+      - "${SABNZBD_PORT:-8082}:8082"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      WEBUI_PORT: 8082
+    volumes:
+      - ${NAS_DATA_ROOT}/appdata/sabnzbd:/config
+      - ${NAS_DATA_ROOT}/media/downloads/incomplete:/incomplete-downloads
+      - ${NAS_DATA_ROOT}/media/downloads/complete:/downloads
+      - ${NAS_DATA_ROOT}/media:/media
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
