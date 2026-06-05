@@ -22,6 +22,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
 
   redis:
     image: redis:7-alpine
@@ -30,6 +34,15 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - ${CORTEX_DATA_DIR:-./data}/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 128M }
+        reservations: { cpus: '0.1', memory: 32M }
 
   cortex-api:
     build:
@@ -53,6 +66,10 @@ services:
       - ${CORTEX_DATA_DIR:-./data}/api:/app/data
       # Grey Hill Brain — override OBSIDIAN_VAULT_HOST_PATH in deploy/homelab/.env
       - ${OBSIDIAN_VAULT_HOST_PATH:-C:/Users/greyh/Documents/GitHub/greyhill_brain}:/vault:rw
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
 
   cortex-web:
     build:
@@ -65,5 +82,14 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       - cortex-api
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 64M }
+        reservations: { cpus: '0.1', memory: 16M }

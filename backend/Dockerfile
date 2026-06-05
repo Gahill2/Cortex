@@ -46,6 +46,9 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
+RUN addgroup --system --gid 1001 appgroup && adduser --system --uid 1001 --ingroup appgroup appuser
+USER appuser
+
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=5 \

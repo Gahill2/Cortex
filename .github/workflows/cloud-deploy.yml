@@ -34,6 +34,14 @@ jobs:
           npx prisma generate
           npm run build
 
+      - name: Migration drift check
+        working-directory: backend
+        run: |
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --exit-code
+
       - name: Frontend build
         working-directory: frontend
         env:

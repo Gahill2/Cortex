@@ -50,6 +50,10 @@ services:
         condition: service_healthy
     networks:
       - insforge-network
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
 
   cortex-web:
     build:
@@ -60,5 +64,14 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       - cortex-api
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 64M }
+        reservations: { cpus: '0.1', memory: 16M }
