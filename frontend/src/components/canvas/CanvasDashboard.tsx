@@ -40,6 +40,15 @@ import type { WidgetRegistryEntry } from "../../dashboard/types";
 import { useCanvasViewPrefs } from "./canvasViewPrefs";
 import { computeFitView } from "./canvasFit";
 import { CanvasViewControls } from "./CanvasViewControls";
+import {
+  createHistory,
+  pushHistory,
+  undoHistory,
+  redoHistory,
+  type CanvasHistory,
+} from "../../lib/canvasHistory";
+import { PresetPicker } from "../../dashboard/PresetPicker";
+import { useToastStore } from "../../stores/toastStore";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -218,6 +227,9 @@ export function CanvasDashboard({
     Math.max(...(saved?.nodes ?? initialCanvasNodes()).map((n) => n.zIndex), 0),
   );
   const [background, setBackground] = useState<CanvasBackground>(loadCanvasBackground);
+  const historyRef = useRef<CanvasHistory>(createHistory());
+  const [presetPickerOpen, setPresetPickerOpen] = useState(false);
+  const pushToast = useToastStore((s) => s.push);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -587,6 +599,13 @@ export function CanvasDashboard({
       dragElRef.current.style.transform = "";
       dragElRef.current.style.willChange = "";
       dragElRef.current = null;
+      if (dragMovedRef.current) {
+        historyRef.current = pushHistory(historyRef.current, {
+          nodes,
+          pan: panRef.current,
+          zoom: zoomRef.current,
+        });
+      }
       setNodes((prev) =>
         prev.map((n) => (n.id === dragId ? { ...n, x: finalX, y: finalY } : n))
       );
@@ -621,6 +640,11 @@ export function CanvasDashboard({
       const finalH = Math.max(minH, resizeStart.current.h + dy);
       resizeElRef.current.style.willChange = "";
       resizeElRef.current = null;
+      historyRef.current = pushHistory(historyRef.current, {
+        nodes,
+        pan: panRef.current,
+        zoom: zoomRef.current,
+      });
       setNodes((prev) =>
         prev.map((n) => (n.id === resizeId ? { ...n, w: finalW, h: finalH } : n))
       );
@@ -787,9 +811,14 @@ export function CanvasDashboard({
   );
 
   const removeNode = useCallback((id: string) => {
+    historyRef.current = pushHistory(historyRef.current, {
+      nodes,
+      pan: panRef.current,
+      zoom: zoomRef.current,
+    });
     setNodes((prev) => prev.filter((n) => n.id !== id));
     setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-  }, []);
+  }, [nodes]);
 
   const viewCenter = useCallback(() => {
     const cw = containerRef.current?.clientWidth ?? 800;
@@ -799,6 +828,11 @@ export function CanvasDashboard({
 
   const addWidget = useCallback(
     (widgetKey: string, variant: WidgetSizeVariant = "medium", skin?: WidgetSkin, display?: string) => {
+      historyRef.current = pushHistory(historyRef.current, {
+        nodes,
+        pan: panRef.current,
+        zoom: zoomRef.current,
+      });
       const newZ = maxZ + 1;
       setMaxZ(newZ);
       const c = viewCenter();
@@ -821,7 +855,7 @@ export function CanvasDashboard({
         },
       ]);
     },
-    [maxZ, viewCenter],
+    [maxZ, viewCenter, nodes],
   );
 
   const addWidgetFromRegistry = useCallback(
@@ -845,8 +879,29 @@ export function CanvasDashboard({
     setEditMode(true);
   }, []);
 
+  const applyPresetNodes = useCallback((presetNodes: CanvasNode[]) => {
+    historyRef.current = pushHistory(historyRef.current, {
+      nodes,
+      pan: panRef.current,
+      zoom: zoomRef.current,
+    });
+    const topZ = presetNodes.reduce((m, n) => Math.max(m, n.zIndex), 0);
+    setNodes(presetNodes);
+    setMaxZ(topZ);
+    setSelected(new Set());
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  }, [nodes]);
+
   const widgetNodeCount = nodes.filter((n) => n.type === "widget").length;
   const showEmptyOnboarding = widgetNodeCount === 0;
+
+  // Auto-open preset picker when canvas is empty and in edit mode
+  useEffect(() => {
+    if (showEmptyOnboarding && editMode) {
+      setPresetPickerOpen(true);
+    }
+  }, [showEmptyOnboarding, editMode]);
 
   const setWidgetVariant = useCallback((id: string, variant: WidgetSizeVariant) => {
     setNodes((prev) =>
@@ -1018,19 +1073,74 @@ export function CanvasDashboard({
     }, 130);
   }, [nodes, animateZoom, applyLayerTransform, commitChromeSync]);
 
-  // Delete selected with keyboard
+  /** Push current state to history before a mutation */
+  const pushStateToHistory = useCallback(() => {
+    historyRef.current = pushHistory(historyRef.current, {
+      nodes,
+      pan: panRef.current,
+      zoom: zoomRef.current,
+    });
+  }, [nodes]);
+
+  // Delete selected with keyboard + Ctrl+Z undo / Ctrl+Shift+Z redo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const inInput = active && (
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        (active as HTMLElement).isContentEditable
+      );
+
       if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
-        const active = document.activeElement;
-        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        if (inInput) return;
+        historyRef.current = pushHistory(historyRef.current, {
+          nodes,
+          pan: panRef.current,
+          zoom: zoomRef.current,
+        });
         setNodes((prev) => prev.filter((n) => !selected.has(n.id)));
         setSelected(new Set());
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        if (inInput) return;
+        e.preventDefault();
+        const result = undoHistory(historyRef.current, {
+          nodes,
+          pan: panRef.current,
+          zoom: zoomRef.current,
+        });
+        if (!result) return;
+        historyRef.current = result.history;
+        setNodes(result.state.nodes);
+        setPan(result.state.pan);
+        setZoom(result.state.zoom);
+        pushToast({ title: "Undo", tone: "neutral", dismissMs: 1200 });
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) {
+        if (inInput) return;
+        e.preventDefault();
+        const result = redoHistory(historyRef.current, {
+          nodes,
+          pan: panRef.current,
+          zoom: zoomRef.current,
+        });
+        if (!result) return;
+        historyRef.current = result.history;
+        setNodes(result.state.nodes);
+        setPan(result.state.pan);
+        setZoom(result.state.zoom);
+        pushToast({ title: "Redo", tone: "neutral", dismissMs: 1200 });
+        return;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
+  }, [selected, nodes, pushToast]);
 
   // Selection box in screen coords
   const selRect = selBox ? {
@@ -1068,6 +1178,11 @@ export function CanvasDashboard({
         onOpenChange={setLibraryOpen}
         onAdd={addWidgetFromRegistry}
       />
+      <PresetPicker
+        open={presetPickerOpen}
+        onClose={() => setPresetPickerOpen(false)}
+        onApply={applyPresetNodes}
+      />
       <div
         className={`canvas-chrome-dock${selectedNode ? " canvas-chrome-dock--inspector" : ""}`}
         ref={chromeDockRef}
@@ -1085,6 +1200,7 @@ export function CanvasDashboard({
               setEditMode(true);
             }}
             onResetLayout={resetDashboardLayout}
+            onOpenPresetPicker={() => setPresetPickerOpen(true)}
             widgetCount={widgetNodeCount}
             onAddWidget={addWidget}
             onAddImage={addImage}

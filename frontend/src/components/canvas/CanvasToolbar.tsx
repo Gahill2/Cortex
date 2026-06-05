@@ -29,6 +29,7 @@ interface Props {
   onAddBackdrop: (color?: string) => void;
   background: CanvasBackground;
   onBackgroundChange: (bg: CanvasBackground) => void;
+  onOpenPresetPicker?: () => void;
 }
 
 const COLORS = ["#5b8dff", "#3be8ad", "#f5a623", "#ff5f5f", "#a855f7", "#ec4899", "#06b6d4", "#84cc16"];
@@ -51,6 +52,7 @@ export function CanvasToolbar({
   onAddBackdrop,
   background,
   onBackgroundChange,
+  onOpenPresetPicker,
 }: Props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showBgMenu, setShowBgMenu] = useState(false);
@@ -384,6 +386,16 @@ export function CanvasToolbar({
                 title="Browse widget library"
               >
                 <span className="canvas-toolbar__label">Widgets</span>
+              </button>
+            )}
+            {editMode && onOpenPresetPicker && (
+              <button
+                type="button"
+                className="canvas-toolbar__btn"
+                onClick={onOpenPresetPicker}
+                title="Choose a preset layout"
+              >
+                <span className="canvas-toolbar__label">Layouts</span>
               </button>
             )}
             {editMode && onResetLayout && (
