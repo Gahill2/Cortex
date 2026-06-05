@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import type { Tab } from "../../../App";
 import type { GmailMsg } from "./types";
 import { BrandIcon } from "../../brand";
 import { avatarColor } from "./utils";
+import { Skeleton } from "../../ui/Skeleton";
+import { useWidgetRefresh } from "../../../hooks/useWidgetRefresh";
 
 export function MailWidget({
   onNavigate,
@@ -17,28 +19,36 @@ export function MailWidget({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchMail = useCallback(async (isRetry = false) => {
+    if (isRetry) setLoadError(null);
     let cancelled = false;
-    (async () => {
-      try {
-        const s = await api.get<{ data?: { accounts: { id: string }[] } }>("/mail/accounts");
-        const accounts = s.data?.data?.accounts ?? [];
-        if (cancelled) return;
-        setHasAccounts(accounts.length > 0);
-        if (accounts.length === 0) return;
-        const r = await api.get("/mail/inbox", { params: { unified: "true", maxResults: 8 } });
-        if (cancelled) return;
-        setMessages(r.data?.data?.messages ?? []);
-      } catch {
-        if (!cancelled) setLoadError("Could not load mail");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    const cancel = () => { cancelled = true; };
+    try {
+      const s = await api.get<{ data?: { accounts: { id: string }[] } }>("/mail/accounts");
+      const accounts = s.data?.data?.accounts ?? [];
+      if (cancelled) return cancel;
+      setHasAccounts(accounts.length > 0);
+      if (accounts.length === 0) { setLoading(false); return cancel; }
+      const r = await api.get("/mail/inbox", { params: { unified: "true", maxResults: 8 } });
+      if (cancelled) return cancel;
+      setMessages(r.data?.data?.messages ?? []);
+    } catch {
+      if (!cancelled) setLoadError("Could not load mail");
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+    return cancel;
   }, []);
+
+  useEffect(() => {
+    let cancelFn: (() => void) | undefined;
+    setLoading(true);
+    void fetchMail().then((cancel) => { cancelFn = cancel; });
+    return () => { cancelFn?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useWidgetRefresh(() => { void fetchMail(); }, 120_000);
 
   const unread = messages.filter((m) => m.unread).length;
   const previewLimit = compact ? 3 : 6;
@@ -62,9 +72,18 @@ export function MailWidget({
         {unread > 0 && <span className="mail-unread-badge">{unread}</span>}
       </div>
       {loading ? (
-        <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>
+        <Skeleton variant="table" lines={compact ? 3 : 5} style={{ marginTop: 8 }} />
       ) : loadError ? (
-        <p className="widget-empty">{loadError}</p>
+        <div className="widget-error-state">
+          <p className="widget-empty">{loadError}</p>
+          <button
+            type="button"
+            className="widget-retry-btn"
+            onClick={(e) => { e.stopPropagation(); void fetchMail(true); }}
+          >
+            Retry
+          </button>
+        </div>
       ) : !hasAccounts ? (
         <div className="widget-cta">
           <p className="widget-cta-text">No accounts connected</p>

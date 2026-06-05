@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Tab } from "../tab";
 import { CanvasDashboard } from "../components/canvas/CanvasDashboard";
@@ -7,6 +7,7 @@ import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWid
 import { DashboardDataProvider } from "../productivity-dashboard/hooks/useDashboardDataContext";
 import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
 import { HomeWorkbenchChrome } from "./HomeWorkbenchChrome";
+import { useWidgetRefresh } from "../hooks/useWidgetRefresh";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -21,9 +22,8 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
   const editMode = useDashboardLayoutStore((s) => s.editMode);
   const setEditMode = useDashboardLayoutStore((s) => s.setEditMode);
 
-  useEffect(() => {
+  const fetchTasks = useCallback(() => {
     let cancelled = false;
-    setBoardDataLoading(true);
     Promise.all([api.get("/tasks"), api.get("/projects")])
       .then(([tr]) => {
         if (cancelled) return;
@@ -41,10 +41,17 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
       .finally(() => {
         if (!cancelled) setBoardDataLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    setBoardDataLoading(true);
+    return fetchTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-refresh tasks every 60s when the tab is visible
+  useWidgetRefresh(fetchTasks, 60_000);
 
   const renderWidget = useMemo(
     () => createCanvasWidgetRenderer(onNavigate, boardTasks, boardDataLoading),

@@ -4,6 +4,8 @@ import { api } from "../../../api/client";
 import { usePreferences } from "../../../context/PreferencesContext";
 import type { WeatherLocationPref } from "../../../lib/preferencesTypes";
 import type { WeatherData } from "./types";
+import { Skeleton } from "../../ui/Skeleton";
+import { useWidgetRefresh } from "../../../hooks/useWidgetRefresh";
 
 function prefUnitsToApi(u: "metric" | "imperial"): "fahrenheit" | "celsius" {
   return u === "imperial" ? "fahrenheit" : "celsius";
@@ -42,7 +44,7 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
     [patch],
   );
 
-  const fetchWeather = async (lat: number, lon: number, u: string) => {
+  const fetchWeather = useCallback(async (lat: number, lon: number, u: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -53,7 +55,7 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -78,6 +80,11 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
     void fetchWeather(savedLoc.lat, savedLoc.lon, units);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [units, ready, savedLoc?.lat, savedLoc?.lon]);
+
+  // Auto-refresh every 5 minutes when the tab is visible
+  useWidgetRefresh(() => {
+    if (savedLoc) void fetchWeather(savedLoc.lat, savedLoc.lon, units);
+  }, 300_000);
 
   const searchCity = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +143,7 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
         <button type="button" className="widget-units-btn" onClick={toggleUnits}>{sym}</button>
       </div>
 
-      {loading && <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>}
+      {loading && <Skeleton variant="card" style={{ marginTop: 8, height: 80 }} />}
 
       {!loading && !data && (
         <form className="weather-city-form" onSubmit={(e) => void searchCity(e)}>

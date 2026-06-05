@@ -859,11 +859,15 @@ export function CanvasDashboard({
   );
 
   const addWidgetFromRegistry = useCallback(
-    (entry: WidgetRegistryEntry, variant?: import("../../dashboard/types").WidgetSizeVariant) => {
+    (
+      entry: WidgetRegistryEntry,
+      variant?: import("../../dashboard/types").WidgetSizeVariant,
+      skin?: import("./widgetSkins").WidgetSkin,
+    ) => {
       addWidget(
         entry.key,
         variant ?? entry.defaultVariant,
-        entry.defaultSkin,
+        skin ?? entry.defaultSkin,
         entry.defaultDisplay,
       );
     },
@@ -1326,6 +1330,20 @@ export function CanvasDashboard({
         viewportWidth={containerRef.current?.clientWidth ?? 800}
         viewportHeight={containerRef.current?.clientHeight ?? 600}
       />
+
+      {/* Quick-add FAB — visible only in edit mode */}
+      {editMode && (
+        <button
+          type="button"
+          className="canvas-fab"
+          aria-label="Add widget"
+          onClick={() => setLibraryOpen(true)}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+            <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
 
       <CanvasViewControls
         zoom={zoom}

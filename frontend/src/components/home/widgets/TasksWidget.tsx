@@ -1,6 +1,7 @@
 import { ArrowRight, CheckSquare } from "lucide-react";
 import type { Tab } from "../../../App";
 import type { HomeBoardTask } from "../HomeDashboardTop";
+import { Skeleton } from "../../ui/Skeleton";
 
 export function TasksWidget({
   onNavigate,
@@ -48,7 +49,7 @@ export function TasksWidget({
         <CheckSquare size={16} strokeWidth={1.75} aria-hidden />
         <span>Tasks</span>
       </div>
-      {loading ? <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p> : null}
+      {loading ? <Skeleton variant="text" lines={previewLimit} style={{ marginTop: 8 }} /> : null}
       {!loading && total > 0 && (
         <div className="task-progress-bar">
           <div className="task-progress-fill" style={{ width: `${progressPct}%` }} />
