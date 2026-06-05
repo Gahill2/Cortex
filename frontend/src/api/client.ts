@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { useToastStore } from "../stores/toastStore";
 
 /** Must match `App.tsx` / `AuthContext` so the client can attach auth before the first React effects run. */
 export const AUTH_STORAGE_KEY = "cortex_token";
@@ -143,6 +144,49 @@ api.interceptors.response.use(
       (h as Record<string, string>).Authorization = `Bearer ${stored}`;
     }
     return api.request(cfg);
+  }
+);
+
+/** Tracks in-flight error toast IDs to prevent duplicate toasts for the same request. */
+const _activeErrorToasts = new Set<string>();
+
+type ErrorResponseBody = { message?: string; error?: string };
+
+/**
+ * Global error toast interceptor.
+ * Shows API error messages as toasts for 4xx/5xx responses.
+ * Skips 401 (handled by auth retry interceptor / logout flow).
+ * De-duplicates toasts per request URL+status.
+ */
+api.interceptors.response.use(
+  (res) => res,
+  (error: AxiosError) => {
+    const status = error.response?.status;
+    // Skip 401 — handled by auth flow
+    if (!status || status === 401) return Promise.reject(error);
+    if (status >= 400 && status < 600) {
+      const url = String(error.config?.url ?? "unknown");
+      const dedupeKey = `${status}:${url}`;
+      if (!_activeErrorToasts.has(dedupeKey)) {
+        _activeErrorToasts.add(dedupeKey);
+        const body = error.response?.data as ErrorResponseBody | undefined;
+        const apiMessage =
+          (typeof body?.message === "string" && body.message) ||
+          (typeof body?.error === "string" && body.error) ||
+          null;
+        useToastStore.getState().push({
+          id: dedupeKey,
+          title: apiMessage ?? "Something went wrong",
+          tone: "error",
+          dismissMs: 5000,
+        });
+        // Allow the same key to fire again after the toast is dismissed
+        window.setTimeout(() => {
+          _activeErrorToasts.delete(dedupeKey);
+        }, 5000);
+      }
+    }
+    return Promise.reject(error);
   }
 );
 
