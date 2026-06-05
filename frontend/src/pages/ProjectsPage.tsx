@@ -1,14 +1,16 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { FormEvent, useRef, useEffect, useState } from "react";
+import { Folder, Plus } from "lucide-react";
 import { api } from "../api/client";
 import type { Project } from "../types";
 import { PageHeader } from "../components/ui/PageHeader";
+import { EmptyState } from "../components/ui/EmptyState";
 
 export const ProjectsPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -44,6 +46,7 @@ export const ProjectsPage = () => {
             style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}
           >
             <input
+              ref={nameInputRef}
               className="form-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -83,20 +86,15 @@ export const ProjectsPage = () => {
             <p>Loading projects…</p>
           </div>
         ) : projects.length === 0 ? (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "var(--space-2)",
-              color: "var(--text-3)",
+          <EmptyState
+            icon={Folder}
+            title="No projects yet"
+            message="Organize your work into projects to track progress and collaborate."
+            action={{
+              label: "Create your first project",
+              onClick: () => nameInputRef.current?.focus(),
             }}
-          >
-            <p style={{ color: "var(--text-2)", fontWeight: 500 }}>No projects yet</p>
-            <p>Create your first project using the form above.</p>
-          </div>
+          />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: "var(--space-2)" }}>
             {projects.map((project) => (

@@ -135,7 +135,7 @@ export function TasksPage({ onNavigate }: Props) {
                       className="pd-btn pd-btn--primary pd-btn--sm"
                       onClick={() => void createTask().then((id) => id && setSelectedTaskId(id))}
                     >
-                      Add task
+                      Create your first task
                     </button>
                   }
                 />

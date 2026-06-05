@@ -1039,7 +1039,16 @@ export const MailPage = () => {
             ) : messages.length === 0 ? (
               <div className="mail-inbox-empty">
                 <CheckCircle2 size={40} strokeWidth={1.75} className="mail-inbox-empty-check" aria-hidden />
-                <p>Your inbox is empty</p>
+                <p>No messages yet</p>
+                <button
+                  type="button"
+                  className="btn-primary btn-sm mail-toolbar-btn"
+                  style={{ marginTop: "var(--space-3)" }}
+                  onClick={() => { setReplyTo(undefined); setComposeInitialBody(undefined); setComposing(true); }}
+                >
+                  <PenSquare size={14} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+                  Compose your first message
+                </button>
               </div>
             ) : (
               <p className="gmail-empty">No messages match your search</p>

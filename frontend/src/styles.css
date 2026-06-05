@@ -4532,3 +4532,83 @@ html[data-color-scheme="light"]:not(.cortex-notion) .login-content {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* ── DataTable ───────────────────────────────────────────── */
+.data-table-wrapper { overflow-x: auto; }
+.data-table-cards  { display: none; }
+
+@media (max-width: 768px) {
+  .data-table-wrapper { display: none; }
+  .data-table-cards   { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); }
+  .data-table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .data-table-card-row  { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+  .data-table-card-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); flex-shrink: 0; }
+  .data-table-card-value { font-size: 13px; color: var(--text); text-align: right; }
+}
+
+/* ── EmptyState action button ────────────────────────────── */
+.empty-state-action {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 120ms;
+}
+.empty-state-action:hover { opacity: 0.85; }
+
+/* ── Sidebar collapse ────────────────────────────────────── */
+.sidebar {
+  transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.sidebar--collapsed {
+  width: 52px;
+}
+.sidebar--collapsed .sidebar-nav-label,
+.sidebar--collapsed .sidebar-logo-text,
+.sidebar--collapsed .sidebar-status-text,
+.sidebar--collapsed .sidebar-version,
+.sidebar--collapsed .sidebar-nav-heading {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sidebar--collapsed .sidebar-nav-item {
+  justify-content: center;
+  padding: 10px;
+}
+.sidebar--collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 16px 8px 12px;
+}
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, transform 220ms;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sidebar-collapse-btn:hover { background: var(--surface-2); color: var(--text); }
+.sidebar--collapsed .sidebar-collapse-btn { transform: rotate(180deg); margin-left: 0; }
