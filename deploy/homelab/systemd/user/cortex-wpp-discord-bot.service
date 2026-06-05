@@ -1,0 +1,13 @@
+[Unit]
+Description=Witness Protection Program Discord bot
+After=network-online.target cortex-homelab-deploy-listener.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/greyhill/Documents/Cortex/scripts/wpp-discord-start.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -11,13 +11,35 @@ API_ENV="$ROOT/deploy/homelab/env/api.env"
 
 log() { echo "[obsidian-vault] $*"; }
 
-if [[ ! -d "$VAULT_ROOT" ]]; then
-  echo "Storage not mounted at $VAULT_ROOT" >&2
-  echo "Run first: npm run storage:setup   (partitions /dev/sdb and mounts /mnt/cortex/*)" >&2
+# Prefer explicit OBSIDIAN_VAULT_PATH; fall back if /mnt/cortex/obsidian is root-only
+if [[ -z "${OBSIDIAN_VAULT_PATH:-}" ]]; then
+  if [[ ! -d "$VAULT_ROOT" ]]; then
+    echo "Storage not mounted at $VAULT_ROOT" >&2
+    echo "Run first: npm run storage:setup   (partitions /dev/sdb and mounts /mnt/cortex/*)" >&2
+    exit 1
+  fi
+  if [[ ! -w "$VAULT_ROOT" ]]; then
+    VAULT_PATH="${HOME}/Documents/greyhill_brain"
+    VAULT_ROOT="$(dirname "$VAULT_PATH")"
+    log "WARN: /mnt/cortex/obsidian not writable — using $VAULT_PATH"
+  fi
+fi
+
+if [[ ! -w "$(dirname "$VAULT_PATH")" ]] && [[ ! -w "$VAULT_PATH" ]]; then
+  echo "Cannot write vault at $VAULT_PATH (permission denied)." >&2
+  echo "Run: npm run vault:fix-perms" >&2
   exit 1
 fi
 
-mkdir -p "$VAULT_PATH"/{Daily\ Notes,Templates,Inbox,Projects,Attachments}
+mkdir -p "$VAULT_PATH"/{Daily\ Notes,Templates,Inbox,Projects,Attachments} 2>/dev/null || {
+  if [[ -d "$VAULT_PATH/.git" ]]; then
+    log "Skipping scaffold dirs (git vault — folders may already exist)"
+  else
+    echo "mkdir failed for $VAULT_PATH" >&2
+    echo "Run: npm run vault:fix-perms" >&2
+    exit 1
+  fi
+}
 
 if [[ ! -f "$VAULT_PATH/README.md" ]]; then
   cat >"$VAULT_PATH/README.md" <<'EOF'

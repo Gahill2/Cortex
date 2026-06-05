@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Self-paced Cortex dev loop — emits wake sentinel for Cursor agent (see docs/cortex-dev-loop.md).
+# Legacy build-only loop. Prefer: npm run dev:improve-loop (rotating phases).
+# See docs/continuous-improvement-loop.md
 set -euo pipefail
 
 INTERVAL="${CORTEX_DEV_LOOP_INTERVAL:-900}"
-PROMPT='Continue Cortex dev loop: read docs/cortex-dev-loop.md, implement the first unchecked item, deploy if API/web changed, update checkboxes. Do not ask the user unless Azure/Microsoft secrets are required.'
+PROMPT='Cortex improvement loop BUILD only (legacy): read docs/cortex-dev-loop.md, implement first unchecked item, deploy if API/web changed, mark [x]. Prefer npm run dev:improve-loop for full cycle.'
 
-echo "Cortex dev loop armed (fallback every ${INTERVAL}s). Prompt runs on each wake."
-echo "Stop: kill this shell or pkill -f cortex-dev-loop"
+echo "Cortex dev loop (build-only) armed every ${INTERVAL}s."
+echo "Prefer: npm run dev:improve-loop — see docs/continuous-improvement-loop.md"
+echo "Stop: pkill -f cortex-dev-loop"
 
 while true; do
   sleep "$INTERVAL"

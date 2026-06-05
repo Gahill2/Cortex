@@ -109,4 +109,7 @@ run chown -R "$(whoami):$(id -gn)" /mnt/cortex/obsidian /mnt/cortex/archive
 
 log "Done. Mounts:"
 df -h /mnt/cortex/obsidian /mnt/cortex/archive
-log "Next: npm run storage:vault && npm run server:sync-local && Homelab redeploy"
+log "Next steps:"
+echo "  1. npm run storage:vault          # Obsidian vault on sdb1"
+echo "  2. npm run nas:migrate-to-archive # move Jellyfin/Radarr media to sdb2 (~256 GiB)"
+echo "  3. npm run server:sync-local && npm run server:deploy"

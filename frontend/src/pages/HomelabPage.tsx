@@ -7,7 +7,9 @@ import {
   ExternalLink,
   HardDrive,
   MemoryStick,
+  Mail,
   RefreshCw,
+  RotateCcw,
   Rocket,
   Server,
   Shield,
@@ -16,6 +18,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { api } from "../api/client";
+import { openExternalUrl } from "../utils/openExternalUrl";
 import { AIProviderBanner } from "../components/ai/AIProviderBanner";
 import { useAIStatus } from "../hooks/useAIStatus";
 import { CHAT_AI_PROVIDER_LABELS } from "../lib/aiProvider";
@@ -100,6 +103,7 @@ interface HomelabStatusPayload {
     frontendUrl: string;
     prometheusUrl: string | null;
     grafanaUrl: string | null;
+    dnsDomain: string | null;
   };
   services: HomelabServiceStatus[];
   metrics: HomelabMetrics;
@@ -108,6 +112,32 @@ interface HomelabStatusPayload {
   storage?: HostStorageStatus;
   pihole?: HomelabPiholeStatus;
   icloud?: HomelabIcloudStatus;
+  mail?: HomelabMailIntegration;
+  containers?: HomelabContainersPayload;
+}
+
+interface HomelabMailIntegration {
+  gmailConfigured: boolean;
+  connected: boolean;
+  accountCount: number;
+  message?: string;
+}
+
+type ContainerHealth = "ok" | "warn" | "down" | "unknown";
+
+interface HomelabContainerRow {
+  id: string;
+  name: string;
+  status: string;
+  state: string;
+  health: ContainerHealth;
+  canRestart: boolean;
+}
+
+interface HomelabContainersPayload {
+  available: boolean;
+  containers: HomelabContainerRow[];
+  message?: string;
 }
 
 interface HomelabPiholeStatus {
@@ -219,6 +249,7 @@ export function HomelabPage() {
   const [deployMsg, setDeployMsg] = useState<string | null>(null);
   const [deployNeedsFix, setDeployNeedsFix] = useState(false);
   const [listenerOk, setListenerOk] = useState<boolean | null>(null);
+  const [restartingId, setRestartingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -301,9 +332,23 @@ export function HomelabPage() {
     void navigator.clipboard.writeText("npm run server:docker:fix-once");
   };
 
+  const restartContainer = async (id: string) => {
+    setRestartingId(id);
+    setDeployMsg(null);
+    try {
+      await api.post(`/homelab/containers/${encodeURIComponent(id)}/restart`);
+      setDeployMsg(`Restarted ${id}. Refreshing…`);
+      await load();
+    } catch (e: unknown) {
+      const ax = e as { response?: { data?: { error?: { message?: string } } } };
+      setDeployMsg(ax.response?.data?.error?.message ?? `Could not restart ${id}`);
+    } finally {
+      setRestartingId(null);
+    }
+  };
+
   const openUrl = (url: string) => {
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    openExternalUrl(url);
   };
 
   const grafanaUrl =
@@ -378,6 +423,108 @@ export function HomelabPage() {
             ) : null}
           </section>
 
+          <section className="homelab-section" aria-labelledby="homelab-stack-title">
+            <h2 id="homelab-stack-title" className="homelab-section__title">
+              <Server size={18} aria-hidden />
+              Stack health
+            </h2>
+            <div className="homelab-stack-cards">
+              <article className="homelab-stack-card" data-health={data.database.connected ? "ok" : "down"}>
+                <h3>Cortex API</h3>
+                <p>{data.database.connected ? "Database connected" : data.database.message ?? "Database down"}</p>
+              </article>
+              <article
+                className="homelab-stack-card"
+                data-health={data.cloud?.connected ? "ok" : data.cloud?.configured ? "warn" : "down"}
+              >
+                <h3>
+                  <Cloud size={16} aria-hidden /> Cloud / Nextcloud
+                </h3>
+                <p>
+                  {data.cloud?.connected
+                    ? `Connected as ${data.cloud.username}`
+                    : data.cloud?.message ?? "Not connected"}
+                </p>
+                {!data.cloud?.connected && (
+                  <p className="homelab-hint">
+                    Run <code>npm run server:cloud:reset</code> on cortex, then Redeploy API below.
+                  </p>
+                )}
+              </article>
+              <article
+                className="homelab-stack-card"
+                data-health={data.mail?.connected ? "ok" : data.mail?.gmailConfigured ? "warn" : "down"}
+              >
+                <h3>
+                  <Mail size={16} aria-hidden /> Mail
+                </h3>
+                <p>
+                  {data.mail?.connected
+                    ? `${data.mail.accountCount} account(s) linked`
+                    : data.mail?.message ?? "Not connected"}
+                </p>
+                {!data.mail?.connected && data.mail?.gmailConfigured && (
+                  <p className="homelab-hint">Open the Mail tab → Connect Gmail.</p>
+                )}
+              </article>
+            </div>
+          </section>
+
+          <section className="homelab-section" aria-labelledby="homelab-containers-title">
+            <div className="homelab-section__head">
+              <h2 id="homelab-containers-title" className="homelab-section__title">
+                <RotateCcw size={18} aria-hidden />
+                Containers
+              </h2>
+            </div>
+            {data.containers && !data.containers.available ? (
+              <p className="homelab-hint">
+                Container controls need the deploy listener — run{" "}
+                <code>npm run server:deploy:setup</code> on cortex, then refresh.
+                {data.containers.message ? ` (${data.containers.message})` : ""}
+              </p>
+            ) : null}
+            {data.containers?.available && data.containers.containers.length > 0 ? (
+              <div className="homelab-containers-wrap">
+                <table className="homelab-containers-table">
+                  <thead>
+                    <tr>
+                      <th>Container</th>
+                      <th>Status</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.containers.containers.map((c) => (
+                      <tr key={c.id} data-health={c.health}>
+                        <td className="homelab-containers-table__name">{c.name}</td>
+                        <td>{c.status}</td>
+                        <td className="homelab-containers-table__actions">
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm"
+                            disabled={!c.canRestart || restartingId !== null || deployBusy}
+                            onClick={() => void restartContainer(c.id)}
+                            title={`Restart ${c.name}`}
+                          >
+                            <RotateCcw
+                              size={14}
+                              className={restartingId === c.id ? "homelab-spin" : undefined}
+                              aria-hidden
+                            />
+                            {restartingId === c.id ? "…" : "Restart"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : data.containers?.available ? (
+              <p className="homelab-hint">No homelab containers found.</p>
+            ) : null}
+          </section>
+
           <section className="homelab-section" aria-labelledby="homelab-ai-title">
             <h2 id="homelab-ai-title" className="homelab-section__title">
               <Sparkles size={18} aria-hidden />
@@ -407,7 +554,23 @@ export function HomelabPage() {
             ) : null}
             {aiStatus && !aiStatus.ollama ? (
               <p className="homelab-hint">
-                Free local AI: run <code>npm run server:ollama:setup</code> on this PC (requires sudo once), then redeploy API.
+                Ollama not reachable at{" "}
+                <code>{aiStatus.ollamaHost ?? "host.docker.internal:11434"}</code>.
+                {aiStatus.ollamaPcName ? (
+                  <>
+                    {" "}
+                    Turn on <strong>{aiStatus.ollamaPcName}</strong>, start Ollama + Tailscale, or set{" "}
+                    <code>OLLAMA_BASE_URL</code> in <code>deploy/homelab/env/api.env</code> (see{" "}
+                    <code>docs/ollama-remote-pc.md</code>).
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    For a gaming PC over Tailscale, set <code>OLLAMA_BASE_URL</code> +{" "}
+                    <code>OLLAMA_PC_NAME</code> in <code>api.env</code>. On this homelab only:{" "}
+                    <code>npm run server:ollama:setup</code> then redeploy.
+                  </>
+                )}
               </p>
             ) : null}
           </section>
@@ -535,9 +698,37 @@ export function HomelabPage() {
                   <span>DNS via Tailscale</span>
                   <span>Nameserver {data.overview.host} (+ fallback)</span>
                 </div>
+                {data.overview.dnsDomain ? (
+                  <div className="homelab-db-row">
+                    <span>Local names</span>
+                    <span>
+                      e.g. jellyfin.{data.overview.dnsDomain}, api.{data.overview.dnsDomain} (Pi-hole)
+                    </span>
+                  </div>
+                ) : null}
                 {data.pihole.message && !data.pihole.connected && (
                   <p className="homelab-hint">{data.pihole.message}</p>
                 )}
+                <details className="homelab-hint homelab-pihole-ios">
+                  <summary>iPhone still seeing ads?</summary>
+                  <ol>
+                    <li>Tailscale app connected (VPN icon on).</li>
+                    <li>
+                      Tailscale → … → <strong>Use Tailscale DNS</strong> enabled.
+                    </li>
+                    <li>
+                      Settings → Apple ID → iCloud → <strong>Private Relay</strong> off while testing.
+                    </li>
+                    <li>
+                      Settings → Wi‑Fi → (i) → Configure DNS → <strong>Automatic</strong> (not Manual).
+                    </li>
+                    <li>Safari: Settings → Apps → Safari → turn off <strong>Hide IP Address</strong> for testing.</li>
+                    <li>
+                      Install <strong>DNSCloak</strong> or use Tailscale DNS only — in-app ads (YouTube, Instagram)
+                      often bypass DNS blocking.
+                    </li>
+                  </ol>
+                </details>
               </div>
             </section>
           )}
@@ -673,6 +864,19 @@ export function HomelabPage() {
                 )}
                 {data.cloud.message && !data.cloud.connected && (
                   <p className="homelab-hint">{data.cloud.message}</p>
+                )}
+                {data.cloud.baseUrl && (
+                  <div className="homelab-db-row">
+                    <span>Open in browser</span>
+                    <a
+                      className="homelab-external-link"
+                      href={data.cloud.baseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {data.cloud.baseUrl.replace(/^https?:\/\//, "")}
+                    </a>
+                  </div>
                 )}
               </div>
             </section>

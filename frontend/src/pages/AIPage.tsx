@@ -1,13 +1,18 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { AISuggestionChips, type SuggestionChip } from "../components/ai/AISuggestionChips";
 import { AIProviderBanner } from "../components/ai/AIProviderBanner";
+import { AILocalPcDialog, applyCloudFallback } from "../components/ai/AILocalPcDialog";
+import { AIWorkspaceSidebar } from "../components/ai/AIWorkspaceSidebar";
 import { useAIStatus } from "../hooks/useAIStatus";
+import type { Tab } from "../tab";
 import { useToastStore } from "../stores/toastStore";
 import {
   type ChatAIProviderId,
   CHAT_AI_PROVIDER_LABELS,
   pickDefaultProvider,
   readStoredAIProvider,
+  wantsLocalPcButOffline,
   writeStoredAIProvider,
 } from "../lib/aiProvider";
 
@@ -30,14 +35,6 @@ const isElectron = !!win.electron?.isElectron;
 
 const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-const STARTERS = [
-  "Summarize my day",
-  "What tasks are due soon?",
-  "Draft an email reply",
-  "What's on my calendar today?",
-  "Help me write a task description",
-];
-
 function providerBadgeClass(id: ChatAIProviderId | "none"): string {
   if (id === "ollama") return "ollama";
   if (id === "openai") return "openai";
@@ -46,7 +43,15 @@ function providerBadgeClass(id: ChatAIProviderId | "none"): string {
   return "none";
 }
 
-export const AIPage = () => {
+type AIPreset = { id: string; name: string; description: string };
+
+export const AIPage = ({
+  onNavigate,
+  activeTab = "ai",
+}: {
+  onNavigate: (tab: Tab) => void;
+  activeTab?: Tab;
+}) => {
   const pushToast = useToastStore((s) => s.push);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -58,14 +63,46 @@ export const AIPage = () => {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const { status, loading: statusLoading, refresh: fetchStatus } = useAIStatus();
+  const { status, loading: statusLoading, refresh: fetchStatus } = useAIStatus(30_000);
   const [selectedProvider, setSelectedProvider] = useState<ChatAIProviderId>(
     () => readStoredAIProvider() ?? "kimi"
   );
   const [starting, setStarting] = useState(false);
   const [includeWorkspaceContext, setIncludeWorkspaceContext] = useState(true);
+  const [suggestions, setSuggestions] = useState<SuggestionChip[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [presets, setPresets] = useState<AIPreset[]>([]);
+  const [presetId, setPresetId] = useState("cortex");
+  const [pcDialogOpen, setPcDialogOpen] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [pcRetrying, setPcRetrying] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setSuggestionsLoading(true);
+    api
+      .get<{
+        data?: { suggestions?: Array<{ id: string; label: string; prompt: string; category?: string }> };
+      }>("/ai/suggestions")
+      .then((r) => {
+        const list = r.data?.data?.suggestions ?? [];
+        setSuggestions(
+          list.map((s) => ({
+            id: s.id,
+            label: s.label,
+            prompt: s.prompt,
+            description: s.category,
+          })),
+        );
+      })
+      .catch(() => setSuggestions([]))
+      .finally(() => setSuggestionsLoading(false));
+    api
+      .get<{ data?: { presets?: AIPreset[] } }>("/ai/presets")
+      .then((r) => setPresets(r.data?.data?.presets ?? []))
+      .catch(() => setPresets([]));
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,11 +110,12 @@ export const AIPage = () => {
 
   useEffect(() => {
     if (!status?.providers?.length) return;
-    setSelectedProvider((prev) =>
-      status.providers.find((p) => p.id === prev)?.available
-        ? prev
-        : pickDefaultProvider(status.providers, status.defaultProvider)
-    );
+    setSelectedProvider((prev) => {
+      const meta = status.providers.find((p) => p.id === prev);
+      if (meta?.available) return prev;
+      if (prev === "ollama") return "ollama";
+      return pickDefaultProvider(status.providers, status.defaultProvider);
+    });
   }, [status]);
 
   const handleProviderChange = (id: ChatAIProviderId) => {
@@ -114,45 +152,45 @@ export const AIPage = () => {
     }
   };
 
-  const postChat = async (msg: string) => {
-    const res = await api.post("/ai/chat", {
-      message: msg,
-      provider: selectedProvider,
-      includeWorkspaceContext,
-    });
-    const data = res.data?.data ?? res.data;
-    const reply: string = data?.reply ?? "…";
-    const provider: string = data?.provider;
-    if (data?.obsidianLogged) {
-      pushToast({
-        title: "Saved to vault",
-        message: "This exchange was appended to your Obsidian AI log.",
-        tone: "success",
-        dismissMs: 4000,
-      });
-    }
-    setMessages((p) => [
-      ...p,
-      {
-        id: `a-${Date.now()}`,
-        role: "assistant",
-        content: reply,
-        provider,
-        timestamp: now(),
-      },
-    ]);
-    if (provider && provider !== "none") void fetchStatus();
-  };
+  const providers = status?.providers ?? [];
 
-  const send = async (e?: FormEvent, overrideMsg?: string) => {
-    e?.preventDefault();
-    const msg = (overrideMsg ?? input).trim();
-    if (!msg || loading) return;
+  const runSend = async (msg: string, provider: ChatAIProviderId = selectedProvider) => {
     setMessages((p) => [...p, { id: `u-${Date.now()}`, role: "user", content: msg, timestamp: now() }]);
-    setInput("");
     setLoading(true);
     try {
-      await postChat(msg);
+      const res = await api.post("/ai/chat", {
+        message: msg,
+        provider,
+        includeWorkspaceContext,
+      });
+      const data = res.data?.data ?? res.data;
+      if (data?.code === "OLLAMA_OFFLINE") {
+        setPcDialogOpen(true);
+        setPendingMessage(msg);
+        setMessages((p) => p.slice(0, -1));
+        return;
+      }
+      const reply: string = data?.reply ?? "…";
+      const replyProvider: string = data?.provider;
+      if (data?.obsidianLogged) {
+        pushToast({
+          title: "Saved to vault",
+          message: "This exchange was appended to your Obsidian AI log.",
+          tone: "success",
+          dismissMs: 4000,
+        });
+      }
+      setMessages((p) => [
+        ...p,
+        {
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          content: reply,
+          provider: replyProvider,
+          timestamp: now(),
+        },
+      ]);
+      if (replyProvider && replyProvider !== "none") void fetchStatus();
     } catch {
       setMessages((p) => [
         ...p,
@@ -168,25 +206,63 @@ export const AIPage = () => {
     }
   };
 
-  const sendStarter = (text: string) => {
-    setMessages((p) => [...p, { id: `u-${Date.now()}`, role: "user", content: text, timestamp: now() }]);
-    setLoading(true);
-    postChat(text)
-      .catch(() => {
-        setMessages((p) => [
-          ...p,
-          {
-            id: `e-${Date.now()}`,
-            role: "assistant",
-            content: "Could not reach the server.",
-            timestamp: now(),
-          },
-        ]);
-      })
-      .finally(() => setLoading(false));
+  const send = async (e?: FormEvent, overrideMsg?: string) => {
+    e?.preventDefault();
+    const msg = (overrideMsg ?? input).trim();
+    if (!msg || loading) return;
+    const meta = providers.find((p) => p.id === selectedProvider);
+    if (selectedProvider === "ollama" && !meta?.available) {
+      setPendingMessage(msg);
+      setPcDialogOpen(true);
+      return;
+    }
+    setInput("");
+    await runSend(msg);
   };
 
-  const providers = status?.providers ?? [];
+  const handlePcUseCloud = (cloudId: ChatAIProviderId) => {
+    applyCloudFallback(status, handleProviderChange);
+    setPcDialogOpen(false);
+    const msg = pendingMessage;
+    setPendingMessage(null);
+    if (msg) void runSend(msg, cloudId);
+  };
+
+  const handlePcRetry = async () => {
+    setPcRetrying(true);
+    try {
+      await api.post("/ai/ollama/refresh");
+      const res = await api.get("/ai/status");
+      const data = (res.data?.data ?? res.data) as typeof status;
+      if (data?.ollama) {
+        handleProviderChange("ollama");
+        setPcDialogOpen(false);
+        const msg = pendingMessage;
+        setPendingMessage(null);
+        pushToast({ title: "PC online", message: `${data.ollamaPcName ?? "Ollama"} is reachable.`, tone: "success" });
+        if (msg) void runSend(msg, "ollama");
+      } else {
+        pushToast({
+          title: "Still offline",
+          message: `No Ollama at ${data?.ollamaHost ?? "host"}. Turn on the PC or use cloud.`,
+          tone: "neutral",
+        });
+      }
+      void fetchStatus();
+    } finally {
+      setPcRetrying(false);
+    }
+  };
+
+  const sendStarter = (text: string) => {
+    const meta = providers.find((p) => p.id === selectedProvider);
+    if (selectedProvider === "ollama" && !meta?.available) {
+      setPendingMessage(text);
+      setPcDialogOpen(true);
+      return;
+    }
+    void runSend(text);
+  };
   const selectedMeta = providers.find((p) => p.id === selectedProvider);
   const providerLabel = selectedMeta
     ? `${selectedMeta.label}${selectedMeta.available ? "" : " (unavailable)"}`
@@ -209,10 +285,11 @@ export const AIPage = () => {
               {(["kimi", "claude", "openai", "ollama"] as const).map((id) => {
                 const p = providers.find((x) => x.id === id);
                 const available = p?.available ?? false;
+                const label = p?.label ?? CHAT_AI_PROVIDER_LABELS[id];
                 return (
                   <option key={id} value={id} disabled={!available}>
-                    {CHAT_AI_PROVIDER_LABELS[id]}
-                    {p?.available ? ` · ${p.model}` : " — not configured"}
+                    {label}
+                    {p?.available ? ` · ${p.model}` : id === "ollama" ? " — offline" : " — not configured"}
                   </option>
                 );
               })}
@@ -258,9 +335,41 @@ export const AIPage = () => {
         </div>
       </div>
 
-      <AIProviderBanner status={status} loading={statusLoading} />
+      <AIProviderBanner status={status} loading={statusLoading} compact />
 
-      <div className="ai-layout">
+      {wantsLocalPcButOffline(status) && (
+        <div className="ai-provider-banner ai-provider-banner--warn" role="status">
+          <strong>
+            {status?.ollamaPcName ?? "Local PC"} offline
+          </strong>
+          <p>
+            Ollama at <code>{status?.ollamaHost}</code> isn&apos;t reachable. Send a message to choose cloud AI, or
+            turn on your PC and use Check again.
+          </p>
+        </div>
+      )}
+
+      <AILocalPcDialog
+        open={pcDialogOpen}
+        status={status}
+        onClose={() => {
+          setPcDialogOpen(false);
+          setPendingMessage(null);
+        }}
+        onUseCloud={handlePcUseCloud}
+        onRetry={() => void handlePcRetry()}
+        retrying={pcRetrying}
+      />
+
+      <div className="ai-workspace">
+        <AIWorkspaceSidebar
+          status={status}
+          selectedProvider={selectedProvider}
+          activeTab={activeTab}
+          onNavigate={onNavigate}
+        />
+
+        <div className="ai-layout">
         <div className="ai-messages">
           {messages.map((m) =>
             m.role === "user" ? (
@@ -302,14 +411,35 @@ export const AIPage = () => {
           <div ref={bottomRef} />
         </div>
 
-        {messages.length === 1 && (
-          <div className="ai-starters">
-            {STARTERS.map((s) => (
-              <button key={s} type="button" className="ai-starter-chip" onClick={() => sendStarter(s)}>
-                {s}
-              </button>
-            ))}
+        {presets.length > 0 && (
+          <div className="ai-presets-row">
+            <span className="ai-presets-label">Persona</span>
+            <div className="ai-presets-chips">
+              {presets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`ai-preset-chip ${presetId === p.id ? "ai-preset-chip--active" : ""}`}
+                  title={p.description}
+                  onClick={() => setPresetId(p.id)}
+                  disabled={loading}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+
+        {(messages.length <= 2 || input.trim().length > 0) && (
+          <AISuggestionChips
+            suggestions={suggestions}
+            loading={suggestionsLoading}
+            disabled={loading}
+            filterText={input}
+            onSelect={(p) => void sendStarter(p)}
+            className="ai-suggestion-chips--in-chat"
+          />
         )}
 
         <form className="ai-composer" onSubmit={send}>
@@ -341,6 +471,7 @@ export const AIPage = () => {
             {loading ? "Thinking…" : "Send"}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );

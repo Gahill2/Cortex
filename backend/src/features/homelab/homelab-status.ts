@@ -74,53 +74,49 @@ async function probeUrl(url: string): Promise<{ health: ServiceHealth; latencyMs
   }
 }
 
-export async function checkHomelabServices(): Promise<HomelabServiceStatus[]> {
-  const defs = listHomelabServices();
-  const results: HomelabServiceStatus[] = [];
-
-  for (const def of defs) {
-    if (def.id === "postgres") {
-      const db = await getDatabaseStatus();
-      results.push({
-        id: def.id,
-        name: def.name,
-        category: def.category,
-        description: def.description,
-        health: db.connected ? "ok" : "down",
-        latencyMs: null,
-        openUrl: def.openUrl,
-        message: db.connected ? undefined : db.message
-      });
-      continue;
-    }
-
-    if (!def.healthUrl) {
-      results.push({
-        id: def.id,
-        name: def.name,
-        category: def.category,
-        description: def.description,
-        health: "skipped",
-        latencyMs: null,
-        openUrl: def.openUrl
-      });
-      continue;
-    }
-
-    const probe = await probeUrl(def.healthUrl);
-    results.push({
+async function probeHomelabService(def: HomelabServiceDef): Promise<HomelabServiceStatus> {
+  if (def.id === "postgres") {
+    const db = await getDatabaseStatus();
+    return {
       id: def.id,
       name: def.name,
       category: def.category,
       description: def.description,
-      health: probe.health,
-      latencyMs: probe.latencyMs,
+      health: db.connected ? "ok" : "down",
+      latencyMs: null,
       openUrl: def.openUrl,
-      message: probe.message
-    });
+      message: db.connected ? undefined : db.message,
+    };
   }
 
-  return results;
+  if (!def.healthUrl) {
+    return {
+      id: def.id,
+      name: def.name,
+      category: def.category,
+      description: def.description,
+      health: "skipped",
+      latencyMs: null,
+      openUrl: def.openUrl,
+    };
+  }
+
+  const probe = await probeUrl(def.healthUrl);
+  return {
+    id: def.id,
+    name: def.name,
+    category: def.category,
+    description: def.description,
+    health: probe.health,
+    latencyMs: probe.latencyMs,
+    openUrl: def.openUrl,
+    message: probe.message,
+  };
+}
+
+export async function checkHomelabServices(): Promise<HomelabServiceStatus[]> {
+  const defs = listHomelabServices();
+  return Promise.all(defs.map((def) => probeHomelabService(def)));
 }
 
 async function prometheusScalar(query: string): Promise<number | null> {
@@ -213,11 +209,13 @@ export async function getDatabaseStatus(): Promise<HomelabDatabaseStatus> {
 }
 
 export function getHomelabOverview() {
+  const dnsDomain = env.HOMELAB_DNS_DOMAIN.trim().replace(/^\./, "");
   return {
     host: env.HOMELAB_SERVICE_HOST.trim() || hostFromEnv(),
     frontendUrl: env.CORTEX_FRONTEND_URL.replace(/\/$/, ""),
     prometheusUrl: getHomelabPrometheusBase(),
-    grafanaUrl: env.HOMELAB_GRAFANA_URL.trim() || null
+    grafanaUrl: env.HOMELAB_GRAFANA_URL.trim() || null,
+    dnsDomain: dnsDomain || null
   };
 }
 

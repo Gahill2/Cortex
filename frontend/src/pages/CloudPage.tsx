@@ -1,16 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   Cloud,
   Download,
   ExternalLink,
+  File,
+  FileImage,
+  FileText,
+  FileVideo,
   Folder,
-  Home,
+  Grid3x3,
+  LayoutList,
+  MoreVertical,
+  Plus,
   RefreshCw,
+  Search,
   Trash2,
   Upload,
 } from "lucide-react";
 import { api } from "../api/client";
+import { openExternalUrl } from "../utils/openExternalUrl";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useToastStore } from "../stores/toastStore";
 
@@ -41,6 +50,8 @@ interface CloudStatusPayload {
   message?: string;
 }
 
+type ViewMode = "list" | "grid";
+
 function formatSize(bytes: number): string {
   if (bytes <= 0) return "—";
   const units = ["B", "KB", "MB", "GB"];
@@ -53,10 +64,28 @@ function formatSize(bytes: number): string {
   return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
 
-function formatDate(raw: string | null): string {
+function formatDateRelative(raw: string | null): string {
   if (!raw) return "—";
   const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? raw : d.toLocaleString();
+  if (Number.isNaN(d.getTime())) return raw;
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function fileIcon(entry: CloudFileEntry) {
+  if (entry.isDirectory) return Folder;
+  const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "heic", "svg"].includes(ext)) return FileImage;
+  if (["mp4", "mkv", "mov", "avi", "webm"].includes(ext)) return FileVideo;
+  if (["pdf", "doc", "docx", "txt", "md", "rtf"].includes(ext)) return FileText;
+  return File;
 }
 
 export function CloudPage() {
@@ -67,6 +96,9 @@ export function CloudPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState<ViewMode>("list");
+  const [menuPath, setMenuPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadStatus = useCallback(async () => {
@@ -117,8 +149,22 @@ export function CloudPage() {
   }, [loadFiles, loadStatus]);
 
   const crumbs = path ? path.split("/") : [];
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter((f) => f.name.toLowerCase().includes(q));
+  }, [files, search]);
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+  }, [filtered]);
 
   const navigateTo = (target: string) => {
+    setSearch("");
+    setMenuPath(null);
     void loadFiles(target);
   };
 
@@ -144,10 +190,11 @@ export function CloudPage() {
   };
 
   const deleteEntry = async (entry: CloudFileEntry) => {
-    if (!window.confirm(`Delete "${entry.name}"?`)) return;
+    if (!window.confirm(`Move "${entry.name}" to trash?`)) return;
     try {
       await api.delete("/cloud/files", { params: { path: entry.path } });
       pushToast({ title: "Deleted", tone: "success" });
+      setMenuPath(null);
       await loadFiles(path);
       await loadStatus();
     } catch {
@@ -178,102 +225,101 @@ export function CloudPage() {
 
   const openNextcloud = () => {
     const url = status?.openUrl || status?.baseUrl;
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    if (url) openExternalUrl(url);
   };
 
   const notReady = status && !status.connected;
+  const folderLabel = crumbs.length ? crumbs[crumbs.length - 1] : "My Drive";
 
   return (
-    <div className="page cloud-page">
-      <div className="page-titlebar cloud-page__head">
-        <div>
-          <h1 className="page-title">Cloud</h1>
-          <p className="page-subtitle">
-            Your own cloud on this PC (Nextcloud) — not Apple iCloud. Files stay on your homelab.
-          </p>
-        </div>
-        <div className="cloud-page__actions">
-          <button type="button" className="btn-ghost btn-sm" onClick={() => void refresh()} disabled={loading}>
-            <RefreshCw size={16} className={loading ? "cloud-spin" : undefined} aria-hidden />
-            Refresh
+    <div className="page cloud-page cloud-page--drive">
+      <div className="cloud-drive">
+        <aside className="cloud-drive__sidebar" aria-label="Cloud navigation">
+          <div className="cloud-drive__brand">
+            <Cloud size={22} aria-hidden />
+            <span>Drive</span>
+          </div>
+          <button type="button" className="cloud-drive__new" onClick={onUploadPick} disabled={!status?.connected || uploading}>
+            <Plus size={18} aria-hidden />
+            New
           </button>
-          {status?.connected && (
-            <>
-              <button type="button" className="btn-primary btn-sm" onClick={onUploadPick} disabled={uploading}>
-                <Upload size={16} aria-hidden />
-                {uploading ? "Uploading…" : "Upload"}
-              </button>
-              <input ref={fileInputRef} type="file" hidden onChange={(ev) => void onUploadChange(ev)} />
-            </>
-          )}
-          {status?.baseUrl && (
-            <button type="button" className="btn-ghost btn-sm" onClick={openNextcloud}>
-              Open Nextcloud
-              <ExternalLink size={14} aria-hidden />
+          <nav className="cloud-drive__nav">
+            <button
+              type="button"
+              className={`cloud-drive__nav-item${path === "" ? " cloud-drive__nav-item--active" : ""}`}
+              onClick={() => navigateTo("")}
+            >
+              <Folder size={18} aria-hidden />
+              My Drive
             </button>
+          </nav>
+          {status?.quota && (
+            <div className="cloud-drive__storage">
+              <div className="cloud-drive__storage-label">
+                <span>Storage</span>
+                <span>
+                  {status.quota.usedHuman} of {status.quota.totalHuman}
+                </span>
+              </div>
+              <div className="cloud-drive__storage-bar" role="progressbar" aria-valuenow={status.quota.usedPercent ?? 0} aria-valuemin={0} aria-valuemax={100}>
+                <div className="cloud-drive__storage-fill" style={{ width: `${Math.min(status.quota.usedPercent ?? 0, 100)}%` }} />
+              </div>
+            </div>
           )}
-        </div>
-      </div>
+        </aside>
 
-      {status?.quota && (
-        <div className="cloud-quota" aria-label="Storage quota">
-          <div className="cloud-quota__labels">
-            <span>
-              <Cloud size={16} aria-hidden /> {status.username}
-            </span>
-            <span>
-              {status.quota.usedHuman} / {status.quota.totalHuman}
-              {status.quota.usedPercent != null ? ` (${status.quota.usedPercent}%)` : ""}
-            </span>
-          </div>
-          <div className="cloud-quota__bar" role="progressbar" aria-valuenow={status.quota.usedPercent ?? 0} aria-valuemin={0} aria-valuemax={100}>
-            <div
-              className="cloud-quota__fill"
-              style={{ width: `${Math.min(status.quota.usedPercent ?? 0, 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {notReady && (
-        <EmptyState
-          className="cloud-empty"
-          icon={<Cloud size={40} strokeWidth={1.25} aria-hidden />}
-          title="Cloud not connected yet"
-          description={status?.message ?? "The API could not reach Nextcloud. Check credentials in deploy/homelab/env/api.env."}
-          action={
-            <>
-              <p className="cloud-empty__lead">
-                Cortex uses <strong>Nextcloud</strong> on this PC for file storage — it does not connect to Apple iCloud.
-              </p>
-              <ul className="cloud-empty__steps">
-                <li>Open Nextcloud in your browser and sign in (admin account from deploy/nas/.env).</li>
-                <li>Confirm the Cloud tab works after a refresh — trusted domains were updated for Docker.</li>
-                <li>For the mobile Nextcloud app, use <code>{status?.baseUrl || "http://10.0.0.49:8081"}</code>.</li>
-              </ul>
+        <main className="cloud-drive__main">
+          <header className="cloud-drive__toolbar">
+            <div className="cloud-drive__search">
+              <Search size={18} aria-hidden />
+              <input
+                type="search"
+                placeholder="Search in Drive"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                disabled={!status?.connected}
+              />
+            </div>
+            <div className="cloud-drive__toolbar-actions">
+              <div className="cloud-drive__view-toggle" role="group" aria-label="View mode">
+                <button
+                  type="button"
+                  className={view === "list" ? "is-active" : ""}
+                  onClick={() => setView("list")}
+                  title="List view"
+                >
+                  <LayoutList size={18} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={view === "grid" ? "is-active" : ""}
+                  onClick={() => setView("grid")}
+                  title="Grid view"
+                >
+                  <Grid3x3 size={18} aria-hidden />
+                </button>
+              </div>
+              <button type="button" className="cloud-drive__icon-btn" onClick={() => void refresh()} disabled={loading} title="Refresh">
+                <RefreshCw size={18} className={loading ? "cloud-spin" : undefined} aria-hidden />
+              </button>
               {status?.baseUrl && (
-                <button type="button" className="btn-primary" onClick={openNextcloud}>
-                  Open Nextcloud
+                <button type="button" className="cloud-drive__icon-btn" onClick={openNextcloud} title="Open Nextcloud admin">
+                  <ExternalLink size={18} aria-hidden />
                 </button>
               )}
-            </>
-          }
-        />
-      )}
+            </div>
+          </header>
 
-      {status?.connected && (
-        <>
-          <nav className="cloud-breadcrumb" aria-label="Folder path">
-            <button type="button" className="cloud-breadcrumb__item" onClick={() => navigateTo("")}>
-              <Home size={14} aria-hidden />
-              Home
+          <nav className="cloud-drive__breadcrumb" aria-label="Folder path">
+            <button type="button" className="cloud-drive__crumb" onClick={() => navigateTo("")}>
+              My Drive
             </button>
             {crumbs.map((segment, i) => {
               const target = crumbs.slice(0, i + 1).join("/");
               return (
-                <span key={target} className="cloud-breadcrumb__segment">
-                  <ChevronRight size={14} aria-hidden />
-                  <button type="button" className="cloud-breadcrumb__item" onClick={() => navigateTo(target)}>
+                <span key={target} className="cloud-drive__crumb-sep">
+                  <ChevronRight size={16} aria-hidden />
+                  <button type="button" className="cloud-drive__crumb" onClick={() => navigateTo(target)}>
                     {segment}
                   </button>
                 </span>
@@ -281,68 +327,158 @@ export function CloudPage() {
             })}
           </nav>
 
-          {error && (
-            <p className="cloud-error" role="alert">
-              {error}
-            </p>
+          <h1 className="cloud-drive__title">{folderLabel}</h1>
+
+          {notReady && (
+            <EmptyState
+              className="cloud-empty"
+              icon={<Cloud size={40} strokeWidth={1.25} aria-hidden />}
+              title="Drive not connected"
+              description={status?.message ?? "Check Nextcloud credentials in deploy/homelab/env/api.env, then reset the connection."}
+              action={
+                <>
+                  <p className="cloud-empty__lead">
+                    Sign in to Nextcloud in your browser first, then ensure <code>NEXTCLOUD_USERNAME</code> and{" "}
+                    <code>NEXTCLOUD_PASSWORD</code> in <code>api.env</code> match that account.
+                  </p>
+                  {status?.baseUrl && (
+                    <button type="button" className="cloud-drive__new cloud-drive__new--center" onClick={openNextcloud}>
+                      Open Nextcloud
+                    </button>
+                  )}
+                </>
+              }
+            />
           )}
 
-          {loading ? (
-            <div className="cloud-loading">
-              <div className="page-loading-spinner" aria-hidden />
-              <p>Loading files…</p>
-            </div>
-          ) : files.length === 0 ? (
-            <EmptyState
-              className="cloud-empty cloud-empty--inline"
-              icon={<Folder size={32} strokeWidth={1.25} aria-hidden />}
-              title="This folder is empty"
-              description="Upload a file to get started."
-            />
-          ) : (
-            <div className="cloud-table-wrap">
-              <table className="cloud-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Size</th>
-                    <th>Modified</th>
-                    <th aria-label="Actions" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.map((entry) => (
-                    <tr key={entry.path}>
-                      <td>
-                        <button
-                          type="button"
-                          className={`cloud-file-name${entry.isDirectory ? " cloud-file-name--dir" : ""}`}
-                          onClick={() => (entry.isDirectory ? openFolder(entry) : downloadFile(entry))}
-                        >
-                          {entry.isDirectory ? <Folder size={16} aria-hidden /> : null}
+          {status?.connected && (
+            <>
+              {error && (
+                <p className="cloud-error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              {loading ? (
+                <div className="cloud-loading">
+                  <div className="page-loading-spinner" aria-hidden />
+                  <p>Loading your files…</p>
+                </div>
+              ) : sorted.length === 0 ? (
+                <EmptyState
+                  className="cloud-empty cloud-empty--inline"
+                  icon={<Folder size={32} strokeWidth={1.25} aria-hidden />}
+                  title={search ? "No matches" : "No files yet"}
+                  description={search ? "Try a different search." : "Drop a file here or click New to upload."}
+                  action={
+                    !search ? (
+                      <button type="button" className="cloud-drive__new cloud-drive__new--center" onClick={onUploadPick}>
+                        <Upload size={18} aria-hidden />
+                        Upload files
+                      </button>
+                    ) : undefined
+                  }
+                />
+              ) : view === "grid" ? (
+                <div className="cloud-grid">
+                  {sorted.map((entry) => {
+                    const Icon = fileIcon(entry);
+                    return (
+                      <article
+                        key={entry.path}
+                        className={`cloud-grid__card${entry.isDirectory ? " cloud-grid__card--folder" : ""}`}
+                        onDoubleClick={() => (entry.isDirectory ? openFolder(entry) : void downloadFile(entry))}
+                      >
+                        <div className={`cloud-grid__icon${entry.isDirectory ? " cloud-grid__icon--folder" : ""}`}>
+                          <Icon size={28} aria-hidden />
+                        </div>
+                        <p className="cloud-grid__name" title={entry.name}>
                           {entry.name}
-                        </button>
-                      </td>
-                      <td>{entry.isDirectory ? "—" : formatSize(entry.size)}</td>
-                      <td>{formatDate(entry.modified)}</td>
-                      <td className="cloud-table__actions">
-                        {!entry.isDirectory && (
-                          <button type="button" className="btn-ghost btn-sm" onClick={() => void downloadFile(entry)} title="Download">
-                            <Download size={14} aria-hidden />
+                        </p>
+                        <div className="cloud-grid__meta">
+                          {!entry.isDirectory && <span>{formatSize(entry.size)}</span>}
+                        </div>
+                        <div className="cloud-grid__actions">
+                          {!entry.isDirectory && (
+                            <button type="button" title="Download" onClick={() => void downloadFile(entry)}>
+                              <Download size={14} aria-hidden />
+                            </button>
+                          )}
+                          <button type="button" title="Delete" onClick={() => void deleteEntry(entry)}>
+                            <Trash2 size={14} aria-hidden />
                           </button>
-                        )}
-                        <button type="button" className="btn-ghost btn-sm" onClick={() => void deleteEntry(entry)} title="Delete">
-                          <Trash2 size={14} aria-hidden />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="cloud-list">
+                  <div className="cloud-list__head" aria-hidden>
+                    <span className="cloud-list__col cloud-list__col--name">Name</span>
+                    <span className="cloud-list__col cloud-list__col--owner">Owner</span>
+                    <span className="cloud-list__col cloud-list__col--date">Last modified</span>
+                    <span className="cloud-list__col cloud-list__col--size">File size</span>
+                    <span className="cloud-list__col cloud-list__col--actions" />
+                  </div>
+                  <ul className="cloud-list__body">
+                    {sorted.map((entry) => {
+                      const Icon = fileIcon(entry);
+                      const menuOpen = menuPath === entry.path;
+                      return (
+                        <li key={entry.path} className="cloud-list__row">
+                          <button
+                            type="button"
+                            className="cloud-list__col cloud-list__col--name cloud-list__name-btn"
+                            onClick={() => (entry.isDirectory ? openFolder(entry) : void downloadFile(entry))}
+                            onDoubleClick={() => entry.isDirectory && openFolder(entry)}
+                          >
+                            <span className={`cloud-list__icon${entry.isDirectory ? " cloud-list__icon--folder" : ""}`}>
+                              <Icon size={20} aria-hidden />
+                            </span>
+                            <span className="cloud-list__filename">{entry.name}</span>
+                          </button>
+                          <span className="cloud-list__col cloud-list__col--owner">{status.username}</span>
+                          <span className="cloud-list__col cloud-list__col--date">{formatDateRelative(entry.modified)}</span>
+                          <span className="cloud-list__col cloud-list__col--size">
+                            {entry.isDirectory ? "—" : formatSize(entry.size)}
+                          </span>
+                          <span className="cloud-list__col cloud-list__col--actions">
+                            <button
+                              type="button"
+                              className="cloud-list__more"
+                              aria-expanded={menuOpen}
+                              onClick={() => setMenuPath(menuOpen ? null : entry.path)}
+                            >
+                              <MoreVertical size={18} aria-hidden />
+                            </button>
+                            {menuOpen && (
+                              <div className="cloud-list__menu" role="menu">
+                                {!entry.isDirectory && (
+                                  <button type="button" role="menuitem" onClick={() => void downloadFile(entry)}>
+                                    <Download size={16} aria-hidden />
+                                    Download
+                                  </button>
+                                )}
+                                <button type="button" role="menuitem" className="cloud-list__menu-danger" onClick={() => void deleteEntry(entry)}>
+                                  <Trash2 size={16} aria-hidden />
+                                  Remove
+                                </button>
+                              </div>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+
+          <input ref={fileInputRef} type="file" hidden onChange={(ev) => void onUploadChange(ev)} />
+        </main>
+      </div>
     </div>
   );
 }

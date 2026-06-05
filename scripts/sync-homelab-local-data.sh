@@ -20,7 +20,12 @@ set_env_key() {
   fi
 }
 
-mkdir -p "$DATA_API/canvas-assets" "$DATA_API/.cortex"
+if [[ ! -w "$DATA_API" ]] 2>/dev/null; then
+  echo "[sync-local] WARN: $DATA_API not writable (Docker may have created it as root)." >&2
+  echo "[sync-local] Fix: npm run vault:fix-perms" >&2
+else
+  mkdir -p "$DATA_API/canvas-assets" "$DATA_API/.cortex"
+fi
 
 vault_host="$VAULT_DEFAULT"
 if [[ -f "$ENV_FILE" ]] && grep -q '^OBSIDIAN_VAULT_HOST_PATH=' "$ENV_FILE"; then

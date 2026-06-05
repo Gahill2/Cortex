@@ -111,12 +111,14 @@ IP="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]')"
 [[ -n "$IP" ]] && CORS="${CORS},http://${IP}:8080"
 upsert_key "$API_ENV" "CORS_ORIGINS" "$CORS"
 
-# Docker API reaches Nextcloud via host gateway — ensure URL works with trusted_domains
+# Nextcloud: API container uses host gateway; phones/browsers use Tailscale IP
+TS_IP_NC="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]' || true)"
 LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}' | tr -d '[:space:]' || true)"
-if [[ -z "${NEXTCLOUD_URL:-}" && -n "${HOMELAB_NEXTCLOUD_URL:-}" ]]; then
-  upsert_key "$API_ENV" "NEXTCLOUD_URL" "$HOMELAB_NEXTCLOUD_URL"
-elif [[ -z "${NEXTCLOUD_URL:-}" && -n "$LAN_IP" ]]; then
-  upsert_key "$API_ENV" "NEXTCLOUD_URL" "http://${LAN_IP}:8081"
+upsert_key "$API_ENV" "NEXTCLOUD_URL" "http://host.docker.internal:8081"
+if [[ -n "$TS_IP_NC" ]]; then
+  upsert_key "$API_ENV" "HOMELAB_NEXTCLOUD_URL" "http://${TS_IP_NC}:8081"
+elif [[ -n "$LAN_IP" ]]; then
+  upsert_key "$API_ENV" "HOMELAB_NEXTCLOUD_URL" "http://${LAN_IP}:8081"
 fi
 
 if [[ -n "${NEXTCLOUD_USERNAME:-}" ]]; then
@@ -128,6 +130,24 @@ if [[ -n "${SMTP_USER:-}" && -n "${SMTP_PASS:-}" ]]; then
   echo "SMTP found — disabled CORTEX_OTP_DEV_FALLBACK (real email OTP)."
 else
   echo "No SMTP_USER/SMTP_PASS in backend/.env — keeping on-screen OTP fallback."
+fi
+
+# Pi-hole + iCloud (NAS stacks)
+PIHOLE_ENV="$ROOT/deploy/nas/pihole/.env"
+if [[ -f "$PIHOLE_ENV" ]]; then
+  source_env "$PIHOLE_ENV"
+  [[ -n "${PIHOLE_WEBPASSWORD:-}" ]] && upsert_key "$API_ENV" "HOMELAB_PIHOLE_API_PASSWORD" "$PIHOLE_WEBPASSWORD"
+  TS_IP="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]' || true)"
+  if [[ -n "$TS_IP" ]]; then
+    upsert_key "$API_ENV" "HOMELAB_PIHOLE_URL" "http://${TS_IP}:8090"
+  elif [[ -n "${PIHOLE_TAILSCALE_IP:-}" ]]; then
+    upsert_key "$API_ENV" "HOMELAB_PIHOLE_URL" "http://${PIHOLE_TAILSCALE_IP}:8090"
+  fi
+fi
+ICLOUD_ENV="$ROOT/deploy/nas/icloudpd/.env"
+if [[ -f "$ICLOUD_ENV" ]]; then
+  source_env "$ICLOUD_ENV"
+  [[ -n "${ICLOUD_APPLE_ID:-}" ]] && upsert_key "$API_ENV" "HOMELAB_ICLOUD_APPLE_ID" "$ICLOUD_APPLE_ID"
 fi
 
 echo ""

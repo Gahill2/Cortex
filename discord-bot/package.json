@@ -1,0 +1,21 @@
+{
+  "name": "cortex-wpp-discord-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "register-commands": "tsx src/register-commands.ts",
+    "doctor": "tsx src/doctor.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.19.3",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

@@ -17,14 +17,26 @@ export interface HomelabPiholeStatus {
   message?: string;
 }
 
+function piholePort(): number {
+  return Number(env.HOMELAB_PIHOLE_PORT) || 8090;
+}
+
+/** API probe URL (Tailscale/LAN IP — works from the API container). */
 function piholeBaseUrl(): string {
   const explicit = env.HOMELAB_PIHOLE_URL.trim();
   if (explicit) return explicit.replace(/\/$/, "");
   const host = env.HOMELAB_SERVICE_HOST.trim() || "127.0.0.1";
-  const port = Number(env.HOMELAB_PIHOLE_PORT) || 8090;
-  return `http://${host}:${port}`;
+  return `http://${host}:${piholePort()}`;
 }
 
+/** Link shown in Homelab UI when Pi-hole local DNS is configured. */
+function piholeAdminOpenUrl(): string {
+  const domain = env.HOMELAB_DNS_DOMAIN.trim().replace(/^\./, "");
+  if (domain) return `http://pihole.${domain}:${piholePort()}/admin/`;
+  return `${piholeBaseUrl()}/admin/`;
+}
+
+/** Pi-hole v6: use X-FTL-SID (cookie-only needs X-FTL-CSRF). */
 async function piholeSession(baseUrl: string, password: string): Promise<string | null> {
   try {
     const res = await fetch(`${baseUrl}/api/auth`, {
@@ -42,9 +54,13 @@ async function piholeSession(baseUrl: string, password: string): Promise<string 
   }
 }
 
+function piholeApiHeaders(sid: string): HeadersInit {
+  return { "X-FTL-SID": sid };
+}
+
 export async function getPiholeStatus(): Promise<HomelabPiholeStatus> {
   const baseUrl = piholeBaseUrl();
-  const adminUrl = `${baseUrl}/admin/`;
+  const adminUrl = piholeAdminOpenUrl();
   const password = env.HOMELAB_PIHOLE_API_PASSWORD.trim();
   const memoryNote =
     "Pi-hole uses ~10–20 MB RAM. The Memory % on this page is whole-PC usage (Immich, Nextcloud, etc.), not Pi-hole.";
@@ -84,7 +100,7 @@ export async function getPiholeStatus(): Promise<HomelabPiholeStatus> {
 
   try {
     const res = await fetch(`${baseUrl}/api/stats/summary`, {
-      headers: { Cookie: `sid=${sid}` },
+      headers: piholeApiHeaders(sid),
       signal: AbortSignal.timeout(PROBE_MS),
     });
     if (!res.ok) {

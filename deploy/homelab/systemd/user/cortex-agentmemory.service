@@ -1,0 +1,17 @@
+[Unit]
+Description=Cortex agentmemory (cross-session LLM memory on :3111)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/Cortex
+Environment=AGENTMEMORY_PROJECT=cortex
+Environment=PORT=3111
+Environment=CORTEX_AGENTMEMORY_DOCKER_BIND=1
+ExecStart=%h/Documents/Cortex/scripts/agentmemory-start.sh
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

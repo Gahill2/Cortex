@@ -2,66 +2,45 @@ import { useEffect, useState } from "react";
 import { Server } from "lucide-react";
 import { api } from "../../../api/client";
 import type { Tab } from "../../../tab";
+import { useHomelabQuickStatus } from "../../../hooks/useHomelabQuickStatus";
 
 type Props = {
   onNavigate: (tab: Tab) => void;
   compact?: boolean;
 };
 
-type QuickStatus = {
-  servicesOk: number;
-  servicesTotal: number;
-  cpu: number | null;
-  aiLabel: string;
-};
-
 export function HomelabWidget({ onNavigate, compact }: Props) {
-  const [status, setStatus] = useState<QuickStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { status: homelab, loading: homelabLoading } = useHomelabQuickStatus();
+  const [aiLabel, setAiLabel] = useState("…");
+  const [aiLoading, setAiLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      api.get<{ data?: { services?: { health: string }[]; metrics?: { cpuPercent: number | null } } }>(
-        "/homelab/status",
-      ),
-      api.get<{ data?: { ollama?: boolean; kimi?: boolean; anthropic?: boolean; defaultProvider?: string } }>(
-        "/ai/status",
-      ),
-    ])
-      .then(([homelab, ai]) => {
+    api
+      .get<{ data?: { ollama?: boolean; kimi?: boolean; anthropic?: boolean } }>("/ai/status")
+      .then((ai) => {
         if (cancelled) return;
-        const services = homelab.data?.data?.services ?? [];
-        const ok = services.filter((s) => s.health === "ok").length;
         const aiData = (ai.data?.data ?? ai.data) as {
           ollama?: boolean;
           kimi?: boolean;
           anthropic?: boolean;
         };
-        const aiLabel = aiData?.ollama
-          ? "Ollama"
-          : aiData?.kimi
-            ? "Kimi"
-            : aiData?.anthropic
-              ? "Claude"
-              : "No AI";
-        setStatus({
-          servicesOk: ok,
-          servicesTotal: services.length,
-          cpu: homelab.data?.data?.metrics?.cpuPercent ?? null,
-          aiLabel,
-        });
+        setAiLabel(
+          aiData?.ollama ? "Ollama" : aiData?.kimi ? "Kimi" : aiData?.anthropic ? "Claude" : "No AI",
+        );
       })
       .catch(() => {
-        if (!cancelled) setStatus(null);
+        if (!cancelled) setAiLabel("AI unknown");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setAiLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const loading = homelabLoading || aiLoading;
 
   return (
     <div
@@ -83,23 +62,35 @@ export function HomelabWidget({ onNavigate, compact }: Props) {
       </div>
       {loading ? (
         <p className="widget--homelab__muted">Checking…</p>
-      ) : status ? (
+      ) : homelab ? (
         <ul className="widget--homelab__stats">
           <li>
             <span>Services</span>
             <strong>
-              {status.servicesOk}/{status.servicesTotal} up
+              {homelab.servicesOk}/{homelab.servicesTotal} up
             </strong>
           </li>
-          {!compact && status.cpu != null ? (
+          <li>
+            <span>Media</span>
+            <strong>
+              {homelab.mediaOk}/{homelab.mediaTotal} up
+            </strong>
+          </li>
+          {!compact && homelab.cpuPercent != null ? (
             <li>
               <span>CPU</span>
-              <strong>{status.cpu}%</strong>
+              <strong>{homelab.cpuPercent}%</strong>
+            </li>
+          ) : null}
+          {!compact && homelab.downloadHeadroomHuman ? (
+            <li>
+              <span>Disk</span>
+              <strong>{homelab.downloadHeadroomHuman}</strong>
             </li>
           ) : null}
           <li>
             <span>AI</span>
-            <strong>{status.aiLabel}</strong>
+            <strong>{aiLabel}</strong>
           </li>
         </ul>
       ) : (

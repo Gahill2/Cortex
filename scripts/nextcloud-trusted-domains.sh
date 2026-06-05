@@ -9,6 +9,8 @@ DOMAINS=(
   127.0.0.1
   host.docker.internal
   10.0.0.49
+  cloud.cortex
+  jellyfin.cortex
 )
 
 IP="$(tailscale ip -4 2>/dev/null | head -1 | tr -d '[:space:]' || true)"

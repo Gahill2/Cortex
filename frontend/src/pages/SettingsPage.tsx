@@ -309,6 +309,16 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     try { await api.post("/spotify/disconnect"); await loadSpotify(); } catch { /* ignore */ }
   };
 
+  /** Force Spotify consent screen (fixes "not correct permissions" / missing scopes). */
+  const reconnectSpotifyPermissions = async () => {
+    try {
+      const u = await api.get<{ data?: { url?: string } }>("/spotify/oauth/url?reconnect=1");
+      openOAuth(u.data?.data?.url ?? null);
+    } catch {
+      setOauthErrorBanner("Could not start Spotify reconnect. Check SPOTIFY_REDIRECT_URI in api.env.");
+    }
+  };
+
   const disconnectNotion = async () => {
     try { await api.post("/notion/disconnect"); await loadNotion(); } catch { /* ignore */ }
   };
@@ -593,14 +603,32 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
                     )}
                   </div>
                   <p className="settings-item-desc">
-                    {spotifyLoading ? "Checking…" : spotifyConnected ? "Now-playing & playback controls active" : "Connect to show what's playing and control playback"}
+                    {spotifyLoading
+                      ? "Checking…"
+                      : spotifyConnected
+                        ? "Playback, stats, and AI playlists need top-artist & playlist scopes — use Refresh permissions if Spotify says permissions are wrong."
+                        : "Connect for playback, listening stats, and AI playlists"}
                   </p>
                 </div>
               </div>
               {!spotifyLoading && (
-                spotifyConnected
-                  ? <button className="btn-ghost btn-sm" onClick={() => void disconnectSpotify()}>Disconnect</button>
-                  : <button className="btn-primary btn-sm" onClick={() => openOAuth(spotifyUrl)}>Connect</button>
+                spotifyConnected ? (
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={() => void reconnectSpotifyPermissions()}
+                    >
+                      Refresh permissions
+                    </button>
+                    <button className="btn-ghost btn-sm" onClick={() => void disconnectSpotify()}>
+                      Disconnect
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn-primary btn-sm" onClick={() => openOAuth(spotifyUrl)}>
+                    Connect
+                  </button>
+                )
               )}
             </div>
 

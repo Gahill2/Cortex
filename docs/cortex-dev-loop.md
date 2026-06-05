@@ -1,55 +1,54 @@
-# Cortex autonomous dev loop
+# Cortex dev loop backlog
 
-Checklist for overnight / unattended iteration. Each loop pass: pick the **first unchecked** item, implement, deploy homelab if API/web changed, mark done, commit only if user asked.
+Actionable checklist for the **continuous improvement loop**. Parent playbook: [continuous-improvement-loop.md](./continuous-improvement-loop.md).
 
-## Track A — AI & Ollama
+Each **Build** pass: first unchecked item in **Build** → implement → deploy if API/web changed → mark `[x]`.
 
-- [x] Kimi region fallback + `KIMI_BASE_URL` for moonshot.cn
-- [x] Shared `AIProviderBanner` on AI / Mail / Spotify / Homelab
-- [x] `npm run server:ollama:setup` script + api.env OLLAMA_* vars
-- [ ] Ollama reachable from API container (`host.docker.internal:11434`)
-- [x] Homelab AI section shows Ollama live/running
+## Manual (user — not autonomous Build)
 
-## Track B — Microsoft Outlook
+- [ ] Gaming PC Ollama: `OLLAMA_BASE_URL` + `OLLAMA_PC_NAME` in `deploy/homelab/env/api.env` — [ollama-remote-pc.md](./ollama-remote-pc.md)
+- [ ] Azure `MICROSOFT_*` in `api.env` + Mail Outlook connect — [microsoft-oauth-homelab.md](./microsoft-oauth-homelab.md)
+- [ ] `npm run vault:fix-perms` (sudo once)
+- [ ] Obsidian desktop: `snap install obsidian --classic`
 
-- [x] `MICROSOFT_*` in integrations status + `/health`
-- [x] Settings → Integrations: Outlook setup card with copy redirect URI
-- [ ] User adds Azure app creds to `deploy/homelab/env/api.env` (manual)
-- [ ] Mail "Add Outlook" works end-to-end
+## Build (agent — first unchecked wins)
 
-## Track C — UI polish
+### UI polish
 
-- [x] Desktop route padding fix (topnav)
-- [x] Command palette: all nav + actions + shortcuts displayed
-- [x] Reusable `EmptyState` on Mail / Cloud / Notes where missing
-- [x] Mobile: padded routes consistent on tablet breakpoints
+- [x] Mail Lucide icons + list/detail spacing (`styles-mail.css` 2026-06-04)
+- [x] Brand transparent SVG only — grep: no `.png` logos in `frontend/src`; favicon `favicon.svg`
+- [x] AI remote PC offline dialog spacing (`styles-ai-settings.css` 2026-06-04)
 
-## Track D — Canvas
+### Homelab ops
 
-- [x] Homelab glance widget on canvas registry
-- [x] System widget shows AI + API health
-- [x] Canvas toolbar: grouped add menu + tooltips (existing)
+- [x] agentmemory reachable from Docker API (`agentmemory-docker-bind.sh`)
+- [x] Document no `sudo docker compose` ([homelab-auto-deploy.md](./homelab-auto-deploy.md))
+- [x] `server:docker:doctor` passes (snap/AppArmor warnings only — deploy workaround OK)
+- [ ] qBit RAM limits or off-peak schedule (docs note in homelab)
+- [ ] Chrome smoke note for Tasks/Calendar ([dev-resources.md](./dev-resources.md))
+
+### AI / integrations (code)
+
+- [x] Remote Ollama path + offline UI ([ollama-remote-pc.md](./ollama-remote-pc.md))
+- [x] Homelab page clearer Ollama target when offline (`HomelabPage.tsx` 2026-06-04)
+
+## Done archive
+
+- [x] Kimi region fallback, AIProviderBanner, ollama setup script
+- [x] Outlook setup card, MICROSOFT_* in health
+- [x] Desktop padding, command palette, EmptyState, mobile padding
+- [x] Vault clone scripts, canvas homelab widget
 
 ## Deploy
 
 ```bash
-bash scripts/homelab-deploy-api-web.sh
-bash scripts/homelab-docker-compose.sh up -d cortex-api cortex-web
+npm run server:deploy
 ```
 
-If `docker compose up` fails with **permission denied** on stop/restart, use the host deploy listener (Homelab → Redeploy now, or):
+## Loop
 
 ```bash
-curl -X POST http://127.0.0.1:9092/deploy -H "Authorization: Bearer $HOMELAB_DEPLOY_TOKEN"
+npm run dev:improve-loop      # timer → this chat executes wakes
+npm run dev:improve:status
+pkill -f cortex-improvement-loop.sh   # stop
 ```
-
-## Loop prompt (for agent)
-
-Continue Cortex dev loop: read `docs/cortex-dev-loop.md`, implement the first unchecked item, run backend lint / deploy if needed, update checkboxes in this file, do not ask the user unless secrets are required.
-
-## When you're back (≈5 min)
-
-1. **Free local AI:** `npm run server:ollama:setup` in a real terminal (sudo), then Homelab → Redeploy now.
-2. **Outlook:** Add `MICROSOFT_CLIENT_ID` + `MICROSOFT_CLIENT_SECRET` to `deploy/homelab/env/api.env` — see `docs/microsoft-oauth-homelab.md`, redeploy.
-3. **Kimi AI:** Recharge at [platform.moonshot.cn](https://platform.moonshot.cn) if mail/chat AI still fails with quota errors.
-4. **Verify:** https://cortex.tail4f977b.ts.net — Mail, AI chat, Homelab → AI providers (Ollama should show **Running**).

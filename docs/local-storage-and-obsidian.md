@@ -35,19 +35,28 @@ Needs **sudo** (password prompt). Do not run from a non-interactive agent shell.
 ```bash
 cd /home/greyhill/Documents/Cortex
 
-# 1) Partition, format, mount (ERASES /dev/sdb)
+# 1) Partition, format, mount (ERASES /dev/sdb — wipes old NTFS)
 npm run storage:setup
+# Type YES when prompted
 
 # 2) Create vault + update homelab env
 npm run storage:vault
 
-# 3) Sync sidecar into Docker data dir
-npm run server:sync-local
+# 3) Move Jellyfin / Radarr / Sonarr / Pi-hole data to the big archive partition
+npm run nas:migrate-to-archive
+# Type YES — stops media containers, rsyncs ~/nas-data → /mnt/cortex/archive/nas-data
 
-# 4) Redeploy API (new vault bind mount)
+# 4) Start NAS stacks on the new disk
+cd deploy/nas/pihole && docker compose --env-file .env up -d
+cd ../.. && cd deploy/nas && docker compose --env-file .env up -d
+cd ../nas/media-stack && docker compose --env-file .env up -d
+
+# 5) Sync sidecar + redeploy Cortex API (Obsidian vault)
+npm run server:sync-local
 npm run server:deploy
-# or Homelab → Redeploy now
 ```
+
+After step 3 you have **~256 GB** on `/mnt/cortex/archive` for movies/TV (plus **~220 GB** on obsidian partition for notes).
 
 Preview only:
 
@@ -67,6 +76,12 @@ In the app: **Notes** → vault path should be `/mnt/cortex/obsidian/greyhill_br
 
 ## Obsidian desktop (optional)
 
+Install on this PC:
+
+```bash
+sudo snap install obsidian --classic
+```
+
 Point Obsidian at the same folder:
 
 ```text
@@ -74,6 +89,51 @@ Point Obsidian at the same folder:
 ```
 
 Edits on disk are what Cortex indexes; restart is not required for every file (index refreshes on search/graph).
+
+## GitHub vault (greyhill_brain)
+
+Your Windows path was `Documents\GitHub\greyhill_brain`. On this PC:
+
+```bash
+# One-time: GitHub auth (SSH recommended)
+ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+# Add your deploy key or personal key to GitHub, then:
+
+# Add ~/.ssh/id_ed25519.pub to https://github.com/settings/keys first, then:
+npm run vault:clone
+# (default remote: git@github.com:Gahill2/greyhill_brain.git)
+
+# Or copy from another machine over Tailscale/SSH:
+npm run vault:clone -- --from /path/to/greyhill_brain
+
+cd deploy/homelab && docker compose --env-file .env up -d --force-recreate cortex-api
+```
+
+Without a repo URL, `npm run vault:clone` scaffolds an empty vault (`storage:vault`) so Cortex Notes works immediately; clone when you have Git access.
+
+## Claude + consistent LLM memory
+
+| Layer | What it does |
+|--------|----------------|
+| **Cortex → AI** | Talk to Claude (Anthropic key in `api.env`); exchanges append to `Cortex/AI Log.md` in the vault when `OBSIDIAN_AI_LOG_ENABLED=true`. |
+| **Cortex → Notes** | Search, graph, capture over the same vault files. |
+| **agentmemory** | Cross-session facts (`remember` / `recall`) — same `AGENTMEMORY_PROJECT=cortex` on every machine. |
+| **Cursor** | `@agentmemory-remember` etc. after `npm run sync:agentmemory-skills:sh`; MCP: `npx -y @agentmemory/mcp`. |
+
+Homelab (always-on memory server):
+
+```bash
+npm run server:memory:setup
+npm run sync:agentmemory-skills:sh
+```
+
+Dev (all three ports):
+
+```bash
+npm run dev:stack   # API + UI + agentmemory :3111
+```
+
+In the app: **Settings → Memory** for unified search (vault + agentmemory) and MCP config snippet.
 
 ## Migrating from Windows / old vault
 

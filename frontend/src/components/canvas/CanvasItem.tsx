@@ -2,7 +2,11 @@ import type { CSSProperties, ReactNode } from "react";
 import type { WidgetRenderStyle } from "./widgetRenderStyle";
 import { useState } from "react";
 import type { CanvasNode } from "./CanvasDashboard";
-import { isInteractiveCanvasTarget, prepareCanvasPointerGesture } from "./canvasPointer";
+import {
+  isCanvasDragSurface,
+  isInteractiveCanvasTarget,
+  prepareCanvasPointerGesture,
+} from "./canvasPointer";
 import { ScaledCanvasBody, canvasItemBaseSize } from "./ScaledCanvasBody";
 import { WidgetStylePicker } from "./WidgetStylePicker";
 import { buildWidgetRenderStyle } from "./widgetRenderStyle";
@@ -84,10 +88,11 @@ export function CanvasItem({
 
   const isBackdrop = node.type === "backdrop";
   const isWidget = node.type === "widget";
+  const locked = Boolean(node.locked);
   const showChrome = editMode && (hovered || isSelected);
   const dashboardWidget = isWidget && Boolean(renderWidget);
-  const showWidgetHeader = editMode && (!dashboardWidget || isSelected);
-  const showEditChrome = isWidget ? showWidgetHeader : editMode;
+  const showWidgetHeader = editMode && !locked && (!dashboardWidget || isSelected || hovered);
+  const showEditChrome = isWidget ? showWidgetHeader : editMode && !locked;
   const showItemStylePicker =
     !dashboardWidget &&
     showStylePicker &&
@@ -116,8 +121,15 @@ export function CanvasItem({
   };
 
   const handleBodyPointerDown = (e: React.PointerEvent) => {
-    if (!editMode) return;
+    if (!editMode || locked) return;
     if (node.type === "note" || node.type === "custom") return;
+    if (isInteractiveCanvasTarget(e.target) && !isCanvasDragSurface(e.target)) return;
+    prepareCanvasPointerGesture(e);
+    onDragStart(e);
+  };
+
+  const handleBackdropPointerDown = (e: React.PointerEvent) => {
+    if (!editMode || locked) return;
     if (isInteractiveCanvasTarget(e.target)) return;
     prepareCanvasPointerGesture(e);
     onDragStart(e);
@@ -156,7 +168,7 @@ export function CanvasItem({
           borderRadius: radius,
           border: borderW > 0 ? `${borderW}px solid ${borderC}` : undefined,
         }}
-        onPointerDown={onDragStart}
+        onPointerDown={handleBackdropPointerDown}
       />
     );
   };
@@ -327,7 +339,7 @@ export function CanvasItem({
   if (isBackdrop) {
     return (
       <div
-        className={`canvas-item canvas-item--backdrop${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}`}
+        className={`canvas-item canvas-item--backdrop${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${locked ? " canvas-item--locked" : ""}${editMode ? " canvas-item--edit-mode" : ""}`}
         style={{
           left: node.x,
           top: node.y,
@@ -340,8 +352,13 @@ export function CanvasItem({
         onPointerLeave={() => setHovered(false)}
       >
         <div className="canvas-item__body canvas-item__body--backdrop">{renderContent()}</div>
-        {!isSelected ? renderBackdropChrome() : null}
-        {editMode && (
+        {locked ? (
+          <div className="canvas-item__lock-badge" title="Locked — unlock from the toolbar when selected">
+            🔒
+          </div>
+        ) : null}
+        {editMode && showChrome ? renderBackdropChrome() : null}
+        {editMode && !locked && (
           <div className="canvas-item__resize" onPointerDown={onResizeStart}>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
               <circle cx="10" cy="10" r="1.5" />
@@ -356,7 +373,7 @@ export function CanvasItem({
 
   return (
     <div
-      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${dashboardWidget ? " canvas-item--dashboard-widget" : ""}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
+      className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${locked ? " canvas-item--locked" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${dashboardWidget ? " canvas-item--dashboard-widget" : ""}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
       style={{
         left: node.x,
         top: node.y,
@@ -373,9 +390,14 @@ export function CanvasItem({
     >
       <div
         className={`canvas-item__header${showEditChrome ? "" : " canvas-item__header--hidden"}`}
-        onPointerDown={editMode ? onDragStart : undefined}
+        onPointerDown={editMode && !locked ? onDragStart : undefined}
       >
         {showEditChrome && <span className="canvas-item__drag-dots" aria-hidden>⋮⋮</span>}
+        {locked && editMode ? (
+          <span className="canvas-item__lock-inline" title="Locked">
+            🔒
+          </span>
+        ) : null}
         {(node.type === "custom" || node.type === "embed") && onTitleChange ? (
           <input
             className="canvas-item__title-input"
@@ -432,7 +454,7 @@ export function CanvasItem({
         {renderContent()}
       </div>
 
-      {showEditChrome && (
+      {showEditChrome && !locked && (
         <div className="canvas-item__resize" onPointerDown={onResizeStart}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <circle cx="10" cy="10" r="1.5" />

@@ -38,6 +38,7 @@ interface Props {
   onSendBackward?: () => void;
   onSendToBack?: () => void;
   onDuplicate?: () => void;
+  onToggleLock?: () => void;
   onRemove: () => void;
   onClearSelection?: () => void;
   /** Inline segment inside unified toolbar */
@@ -133,6 +134,7 @@ export function CanvasSelectionToolbar({
   onSendBackward,
   onSendToBack,
   onDuplicate,
+  onToggleLock,
   onRemove,
   onClearSelection,
   embedded = false,
@@ -169,9 +171,11 @@ export function CanvasSelectionToolbar({
         ? "Color panel"
         : node.title ?? node.type;
 
+  const locked = Boolean(node.locked);
+
   const applySize = useCallback(
     (patch: { w?: number; h?: number }) => {
-      if (!onGeometryChange) return;
+      if (!onGeometryChange || locked) return;
       if (aspectLocked && patch.w !== undefined && patch.h === undefined) {
         onGeometryChange({ w: patch.w, h: Math.max(1, Math.round(patch.w / aspectRatio)) });
         return;
@@ -182,7 +186,7 @@ export function CanvasSelectionToolbar({
       }
       onGeometryChange(patch);
     },
-    [aspectLocked, aspectRatio, onGeometryChange],
+    [aspectLocked, aspectRatio, onGeometryChange, locked],
   );
 
   const layerOpacity =
@@ -213,8 +217,17 @@ export function CanvasSelectionToolbar({
 
   const actionsBlock = (
     <div className="canvas-selection-toolbar__actions">
+      {onToggleLock ? (
+        <ToolbarBtn
+          title={locked ? "Unlock (allow move & resize)" : "Lock position (stays put while editing)"}
+          active={locked}
+          onClick={onToggleLock}
+        >
+          {locked ? "🔓" : "🔒"}
+        </ToolbarBtn>
+      ) : null}
       {onDuplicate ? (
-        <ToolbarBtn title="Duplicate" onClick={onDuplicate}>
+        <ToolbarBtn title="Duplicate" onClick={onDuplicate} disabled={locked}>
           ⧉
         </ToolbarBtn>
       ) : null}
@@ -287,7 +300,7 @@ export function CanvasSelectionToolbar({
 
   const detailsPanel = detailsOpen && hasAdvanced ? (
     <div className="canvas-selection-toolbar__details">
-      {onGeometryChange ? (
+      {onGeometryChange && !locked ? (
         <>
           <ToolbarDivider />
           <div className="canvas-selection-toolbar__section canvas-selection-toolbar__section--geometry">
@@ -317,6 +330,11 @@ export function CanvasSelectionToolbar({
               onChange={(rotation) => onGeometryChange({ rotation })}
             />
           </div>
+        </>
+      ) : locked ? (
+        <>
+          <ToolbarDivider />
+          <p className="canvas-selection-toolbar__locked-hint">Locked — unlock to move or resize.</p>
         </>
       ) : null}
 

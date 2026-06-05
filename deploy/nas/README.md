@@ -27,6 +27,8 @@ Jellyfin plays media; the **media-stack** routes qBittorrent + Sonarr/Radarr/Pro
 
 **Pi-hole** (DNS): see [pihole/README.md](pihole/README.md).
 
+**Witness Protection Program (Discord / Tailscale setup):** [docs/tailscale-family-setup.md](../../docs/tailscale-family-setup.md) · [docs/discord-setup-pin.md](../../docs/discord-setup-pin.md)
+
 **iCloud Photos → Immich** (optional): see [icloudpd/README.md](icloudpd/README.md).
 
 ```bash
@@ -35,6 +37,18 @@ cp deploy/nas/media-stack/.env.example deploy/nas/media-stack/.env
 
 cd deploy/nas/media-stack
 docker compose --env-file .env up -d
+```
+
+## Jellyfin: your server + his server (CIFS)
+
+Jellyfin reads **both** local cortex media and **his CIFS shares** over Tailscale. Full guide: [docs/jellyfin-dual-library-cifs.md](../../docs/jellyfin-dual-library-cifs.md).
+
+```bash
+cp deploy/nas/.remote-storage.env.example deploy/nas/.remote-storage.env
+npm run nas:remote-storage:list-shares
+npm run nas:remote-storage:mount
+npm run nas:jellyfin:library-paths
+cd deploy/nas && docker compose --env-file .env up -d jellyfin
 ```
 
 ## Point Cortex data at the same tree

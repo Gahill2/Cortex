@@ -103,6 +103,41 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url === "/containers") {
+    const r = await runScript(join(ROOT, "scripts/homelab-docker-containers.sh"), ["list"]);
+    if (r.code !== 0) {
+      json(502, { ok: false, error: (r.stderr || r.stdout).trim().slice(-500) });
+      return;
+    }
+    try {
+      const containers = JSON.parse(r.stdout.trim());
+      json(200, { ok: true, containers });
+    } catch {
+      json(502, { ok: false, error: "Invalid container list JSON" });
+    }
+    return;
+  }
+
+  const containerAction = req.method === "POST" && req.url?.match(/^\/containers\/([^/]+)\/(restart|start|stop)$/);
+  if (containerAction) {
+    const id = decodeURIComponent(containerAction[1]);
+    const action = containerAction[2];
+    busy = true;
+    try {
+      const r = await runScript(join(ROOT, "scripts/homelab-docker-containers.sh"), [action, id]);
+      let body;
+      try {
+        body = JSON.parse((r.stdout || r.stderr).trim().split("\n").pop() || "{}");
+      } catch {
+        body = { ok: r.code === 0, error: (r.stderr + r.stdout).trim().slice(-500) };
+      }
+      json(r.code === 0 && body.ok ? 200 : 502, { ...body, id, output: (r.stdout + r.stderr).trim().slice(-500) });
+    } finally {
+      busy = false;
+    }
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/deploy") {
     busy = true;
     try {

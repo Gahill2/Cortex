@@ -3,6 +3,8 @@ import type { AIProviderOption, ChatAIProviderId } from "./aiProvider";
 export type AIStatusPayload = {
   ollama: boolean;
   ollamaModel: string;
+  ollamaHost?: string;
+  ollamaPcName?: string;
   anthropic: boolean;
   kimi?: boolean;
   kimiModel?: string;

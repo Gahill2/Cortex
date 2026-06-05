@@ -29,16 +29,28 @@ is_safe_media() {
 }
 
 clean_name() {
-  # Strip release-group junk for folder title
-  sed -E 's/ \[[^]]+\]$//; s/ \([^)]*\)$//' <<< "$1" | sed 's/[[:space:]]*$//'
+  local raw="$1"
+  raw="$(sed -E 's/ \[[^]]+\]//g; s/ \{[^}]+\}//g; s/www\.UIndex\.org[[:space:]]*-[[:space:]]*//Ig' <<< "$raw")"
+  # Drop release tags in parens (1080p, 5.1) but keep (YYYY)
+  raw="$(sed -E 's/ \([^)]*[A-Za-z][^)]*\)//g' <<< "$raw")"
+  raw="$(sed -E 's/[._]+/ /g' <<< "$raw")"
+  if [[ "$raw" =~ ^(.+)[[:space:]]([12][0-9]{3})$ ]]; then
+    echo "${BASH_REMATCH[1]} (${BASH_REMATCH[2]})"
+    return
+  fi
+  sed -E 's/ +/ /g;s/^ | $//g' <<< "$raw"
 }
 
 move_movie_file() {
   local src="$1"
-  local base
+  local base parent title
   base="$(basename "$src")"
-  local title="${base%.*}"
-  title="$(clean_name "$title")"
+  parent="$(basename "$(dirname "$src")")"
+  if [[ "$parent" != "downloads" && "$parent" != "incomplete" && "$parent" != "complete" ]]; then
+    title="$(clean_name "$parent")"
+  else
+    title="$(clean_name "${base%.*}")"
+  fi
   local dest_dir="$MOVIES/$title"
   mkdir -p "$dest_dir"
   local ext="${base##*.}"
@@ -75,27 +87,28 @@ organize_tv_episode() {
   return 1
 }
 
-shopt -s nullglob
+process_video() {
+  local f="$1"
+  is_safe_media "$f" || { rm -f "$f"; return; }
+  organize_tv_episode "$f" || move_movie_file "$f"
+}
+
+shopt -s nullglob globstar
+# Top-level loose files
 for item in "$DL"/*; do
-  if [[ -f "$item" ]]; then
-    if is_safe_media "$item"; then
-      organize_tv_episode "$item" || move_movie_file "$item"
-    else
-      echo "DELETE unsafe: $item"
-      rm -f "$item"
-    fi
-    continue
-  fi
-  [[ -d "$item" ]] || continue
-  shopt -s nullglob
-  for f in "$item"/*.{mp4,mkv,avi,m4v,mov,webm} "$item"/*/*.{mp4,mkv,avi,m4v}; do
-    [[ -f "$f" ]] || continue
-    is_safe_media "$f" || { rm -f "$f"; continue; }
-    organize_tv_episode "$f" || move_movie_file "$f"
-  done
-  # Remove empty torrent folders and junk (subs-only dirs stay if non-empty)
-  find "$item" -type d -empty -delete 2>/dev/null || true
-  rmdir "$item" 2>/dev/null || true
+  [[ -f "$item" ]] || continue
+  process_video "$item"
 done
+# All videos under download folders (any depth; skips tiny junk)
+while IFS= read -r -d '' f; do
+  [[ "$(stat -c%s "$f" 2>/dev/null || echo 0)" -gt 50000000 ]] || continue
+  case "$f" in
+    */Subtitle,info/*|*/Sample/*|*sample*) continue ;;
+  esac
+  process_video "$f"
+done < <(find "$DL" -mindepth 2 -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.m4v' -o -iname '*.mov' -o -iname '*.webm' \) -print0 2>/dev/null)
+
+# Remove empty torrent folders
+find "$DL" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
 echo "Done. Scan libraries in Jellyfin: Dashboard → Libraries → Scan."

@@ -99,8 +99,9 @@ async function folderSizes(root: string): Promise<NasFolderUsage[]> {
   return folders.sort((a, b) => b.sizeBytes - a.sizeBytes);
 }
 
-export async function getHostStorageStatus(): Promise<HostStorageStatus> {
-  if (cached && Date.now() - cachedAt < CACHE_MS) return cached;
+export async function getHostStorageStatus(opts?: { light?: boolean }): Promise<HostStorageStatus> {
+  const light = opts?.light === true;
+  if (!light && cached && Date.now() - cachedAt < CACHE_MS) return cached;
 
   const nasRoot = env.HOMELAB_NAS_ROOT.trim() || null;
   const systemDisk = statDisk(nasRoot ?? "/", nasRoot ? "NAS volume" : "System disk");
@@ -116,13 +117,15 @@ export async function getHostStorageStatus(): Promise<HostStorageStatus> {
       downloadHeadroomHuman: null,
       message: "Could not read disk usage",
     };
-    cached = result;
-    cachedAt = Date.now();
+    if (!light) {
+      cached = result;
+      cachedAt = Date.now();
+    }
     return result;
   }
 
   let nasFolders: NasFolderUsage[] = [];
-  if (nasRoot && fs.existsSync(nasRoot)) {
+  if (!light && nasRoot && fs.existsSync(nasRoot)) {
     nasFolders = await folderSizes(nasRoot);
   }
 
@@ -141,7 +144,9 @@ export async function getHostStorageStatus(): Promise<HostStorageStatus> {
       : undefined,
   };
 
-  cached = result;
-  cachedAt = Date.now();
+  if (!light) {
+    cached = result;
+    cachedAt = Date.now();
+  }
   return result;
 }

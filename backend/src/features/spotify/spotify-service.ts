@@ -14,6 +14,8 @@ const SCOPES = [
   "user-read-currently-playing",
   "user-read-private",
   "user-read-email",
+  "user-top-read",
+  "user-read-recently-played",
   "playlist-modify-public",
   "playlist-modify-private"
 ].join(" ");
@@ -24,14 +26,18 @@ export function isSpotifyConfigured(): boolean {
 
 // ── OAuth ────────────────────────────────────────────────────────────────────
 
-export function buildSpotifyAuthUrl(state: string): string {
+export function buildSpotifyAuthUrl(
+  state: string,
+  options?: { showDialog?: boolean },
+): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: env.SPOTIFY_CLIENT_ID!,
     scope: SCOPES,
     redirect_uri: env.SPOTIFY_REDIRECT_URI!,
-    state
+    state,
   });
+  if (options?.showDialog) params.set("show_dialog", "true");
   return `${SPOTIFY_ACCOUNTS}/authorize?${params}`;
 }
 
@@ -258,23 +264,14 @@ function mapSpotifyTrackItem(item: SpotifyTrackItem): SpotifyTrackResult {
   };
 }
 
-/** Search Spotify for tracks matching a free-text query (no AI required). */
+/** Search Spotify for tracks (never throws — dev apps may return 400 "Invalid limit"). */
 export async function searchSpotifyTracks(
   userId: string,
   query: string,
   limit = 15,
 ): Promise<SpotifyTrackResult[]> {
-  const token = await getValidSpotifyToken(userId);
-  const q = encodeURIComponent(query.trim());
-  const r = await fetch(`${SPOTIFY_API}/search?q=${q}&type=track&limit=${Math.min(limit, 50)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!r.ok) {
-    const detail = await readSpotifyError(r, "Spotify search failed");
-    throw new Error(detail);
-  }
-  const data = (await r.json()) as { tracks?: { items?: SpotifyTrackItem[] } };
-  return (data.tracks?.items ?? []).map(mapSpotifyTrackItem);
+  const { searchSpotifyTracksSafe } = await import("./spotify-search.js");
+  return searchSpotifyTracksSafe(userId, query, limit);
 }
 
 async function readSpotifyError(res: Response, fallback: string): Promise<string> {

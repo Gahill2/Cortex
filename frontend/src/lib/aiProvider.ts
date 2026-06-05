@@ -35,13 +35,34 @@ export function writeStoredAIProvider(id: ChatAIProviderId): void {
   }
 }
 
+const CLOUD_PROVIDER_ORDER: ChatAIProviderId[] = ["kimi", "claude", "openai"];
+
+/** User prefers local Ollama (gaming PC) but it's not reachable right now. */
+export function wantsLocalPcButOffline(status: {
+  ollama: boolean;
+  providers: AIProviderOption[];
+} | null): boolean {
+  if (!status || status.ollama) return false;
+  const stored = readStoredAIProvider();
+  if (stored === "ollama") return true;
+  const ollamaMeta = status.providers.find((p) => p.id === "ollama");
+  return Boolean(ollamaMeta && !ollamaMeta.available);
+}
+
 export function pickDefaultProvider(
   providers: AIProviderOption[],
   fallback: ChatAIProviderId | null
 ): ChatAIProviderId {
   const stored = readStoredAIProvider();
-  if (stored && providers.find((p) => p.id === stored)?.available) return stored;
-  if (fallback && providers.find((p) => p.id === fallback)?.available) return fallback;
-  const first = providers.find((p) => p.available);
-  return first?.id ?? "claude";
+  if (stored && stored !== "ollama" && providers.find((p) => p.id === stored)?.available) {
+    return stored;
+  }
+  if (fallback && fallback !== "ollama" && providers.find((p) => p.id === fallback)?.available) {
+    return fallback;
+  }
+  for (const id of CLOUD_PROVIDER_ORDER) {
+    if (providers.find((p) => p.id === id)?.available) return id;
+  }
+  if (providers.find((p) => p.id === "ollama")?.available) return "ollama";
+  return providers.find((p) => p.available)?.id ?? "claude";
 }

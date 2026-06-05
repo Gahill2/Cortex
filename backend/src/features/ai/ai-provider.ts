@@ -32,17 +32,47 @@ export type AIProviderStatus = {
 // ── Ollama ───────────────────────────────────────────────────────────────────
 
 let _ollamaAvailable: boolean | null = null;
+let _ollamaCheckedAt = 0;
 
-async function checkOllama(): Promise<boolean> {
-  if (_ollamaAvailable !== null) return _ollamaAvailable;
+function ollamaCheckTtlMs(): number {
+  const n = env.OLLAMA_CHECK_MS;
+  return Number.isFinite(n) && n >= 5_000 ? n : 30_000;
+}
+
+/** Hostname from OLLAMA_BASE_URL for status UI (Tailscale PC, localhost, etc.). */
+export function getOllamaHostLabel(): string {
+  try {
+    const u = new URL(env.OLLAMA_BASE_URL);
+    if (u.hostname === "host.docker.internal") return "Docker host";
+    return u.hostname;
+  } catch {
+    return "local";
+  }
+}
+
+export function getOllamaPcLabel(): string {
+  const name = env.OLLAMA_PC_NAME?.trim();
+  return name || "Local PC";
+}
+
+async function checkOllama(force = false): Promise<boolean> {
+  const now = Date.now();
+  if (
+    !force &&
+    _ollamaAvailable !== null &&
+    now - _ollamaCheckedAt < ollamaCheckTtlMs()
+  ) {
+    return _ollamaAvailable;
+  }
   try {
     const res = await fetch(`${env.OLLAMA_BASE_URL}/api/tags`, {
-      signal: AbortSignal.timeout(2_000),
+      signal: AbortSignal.timeout(3_000),
     });
     _ollamaAvailable = res.ok;
   } catch {
     _ollamaAvailable = false;
   }
+  _ollamaCheckedAt = now;
   return _ollamaAvailable;
 }
 
@@ -80,7 +110,7 @@ const CLAUDE_MODEL = env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
 
 export function isAiBillingError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /credit balance|billing|quota|insufficient|recharge|exceeded_current_quota|suspended due to/i.test(msg);
+  return /credit balance|billing|quota|insufficient|recharge|exceeded_current_quota|suspended due to|account.*suspended|"code":\s*429/i.test(msg);
 }
 
 /** User-facing chat/API error when a provider call fails. */
@@ -274,7 +304,9 @@ export async function callAIWithProvider(
 
   if (provider === "ollama") {
     if (!(await checkOllama())) {
-      throw new Error("Ollama is not running. Start it with: ollama serve");
+      throw new Error(
+        `${getOllamaPcLabel()} is not reachable at ${getOllamaHostLabel()}. Turn on the PC and start Ollama, or choose a cloud model.`,
+      );
     }
     return callOllama(messages, systemPrompt, maxTokens);
   }
@@ -292,41 +324,52 @@ export async function callAIWithProvider(
 
 // ── Tiered routing (background / legacy) ─────────────────────────────────────
 
+const CLOUD_FAIL_TTL_MS = 10 * 60_000;
+let cloudFailureUntil = 0;
+
+function markCloudProvidersFailed(): void {
+  cloudFailureUntil = Date.now() + CLOUD_FAIL_TTL_MS;
+}
+
+function clearCloudProviderFailure(): void {
+  cloudFailureUntil = 0;
+}
+
 async function callFirstAvailable(
   providers: Array<{ name: string; run: () => Promise<AIResponse> }>,
 ): Promise<AIResponse> {
   const errors: string[] = [];
   for (const provider of providers) {
     try {
-      return await provider.run();
+      const result = await provider.run();
+      clearCloudProviderFailure();
+      return result;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errors.push(`${provider.name}: ${msg}`);
       console.warn(`[ai] ${provider.name} failed:`, msg);
     }
   }
+  markCloudProvidersFailed();
   throw new Error(errors.join(" · ") || "No AI provider available");
 }
 
-export async function callAI(
+/** True when any cloud API key is set (may still fail at runtime if out of credits). */
+export function isCloudAiConfigured(): boolean {
+  return Boolean(getKimiApiKey() || env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY?.trim());
+}
+
+/** Cloud keys set and no recent failures (429, billing, network) from callAI. */
+export function isCloudAiWorking(): boolean {
+  if (!isCloudAiConfigured()) return false;
+  return Date.now() >= cloudFailureUntil;
+}
+
+function buildCloudProviders(
   messages: AIMessage[],
-  opts: {
-    tier?: AITier;
-    systemPrompt?: string;
-    maxTokens?: number;
-    /** Skip Ollama — use Anthropic/OpenAI first (better for structured JSON tasks). */
-    preferCloud?: boolean;
-  } = {}
-): Promise<AIResponse> {
-  const { tier = "simple", systemPrompt, maxTokens, preferCloud = false } = opts;
-
-  if (tier === "local") {
-    if (!(await checkOllama())) {
-      throw new Error("Ollama is not running. Start it with: ollama serve");
-    }
-    return callOllama(messages, systemPrompt, maxTokens);
-  }
-
+  systemPrompt: string | undefined,
+  maxTokens: number | undefined,
+): Array<{ name: string; run: () => Promise<AIResponse> }> {
   const cloudProviders: Array<{ name: string; run: () => Promise<AIResponse> }> = [];
   const kimiKey = getKimiApiKey();
   if (kimiKey) {
@@ -338,55 +381,74 @@ export async function callAI(
   if (env.OPENAI_API_KEY?.trim()) {
     cloudProviders.push({ name: "openai", run: () => callOpenAI(messages, systemPrompt, maxTokens) });
   }
+  return cloudProviders;
+}
 
-  if (tier === "complex" || preferCloud) {
-    if (cloudProviders.length === 0) {
-      if (await checkOllama()) {
-        return callOllama(messages, systemPrompt, maxTokens);
-      }
-      throw new Error(
-        preferCloud
-          ? "No cloud AI configured. Set KIMI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY — or start Ollama locally."
-          : "No AI provider configured."
-      );
+async function callOllamaWithCacheReset(
+  messages: AIMessage[],
+  systemPrompt?: string,
+  maxTokens?: number,
+): Promise<AIResponse> {
+  try {
+    return await callOllama(messages, systemPrompt, maxTokens);
+  } catch (e) {
+    _ollamaAvailable = false;
+    throw e;
+  }
+}
+
+/** Cloud APIs first; Ollama only when cloud is unavailable or all cloud calls fail. */
+export async function callAI(
+  messages: AIMessage[],
+  opts: {
+    tier?: AITier;
+    systemPrompt?: string;
+    maxTokens?: number;
+    /** @deprecated Cloud is always preferred when configured; Ollama is fallback only. */
+    preferCloud?: boolean;
+  } = {}
+): Promise<AIResponse> {
+  const { tier = "simple", systemPrompt, maxTokens } = opts;
+
+  if (tier === "local") {
+    if (!(await checkOllama())) {
+      throw new Error("Ollama is not running. Start it with: ollama serve");
     }
+    return callOllamaWithCacheReset(messages, systemPrompt, maxTokens);
+  }
+
+  const cloudProviders = buildCloudProviders(messages, systemPrompt, maxTokens);
+
+  if (cloudProviders.length > 0) {
     try {
       return await callFirstAvailable(cloudProviders);
     } catch (cloudErr) {
       if (await checkOllama()) {
         console.warn("[ai] cloud providers failed, falling back to Ollama:", cloudErr);
-        return callOllama(messages, systemPrompt, maxTokens);
+        return callOllamaWithCacheReset(messages, systemPrompt, maxTokens);
       }
       throw cloudErr;
     }
   }
 
-  const providers: Array<{ name: string; run: () => Promise<AIResponse> }> = [];
   if (await checkOllama()) {
-    providers.push({
-      name: "ollama",
-      run: async () => {
-        try {
-          return await callOllama(messages, systemPrompt, maxTokens);
-        } catch (e) {
-          _ollamaAvailable = false;
-          throw e;
-        }
-      },
-    });
-  }
-  providers.push(...cloudProviders);
-
-  if (providers.length === 0) {
-    throw new Error("No AI provider configured. Start Ollama or set KIMI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY.");
+    return callOllamaWithCacheReset(messages, systemPrompt, maxTokens);
   }
 
-  return callFirstAvailable(providers);
+  throw new Error(
+    "No AI provider available. Set KIMI_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY, or run: npm run server:ollama:setup",
+  );
+}
+
+export async function isOllamaAvailable(): Promise<boolean> {
+  return checkOllama();
 }
 
 export async function getAIStatus(): Promise<{
   ollama: boolean;
   ollamaModel: string;
+  ollamaHost: string;
+  ollamaPcName: string;
   anthropic: boolean;
   kimi: boolean;
   kimiModel: string;
@@ -400,6 +462,8 @@ export async function getAIStatus(): Promise<{
   hints: string[];
 }> {
   const ollama = await checkOllama();
+  const ollamaPcName = getOllamaPcLabel();
+  const ollamaHost = getOllamaHostLabel();
   const anthropic = !!env.ANTHROPIC_API_KEY;
   const kimi = !!getKimiApiKey();
   const kimiModel = kimi ? resolveKimiConfig(getKimiApiKey()!).model : "";
@@ -411,7 +475,15 @@ export async function getAIStatus(): Promise<{
     hints.push("No AI configured — set KIMI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY in api.env.");
   }
   if (cloudConfigured && !ollama) {
-    hints.push("Run Ollama on the host for free fallback: ollama serve, then OLLAMA_BASE_URL=http://host.docker.internal:11434 in api.env.");
+    const remote =
+      ollamaHost !== "localhost" && ollamaHost !== "127.0.0.1" && ollamaHost !== "Docker host";
+    if (remote) {
+      hints.push(
+        `${ollamaPcName} (${ollamaHost}) is offline — turn on the PC and Ollama, or use a cloud model in AI chat.`,
+      );
+    } else {
+      hints.push("Cloud AI is active. Ollama is optional — only needed if you want a free local fallback.");
+    }
   }
   if (kimi && !ollama && !anthropic && !openai) {
     hints.push("Kimi is your only provider — recharge at platform.moonshot.cn if requests fail with quota errors.");
@@ -438,7 +510,7 @@ export async function getAIStatus(): Promise<{
     },
     {
       id: "ollama",
-      label: "Ollama",
+      label: ollamaPcName,
       available: ollama,
       model: env.OLLAMA_MODEL,
     },
@@ -446,12 +518,12 @@ export async function getAIStatus(): Promise<{
 
   const defaultProvider: ChatAIProviderId | null = kimi
     ? "kimi"
-    : ollama
-      ? "ollama"
+    : anthropic
+      ? "claude"
       : openai
         ? "openai"
-        : anthropic
-          ? "claude"
+        : ollama
+          ? "ollama"
           : null;
 
   const activeProvider = defaultProvider === "kimi"
@@ -463,6 +535,8 @@ export async function getAIStatus(): Promise<{
   return {
     ollama,
     ollamaModel: env.OLLAMA_MODEL,
+    ollamaHost,
+    ollamaPcName,
     anthropic,
     kimi,
     kimiModel,
@@ -477,4 +551,6 @@ export async function getAIStatus(): Promise<{
 
 export function resetOllamaCache() {
   _ollamaAvailable = null;
+  _ollamaCheckedAt = 0;
+  return checkOllama(true);
 }

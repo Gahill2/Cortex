@@ -31,6 +31,8 @@ const chatSchema = z.object({
   systemContext: z.string().max(8_000).optional(),
   /** When true, append recent Obsidian + Notion excerpts to the system prompt. */
   includeWorkspaceContext: z.boolean().optional().default(false),
+  /** Persona from GET /ai/presets (Odysseus-style character presets). */
+  presetId: z.string().max(40).optional(),
   context: z
     .object({
       activeModule: z.string().optional(),
@@ -71,6 +73,17 @@ cortexAiRouter.use(requireAuth);
 cortexAiRouter.get("/status", routeRateLimit(30, 60_000), async (_req, res) => {
   const status = await getAIStatus();
   sendSuccess(res, status);
+});
+
+cortexAiRouter.get("/suggestions", routeRateLimit(30, 60_000), async (req, res) => {
+  const { getAISuggestionsForUser } = await import("../../features/ai/ai-suggestions.js");
+  const suggestions = await getAISuggestionsForUser(req.auth!.userId);
+  sendSuccess(res, { suggestions });
+});
+
+cortexAiRouter.get("/presets", routeRateLimit(60, 60_000), async (_req, res) => {
+  const { getAIPresets } = await import("../../features/ai/ai-presets.js");
+  sendSuccess(res, { presets: getAIPresets() });
 });
 
 // Force-recheck Ollama (call after starting it)
@@ -123,19 +136,26 @@ cortexAiRouter.post("/chat", routeRateLimit(30, 60_000), async (req, res) => {
             ? "Set OPENAI_API_KEY on the API server."
             : requested === "kimi"
               ? "Set KIMI_API_KEY or MOONSHOT_API_KEY on the API server."
-              : "Start Ollama locally (ollama serve).";
+              : `Turn on ${status.ollamaPcName ?? "your PC"} and run Ollama, or pick a cloud model.`;
       sendSuccess(res, {
         conversationId: input.conversationId ?? `conv_${Date.now()}`,
         reply: `⚠️ ${meta?.label ?? requested} is not available. ${hint}`,
         model: "none",
         provider: "none",
+        code: requested === "ollama" ? "OLLAMA_OFFLINE" : "PROVIDER_UNAVAILABLE",
+        ollamaPcName: status.ollamaPcName,
+        ollamaHost: status.ollamaHost,
       });
       return;
     }
   }
 
   try {
-    const baseSystemPrompt = "You are Cortex, a personal AI assistant. Be concise and helpful. You help with tasks, productivity, and general questions.";
+    const { getAIPresetById } = await import("../../features/ai/ai-presets.js");
+    const preset = input.presetId ? getAIPresetById(input.presetId) : undefined;
+    const baseSystemPrompt =
+      preset?.systemPrompt ??
+      "You are Cortex, a personal AI assistant. Be concise and helpful. You help with tasks, productivity, and general questions.";
     let systemPrompt = input.systemContext
       ? `${baseSystemPrompt}\n\n${input.systemContext}`
       : baseSystemPrompt;

@@ -21,10 +21,15 @@ export async function listMailAccounts(userId: string): Promise<MailAccountRow[]
   } catch {
     /* legacy import must not block listing */
   }
-  const rows = await prisma.mailAccount.findMany({
-    where: { userId },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
-  });
+  let rows: Awaited<ReturnType<typeof prisma.mailAccount.findMany>>;
+  try {
+    rows = await prisma.mailAccount.findMany({
+      where: { userId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    });
+  } catch {
+    return [];
+  }
   return rows.map((r) => ({
     id: r.id,
     userId: r.userId,

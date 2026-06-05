@@ -31,6 +31,15 @@ services:
     volumes:
       - ${CORTEX_DATA_DIR:-./data}/redis:/data
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: ["ollama"]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ${CORTEX_DATA_DIR:-./data}/ollama:/root/.ollama
+
   cortex-api:
     build:
       context: ../../backend
@@ -50,6 +59,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # When using profile ollama, set OLLAMA_BASE_URL=http://ollama:11434 in env/api.env
     volumes:
       # Canvas photos, obsidian-vaults.json, vault-index cache (see npm run server:sync-local)
       - ${CORTEX_DATA_DIR:-./data}/api:/app/data

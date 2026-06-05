@@ -26,17 +26,77 @@ export interface CloudStatus {
   message?: string;
 }
 
-function resolveBaseUrl(): string {
-  const explicit = env.NEXTCLOUD_URL.trim() || env.HOMELAB_NEXTCLOUD_URL.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const host = env.HOMELAB_SERVICE_HOST.trim() || "127.0.0.1";
-  const port = Number(env.HOMELAB_NEXTCLOUD_PORT) || 8081;
-  return `http://${host}:${port}`;
+const NEXTCLOUD_PORT = () => Number(env.HOMELAB_NEXTCLOUD_PORT) || 8081;
+
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "127.0.0.1" ||
+    hostname === "localhost" ||
+    hostname === "host.docker.internal"
+  );
+}
+
+/** Server → Nextcloud (Docker API container). Prefer host gateway, not 127.0.0.1. */
+function resolveApiBaseUrl(): string {
+  const explicit = env.NEXTCLOUD_URL.trim();
+  if (explicit) {
+    const normalized = explicit.replace(/\/$/, "");
+    try {
+      const host = new URL(normalized).hostname;
+      if (isLoopbackHost(host)) return `http://host.docker.internal:${NEXTCLOUD_PORT()}`;
+    } catch {
+      /* fall through */
+    }
+    return normalized;
+  }
+  const homelab = env.HOMELAB_NEXTCLOUD_URL.trim();
+  if (homelab) return homelab.replace(/\/$/, "");
+  const host = env.HOMELAB_SERVICE_HOST.trim() || "host.docker.internal";
+  return `http://${host}:${NEXTCLOUD_PORT()}`;
+}
+
+/** Browser / phone links — Tailscale IP or same host as Cortex UI, never localhost. */
+export function resolveClientBaseUrl(): string {
+  const homelab = env.HOMELAB_NEXTCLOUD_URL.trim();
+  if (homelab) {
+    try {
+      if (!isLoopbackHost(new URL(homelab.replace(/\/$/, "")).hostname)) {
+        return homelab.replace(/\/$/, "");
+      }
+    } catch {
+      return homelab.replace(/\/$/, "");
+    }
+  }
+  const frontend = env.CORTEX_FRONTEND_URL.trim();
+  if (frontend) {
+    try {
+      const u = new URL(frontend);
+      if (!isLoopbackHost(u.hostname)) {
+        return `${u.protocol}//${u.hostname}:${NEXTCLOUD_PORT()}`;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const serviceHost = env.HOMELAB_SERVICE_HOST.trim();
+  if (serviceHost && !isLoopbackHost(serviceHost)) {
+    return `http://${serviceHost}:${NEXTCLOUD_PORT()}`;
+  }
+  const api = env.NEXTCLOUD_URL.trim();
+  if (api) {
+    try {
+      const host = new URL(api.replace(/\/$/, "")).hostname;
+      if (!isLoopbackHost(host)) return api.replace(/\/$/, "");
+    } catch {
+      /* fall through */
+    }
+  }
+  return resolveApiBaseUrl();
 }
 
 export function isNextcloudConfigured(): boolean {
   return Boolean(
-    resolveBaseUrl() &&
+    resolveClientBaseUrl() &&
       env.NEXTCLOUD_USERNAME.trim() &&
       (env.NEXTCLOUD_APP_PASSWORD.trim() || env.NEXTCLOUD_PASSWORD.trim())
   );
@@ -60,7 +120,7 @@ export function normalizeCloudPath(raw: string): string {
 }
 
 function webdavRoot(): string {
-  const base = resolveBaseUrl();
+  const base = resolveApiBaseUrl();
   const user = encodeURIComponent(env.NEXTCLOUD_USERNAME.trim());
   return `${base}/remote.php/dav/files/${user}`;
 }
@@ -154,7 +214,7 @@ function parsePropfind(xml: string, parentPath: string): CloudFileEntry[] {
 
 export async function getCloudQuota(): Promise<CloudQuota | null> {
   if (!isNextcloudConfigured()) return null;
-  const base = resolveBaseUrl();
+  const base = resolveApiBaseUrl();
   const res = await nextcloudFetch(`${base}/ocs/v1.php/cloud/user?format=json`, {
     headers: { "OCS-APIRequest": "true", Accept: "application/json" }
   });
@@ -181,7 +241,8 @@ export async function getCloudQuota(): Promise<CloudQuota | null> {
 }
 
 export async function getCloudStatus(): Promise<CloudStatus> {
-  const baseUrl = resolveBaseUrl();
+  const apiBaseUrl = resolveApiBaseUrl();
+  const baseUrl = resolveClientBaseUrl();
   const username = env.NEXTCLOUD_USERNAME.trim();
   if (!isNextcloudConfigured()) {
     return {
@@ -195,7 +256,7 @@ export async function getCloudStatus(): Promise<CloudStatus> {
   }
 
   try {
-    const res = await nextcloudFetch(`${baseUrl}/status.php`);
+    const res = await nextcloudFetch(`${apiBaseUrl}/status.php`);
     if (!res.ok) {
       return {
         configured: true,
@@ -293,5 +354,5 @@ export async function deleteCloudPath(relativePath: string): Promise<void> {
 }
 
 export function getNextcloudOpenUrl(): string {
-  return resolveBaseUrl();
+  return resolveClientBaseUrl();
 }

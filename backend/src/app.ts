@@ -15,6 +15,21 @@ const defaultOrigins = [
   "http://127.0.0.1:3000"
 ];
 
+/** Pi-hole / homelab friendly names (e.g. http://cortex.cortex:8080 when HOMELAB_DNS_DOMAIN=cortex). */
+function homelabBrowserOrigins(): string[] {
+  const domain = env.HOMELAB_DNS_DOMAIN.trim().replace(/^\./, "");
+  if (!domain) return [];
+  const webPort = "8080";
+  const host = `cortex.${domain}`;
+  const origins = [
+    `http://${host}:${webPort}`,
+    `https://${host}:${webPort}`,
+    `http://${host}`,
+    `https://${host}`,
+  ];
+  return origins;
+}
+
 function buildCorsOrigins(): string[] {
   const fromEnv = env.CORS_ORIGINS
     ? env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
@@ -24,6 +39,9 @@ function buildCorsOrigins(): string[] {
   const frontend = env.CORTEX_FRONTEND_URL?.trim();
   if (frontend && !fromEnv.includes(frontend)) {
     fromEnv.push(frontend);
+  }
+  for (const origin of homelabBrowserOrigins()) {
+    if (!fromEnv.includes(origin)) fromEnv.push(origin);
   }
   if (env.NODE_ENV === "production" && fromEnv.length === 0) {
     console.warn(
@@ -52,7 +70,8 @@ app.use(
       ) {
         return callback(null, true);
       }
-      callback(new Error(`CORS blocked: ${origin}`));
+      console.warn(`[cortex] CORS blocked: ${origin} (add to CORS_ORIGINS or set HOMELAB_DNS_DOMAIN)`);
+      callback(null, false);
     },
     credentials: true
   })

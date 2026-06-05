@@ -115,6 +115,11 @@ export function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) 
           </div>
         </>
       )}
+      {connected && (
+        <button type="button" className="widget-cta-link" onClick={() => onNavigate("spotify")}>
+          AI playlists →
+        </button>
+      )}
     </div>
   );
 }

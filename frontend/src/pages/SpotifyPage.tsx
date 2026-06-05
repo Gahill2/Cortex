@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Music } from "lucide-react";
 import { api } from "../api/client";
 import { AIProviderBanner } from "../components/ai/AIProviderBanner";
+import { SpotifyStatsDashboard } from "../components/spotify/SpotifyStatsDashboard";
 import { useAIStatus } from "../hooks/useAIStatus";
 import { startOAuthFlow } from "../lib/oauth";
 
@@ -32,6 +33,23 @@ interface AIDJTrack {
   albumArt: string | null;
   uri: string;
   previewUrl: string | null;
+}
+
+interface PlaylistSuggestion {
+  id: string;
+  label: string;
+  prompt: string;
+  description: string;
+}
+
+function sourceHint(source?: string, aiProvider?: string): string | null {
+  if (!source) return null;
+  if (source === "ai-cloud") return aiProvider ? `Curated with ${aiProvider} + your Spotify taste.` : "Curated with cloud AI + your Spotify taste.";
+  if (source === "ai-local") return "Curated with local Ollama + your Spotify taste.";
+  if (source === "blend") return "Mix of AI picks and your listening profile.";
+  if (source === "spotify-taste") return "Built from your Spotify top tracks and artists.";
+  if (source === "spotify-search") return "Matched via Spotify search.";
+  return null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -229,6 +247,7 @@ function AIDJSection() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<AIDJTrack[]>([]);
   const [playlistName, setPlaylistName] = useState("");
@@ -236,7 +255,10 @@ function AIDJSection() {
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ name: string; url: string } | null>(null);
   const [queueBusy, setQueueBusy] = useState<string | null>(null);
-  const [recommendMeta, setRecommendMeta] = useState<{ source?: string; aiWarning?: string } | null>(null);
+  const [recommendMeta, setRecommendMeta] = useState<{ source?: string; aiProvider?: string; aiWarning?: string } | null>(null);
+  const [suggestions, setSuggestions] = useState<PlaylistSuggestion[]>([]);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   useEffect(() => {
     api.get<{ data?: { connected?: boolean } }>("/spotify/status")
@@ -244,9 +266,25 @@ function AIDJSection() {
       .catch(() => setConnected(false));
   }, []);
 
-  const generate = async () => {
-    const msg = prompt.trim();
+  useEffect(() => {
+    if (!connected) return;
+    setSuggestionsLoading(true);
+    api
+      .get<{ data?: { suggestions?: PlaylistSuggestion[]; needsReconnect?: boolean } }>(
+        "/spotify/ai/suggestions",
+      )
+      .then((r) => {
+        setSuggestions(r.data?.data?.suggestions ?? []);
+        setNeedsReconnect(r.data?.data?.needsReconnect ?? false);
+      })
+      .catch(() => setSuggestions([]))
+      .finally(() => setSuggestionsLoading(false));
+  }, [connected]);
+
+  const generate = async (promptOverride?: string) => {
+    const msg = (promptOverride ?? prompt).trim();
     if (!msg) return;
+    if (promptOverride) setPrompt(promptOverride);
     setLoading(true);
     setError(null);
     setTracks([]);
@@ -254,26 +292,59 @@ function AIDJSection() {
     setSelected(new Set());
     setRecommendMeta(null);
     try {
-      const r = await api.post<{ data?: { tracks: AIDJTrack[]; playlistName: string; source?: string; aiWarning?: string } }>(
-        "/spotify/ai/recommend",
-        { prompt: msg }
-      );
+      const r = await api.post<{
+        data?: {
+          tracks: AIDJTrack[];
+          playlistName: string;
+          source?: string;
+          aiProvider?: string;
+          aiWarning?: string;
+        };
+      }>("/spotify/ai/recommend", { prompt: msg });
       const result = r.data?.data;
       if (!result) throw new Error("Empty response");
       setTracks(result.tracks);
       setPlaylistName(result.playlistName);
       setSelected(new Set(result.tracks.map((t) => t.uri)));
-      setRecommendMeta({ source: result.source, aiWarning: result.aiWarning });
+      setRecommendMeta({
+        source: result.source,
+        aiProvider: result.aiProvider,
+        aiWarning: result.aiWarning,
+      });
     } catch (e: unknown) {
       const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
-      const msg = ax.response?.data?.error?.message ?? ax.message ?? "Request failed";
-      if (/credit balance|anthropic|openai|ollama|ai provider|kimi|moonshot|quota|recharge/i.test(msg)) {
-        setError(`Playlist search failed: ${msg}. Try a simpler prompt like an artist or genre name.`);
-      } else {
-        setError(`Failed to generate playlist: ${msg}`);
-      }
+      const errMsg = ax.response?.data?.error?.message ?? ax.message ?? "Request failed";
+      setError(
+        `Could not find tracks: ${errMsg}. Try a simple prompt (artist, genre, or mood) — e.g. "indie rock" or "Daft Punk".`,
+      );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveDirectToSpotify = async () => {
+    const msg = prompt.trim();
+    if (!msg) return;
+    setQuickSaving(true);
+    setError(null);
+    setSaveResult(null);
+    try {
+      const r = await api.post<{
+        data?: { playlistUrl: string; playlistName: string; trackCount?: number; aiWarning?: string; source?: string; aiProvider?: string };
+      }>("/spotify/ai/create-from-prompt", { prompt: msg, name: playlistName.trim() || undefined });
+      const result = r.data?.data;
+      if (!result?.playlistUrl) throw new Error("Empty response");
+      setSaveResult({ name: result.playlistName, url: result.playlistUrl });
+      setRecommendMeta({
+        source: result.source,
+        aiProvider: result.aiProvider,
+        aiWarning: result.aiWarning,
+      });
+    } catch (e: unknown) {
+      const ax = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(ax.response?.data?.error?.message ?? ax.message ?? "Failed to save playlist to Spotify.");
+    } finally {
+      setQuickSaving(false);
     }
   };
 
@@ -343,10 +414,43 @@ function AIDJSection() {
     <section className="spotify-ai-dj">
       <div className="spotify-ai-header">
         <h2 className="spotify-ai-title">♫ AI DJ</h2>
-        <p className="spotify-ai-subtitle">Describe a mood or genre — the AI will find real tracks for you.</p>
+        <p className="spotify-ai-subtitle">
+          Personalized playlists from your listening history — curated with AI when available.
+        </p>
       </div>
 
       <AIProviderBanner status={aiStatus} loading={aiStatusLoading} compact />
+
+      {needsReconnect && (
+        <p className="spotify-ai-warning">
+          Reconnect Spotify in Settings for top artists and recent plays — suggestions work best with full access.
+        </p>
+      )}
+
+      {(suggestions.length > 0 || suggestionsLoading) && (
+        <div className="spotify-ai-suggestions">
+          <p className="spotify-ai-suggestions-label">Suggested for you</p>
+          {suggestionsLoading ? (
+            <p className="spotify-ai-hint">Loading ideas…</p>
+          ) : (
+            <div className="spotify-ai-suggestion-chips">
+              {suggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="spotify-ai-suggestion-chip"
+                  title={s.description}
+                  disabled={loading || quickSaving}
+                  onClick={() => void generate(s.prompt)}
+                >
+                  <span className="spotify-ai-suggestion-chip-label">{s.label}</span>
+                  <span className="spotify-ai-suggestion-chip-desc">{s.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <form
         className="spotify-ai-form"
@@ -356,15 +460,24 @@ function AIDJSection() {
           className="spotify-ai-input"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="What do you want to listen to?"
-          disabled={loading}
+          placeholder="e.g. chill synthwave for coding, or more like my top artists"
+          disabled={loading || quickSaving}
         />
         <button
           type="submit"
           className="btn-primary"
-          disabled={loading || !prompt.trim()}
+          disabled={loading || quickSaving || !prompt.trim()}
         >
-          {loading ? "Finding tracks…" : "Generate Playlist"}
+          {loading ? "Curating…" : "Preview tracks"}
+        </button>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={loading || quickSaving || !prompt.trim()}
+          onClick={() => void saveDirectToSpotify()}
+          title="Generate and save directly to your Spotify library"
+        >
+          {quickSaving ? "Saving to Spotify…" : "Save to Spotify"}
         </button>
       </form>
 
@@ -372,8 +485,8 @@ function AIDJSection() {
       {recommendMeta?.aiWarning && !error && (
         <p className="spotify-ai-warning">{recommendMeta.aiWarning}</p>
       )}
-      {recommendMeta?.source === "spotify-search" && !recommendMeta.aiWarning && !error && (
-        <p className="spotify-ai-warning">Results from Spotify search (AI did not pick tracks).</p>
+      {!error && !recommendMeta?.aiWarning && recommendMeta?.source && (
+        <p className="spotify-ai-hint">{sourceHint(recommendMeta.source, recommendMeta.aiProvider)}</p>
       )}
 
       {loading && (
@@ -383,7 +496,7 @@ function AIDJSection() {
             <span />
             <span />
           </div>
-          <p>Asking AI for recommendations and searching Spotify…</p>
+          <p>AI is curating tracks from your taste profile and resolving them on Spotify…</p>
         </div>
       )}
 
@@ -606,6 +719,7 @@ export const SpotifyPage = () => {
       </div>
 
       <NowPlayingSection />
+      <SpotifyStatsDashboard connected={connected === true} />
       {connected && <QueueSection />}
       <AIDJSection />
     </div>

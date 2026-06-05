@@ -542,7 +542,7 @@ export default function App() {
                   <HomePage onNavigate={goTab} onCommand={() => setPaletteOpen(true)} />
                 )}
                 {tab === "goals" && <TasksPage onNavigate={goTab} />}
-                {tab === "ai" && <AIPage />}
+                {tab === "ai" && <AIPage onNavigate={setTab} activeTab={tab} />}
                 {tab === "notes" && <NotesPage />}
                 {tab === "settings" && (
                   <SettingsPage

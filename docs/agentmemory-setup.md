@@ -2,6 +2,18 @@
 
 Cortex integrates [agentmemory](https://github.com/rohitg00/agentmemory) for cross-session agent memory and indexes your local Obsidian vaults for unified search.
 
+## Homelab (Docker API → host agentmemory)
+
+The API container uses `AGENTMEMORY_URL=http://host.docker.internal:3111`. agentmemory’s default bind is loopback-only; homelab enables Docker reachability via:
+
+```bash
+npm run server:memory:setup   # systemd + api.env
+# Restart applies 0.0.0.0 bind automatically (CORTEX_AGENTMEMORY_DOCKER_BIND=1)
+systemctl --user restart cortex-agentmemory.service
+```
+
+Script: `scripts/agentmemory-docker-bind.sh` (patches npx `iii-config.yaml` before start).
+
 ## Quick start (this machine)
 
 1. In `backend/.env` set vault paths and a stable project name:

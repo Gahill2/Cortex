@@ -1,0 +1,11 @@
+# Optional Pi-hole adlists — copy URLs into the admin UI (Group Management → Adlists)
+# or append to etc-pihole/adlists.list, then run: docker exec <pihole> pihole -g
+#
+# Twitch: blocks ad/telemetry domains (edge.ads.twitch.tv, ads.twitch.tv, etc.).
+# Does NOT remove in-stream pre-roll (same CDN as video). Pair with uBlock on desktop.
+#
+# HaGeZi Pro domains (~200k) — good balance; smaller than "ultimate"
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt
+
+# Broader merge list with Twitch/Spotify ad endpoints (larger, more false positives)
+# https://raw.githubusercontent.com/AlexRabbit/ADios/master/hosts

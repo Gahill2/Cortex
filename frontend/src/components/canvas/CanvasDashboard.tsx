@@ -77,6 +77,8 @@ export interface CanvasNode {
   cornerRadius?: number;
   /** Rotation in degrees (-180…180) */
   rotation?: number;
+  /** When true, item cannot be dragged or resized on the canvas */
+  locked?: boolean;
   /** Per-widget settings (title override, accent, compact flag) — sync-ready via prefs later */
   widgetConfig?: Record<string, unknown>;
   zIndex: number;
@@ -732,11 +734,17 @@ export function CanvasDashboard({
     [],
   );
 
+  const toggleNodeLock = useCallback((id: string) => {
+    setNodes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, locked: !n.locked } : n)),
+    );
+  }, []);
+
   const startDrag = useCallback((id: string, e: React.PointerEvent) => {
     e.stopPropagation();
     prepareCanvasPointerGesture(e);
     const node = nodes.find((n) => n.id === id);
-    if (!node) return;
+    if (!node || node.locked) return;
     if (node.type !== "backdrop") bringToFront(id);
     dragMovedRef.current = false;
     dragStart.current = { x: e.clientX, y: e.clientY, nodeX: node.x, nodeY: node.y };
@@ -764,8 +772,8 @@ export function CanvasDashboard({
     e.stopPropagation();
     prepareCanvasPointerGesture(e);
     const node = nodes.find((n) => n.id === id);
-    if (node?.type !== "backdrop") bringToFront(id);
-    if (!node) return;
+    if (!node || node.locked) return;
+    if (node.type !== "backdrop") bringToFront(id);
     setResizeId(id);
     resizeStart.current = { x: e.clientX, y: e.clientY, w: node.w, h: node.h };
     const handle = e.currentTarget as HTMLElement;
@@ -1166,6 +1174,7 @@ export function CanvasDashboard({
                   onSendBackward={() => sendBackward(selectedNode.id)}
                   onSendToBack={() => sendToBack(selectedNode.id)}
                   onDuplicate={() => duplicateNode(selectedNode.id)}
+                  onToggleLock={() => toggleNodeLock(selectedNode.id)}
                   onRemove={() => removeNode(selectedNode.id)}
                   onClearSelection={() => setSelected(new Set())}
                 />
@@ -1265,7 +1274,9 @@ export function CanvasDashboard({
       />
 
       <div className="canvas-hints">
-        Scroll to pan · Ctrl/Alt+scroll to zoom · Grid & snap bottom-right · Shift+drag to select
+        {editMode
+          ? "Customize on — drag widgets by the handle or empty area · Lock color panels in the selection bar · Done when finished"
+          : "Click Customize to move widgets · Scroll to pan · Ctrl/Alt+scroll to zoom · Shift+drag to select"}
       </div>
     </div>
   );

@@ -1,0 +1,14 @@
+[Unit]
+Description=Cortex 2TB NTFS media library
+Before=docker.service
+After=local-fs-pre.target
+DefaultDependencies=no
+
+[Mount]
+What=/dev/disk/by-uuid/68C4368CC4365D0E
+Where=/mnt/cortex/hdd2tb
+Type=ntfs3
+Options=uid=1000,gid=1000,umask=022
+
+[Install]
+WantedBy=multi-user.target

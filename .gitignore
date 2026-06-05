@@ -31,10 +31,13 @@ USER.md
 deploy/homelab/data/
 deploy/homelab/.env
 deploy/homelab/env/api.env
+deploy/nas/.remote-storage.env
+deploy/nas/.remote-storage.creds
 deploy/tailscale-hub/.env
 deploy/tailscale-hub/env/api.env
 deploy/insforge/.env
 data/backups/
+data/state_store.db/
 # Task-observer runtime logs (templates tracked; live log stays local)
 skill-observations/log.md
 skill-observations/archive/

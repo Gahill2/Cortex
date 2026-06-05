@@ -310,6 +310,19 @@
   background: #1ed760;
 }
 
+.spotify-page--spicetify .spotify-stats-dashboard {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.spotify-page--spicetify .spotify-stats-kpi {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.spotify-page--spicetify .spotify-stats-bar-fill {
+  background: linear-gradient(90deg, var(--spotify-green, #1db954), #3de476);
+}
+
 .spotify-page--spicetify .spotify-ai-dj,
 .spotify-page--spicetify .spotify-section {
   background: var(--spotify-elevated);

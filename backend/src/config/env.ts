@@ -84,6 +84,10 @@ const envSchema = z.object({
   SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),
   OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().optional().default("llama3.2"),
+  /** UI label for remote Ollama host (e.g. gaming PC on Tailscale). */
+  OLLAMA_PC_NAME: z.string().optional().default(""),
+  /** Re-probe Ollama reachability after this many ms (remote PC on/off). */
+  OLLAMA_CHECK_MS: z.coerce.number().optional().default(30_000),
   MICROSOFT_CLIENT_ID: z.string().optional().default(""),
   MICROSOFT_CLIENT_SECRET: z.string().optional().default(""),
   MICROSOFT_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/microsoft/oauth/callback"),
@@ -149,6 +153,8 @@ const envSchema = z.object({
   CORTEX_API_DATA_DIR: z.string().optional().default(""),
   /** Tailnet/LAN host for NAS + monitoring URLs (e.g. 100.x.x.x or cortex.tail….ts.net). */
   HOMELAB_SERVICE_HOST: z.string().optional().default(""),
+  /** Pi-hole local domain for friendly links (e.g. cortex → jellyfin.cortex). Health checks still use HOMELAB_SERVICE_HOST. */
+  HOMELAB_DNS_DOMAIN: z.string().optional().default(""),
   HOMELAB_PROMETHEUS_URL: z.string().optional().default(""),
   HOMELAB_PROMETHEUS_PORT: z.string().optional().default("9090"),
   HOMELAB_GRAFANA_URL: z.string().optional().default(""),

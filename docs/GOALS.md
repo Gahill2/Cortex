@@ -178,7 +178,22 @@ Do **not** blind-merge B — cherry-pick Firebase + billing slices, reconcile ma
 
 ## Phase 7 — Obsidian + Notion (Knowledge)
 
-> **Grey Hill Brain vault:** `C:\Users\greyh\Documents\GitHub\greyhill_brain` (`OBSIDIAN_VAULT_PATH`, homelab mount at `/vault`)
+> **Grey Hill Brain vault:** `https://github.com/Gahill2/greyhill_brain` — homelab path `OBSIDIAN_VAULT_HOST_PATH` (Linux: `/home/greyhill/Documents/greyhill_brain`; optional: `/mnt/cortex/obsidian/greyhill_brain`).  
+> **Active `/goal` for this phase:** [`docs/goal-greyhill-brain-knowledge-os.md`](./goal-greyhill-brain-knowledge-os.md) (M0–M4 milestones, 2026 PKM/homelab benchmarks).
+
+### Phase 7b — Knowledge OS ops (homelab PC, 2026-06)
+
+> **Iteration:** rotating agent loop — [`docs/continuous-improvement-loop.md`](./continuous-improvement-loop.md) (`npm run dev:improve-loop`).
+
+- [x] [S] Vault cloned from GitHub + `npm run vault:clone` / `vault:fix-perms` scripts
+- [x] [M] Homelab `.env` points at writable vault path; Docker API mount serves real notes (~374 md)
+- [x] [M] agentmemory systemd on host (`cortex-agentmemory.service`, `:3111`)
+- [x] [S] Cursor agentmemory skills (`npm run sync:agentmemory-skills:sh`)
+- [ ] [S] `npm run vault:fix-perms` run by user (root-owned `deploy/homelab/data`, `/mnt/cortex/obsidian`)
+- [x] [S] agentmemory healthy **inside** Docker API (`agentmemory-docker-bind.sh`, `0.0.0.0:3111`)
+- [ ] [S] Obsidian desktop installed (`snap install obsidian --classic`) + same vault path
+- [ ] [M] Vault orientation layer in git (`CLAUDE.md`, `Working Context/`, session handoff) per web PKM practice
+- [ ] [M] Command palette unified vault + memory search
 
 - [x] [M] Obsidian vault registry + routes (`obsidian.routes.ts`, `vault-store.ts`, `obsidian-vaults.json`)
 - [x] [L] Notes tab = vault **knowledge graph** (`GET /obsidian/graph`, `vault-graph.ts`, `ObsidianGraphCanvas.tsx`, graph-first `NotesPage.tsx`)

@@ -124,6 +124,36 @@
 .gmail-row-actions { opacity: 0; transition: opacity 140ms; }
 .gmail-row:hover .gmail-row-actions { opacity: 1; }
 
+/* List + preview spacing — DESIGN.md 8px grid */
+.mail-page .gmail-row {
+  padding: var(--space-4) var(--space-5);
+  gap: var(--space-4);
+}
+.mail-page .gmail-row-top {
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  align-items: center;
+}
+.mail-page .gmail-row-subject {
+  margin-bottom: var(--space-2);
+  line-height: 1.35;
+}
+.mail-page .gmail-row-snippet {
+  line-height: 1.45;
+}
+.mail-page .mail-row-meta {
+  gap: var(--space-2);
+}
+.mail-page .mail-preview-header-sender {
+  margin-bottom: var(--space-4);
+}
+.mail-page .mail-preview-header-divider {
+  margin: var(--space-4) 0;
+}
+.mail-page .mail-preview-sender-name {
+  letter-spacing: -0.02em;
+}
+
 /* Empty states */
 .mail-empty-state-icon {
   color: var(--text-3);

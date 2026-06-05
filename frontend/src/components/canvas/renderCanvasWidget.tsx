@@ -19,6 +19,8 @@ import { GoalsWidget } from "./widgets/GoalsWidget";
 import { NotesWidget } from "./widgets/NotesWidget";
 import { AutomationsWidget } from "./widgets/AutomationsWidget";
 import { SystemStatusWidget } from "./widgets/SystemStatusWidget";
+import { AtAGlanceWidget } from "./widgets/AtAGlanceWidget";
+import { MediaStatusWidget } from "./widgets/MediaStatusWidget";
 import type { WidgetRenderStyle } from "./widgetRenderStyle";
 import type { WidgetInstanceConfig } from "../../dashboard/types";
 
@@ -77,6 +79,23 @@ export function createCanvasWidgetRenderer(
             accentColor={accentColor}
             onNavigate={onNavigate}
           />,
+        );
+      case "at-a-glance":
+        return widgetShell(
+          key,
+          style,
+          <AtAGlanceWidget
+            style={style}
+            onNavigate={onNavigate}
+            boardTasks={boardTasks}
+            boardTasksLoading={boardDataLoading}
+          />,
+        );
+      case "media":
+        return widgetShell(
+          key,
+          style,
+          <MediaStatusWidget onNavigate={onNavigate} compact={compact} />,
         );
       case "calendar":
         return widgetShell(
