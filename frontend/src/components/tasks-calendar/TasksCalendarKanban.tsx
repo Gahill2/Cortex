@@ -200,7 +200,7 @@ function KanbanColumn({
               disabled={saving}
             />
             <button type="submit" className="btn-primary btn-sm" disabled={saving || !quickTitle.trim()}>
-              {saving ? "…" : "Add"}
+              {saving ? <><span className="btn-spinner" aria-hidden="true" />Adding…</> : "Add"}
             </button>
           </form>
         ) : null}

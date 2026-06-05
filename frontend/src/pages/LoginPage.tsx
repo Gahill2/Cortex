@@ -1,8 +1,10 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { AxiosError } from "axios";
 import { api, AUTH_CHANGED_EVENT, AUTH_USER_STORAGE_KEY } from "../api/client";
 import type { User } from "../types";
+import { CortexBrand } from "../components/brand/CortexBrand";
+import { LoginEpicScene } from "../components/LoginEpicScene";
 
 type SendOtpResponse = {
   ok: boolean;
@@ -23,8 +25,8 @@ function authErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
-import { CortexBrand } from "../components/brand/CortexBrand";
-import { LoginEpicScene } from "../components/LoginEpicScene";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Props {
   onLogin: (token: string, user?: User) => void;
@@ -37,6 +39,7 @@ export const LoginPage = ({ onLogin }: Props) => {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [devNotice, setDevNotice] = useState<string | null>(null);
 
   const applySendOtpPayload = (data: { devOtpCode?: string; devHint?: string }) => {
@@ -49,13 +52,22 @@ export const LoginPage = ({ onLogin }: Props) => {
   };
 
   const sendOtp = async () => {
-    if (!email.trim()) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError("Email address is required.");
+      return;
+    }
+    if (!EMAIL_RE.test(trimmed)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailError(null);
     setLoading(true);
     setError(null);
     try {
       const res = await api.post<SendOtpResponse>(
         "/auth/send-otp",
-        { email: email.trim().toLowerCase() },
+        { email: trimmed.toLowerCase() },
         { timeout: 25_000 }
       );
       const data = res.data;
@@ -147,24 +159,41 @@ export const LoginPage = ({ onLogin }: Props) => {
 
           {step === "email" ? (
             <div className="login-form">
-              <label className="login-label">Email address</label>
+              <label className="login-label" htmlFor="login-email-input">
+                Email address
+              </label>
               <input
-                className="login-input"
+                id="login-email-input"
+                className={`login-input${emailError ? " login-input--error" : ""}`}
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && void sendOtp()}
                 placeholder="you@example.com"
                 autoFocus
                 autoComplete="email"
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? "login-email-error" : undefined}
               />
+              {emailError && (
+                <p id="login-email-error" className="login-error" role="alert">
+                  {emailError}
+                </p>
+              )}
               {error && <p className="login-error">{error}</p>}
               <button
                 className="login-btn"
                 onClick={() => void sendOtp()}
                 disabled={loading || !email.trim()}
               >
-                {loading ? "Sending..." : "Continue"}
+                {loading ? (
+                  <><span className="btn-spinner" aria-hidden="true" />Sending…</>
+                ) : (
+                  "Continue"
+                )}
               </button>
               <p className="login-hint">We'll email you a sign-in code — no password needed</p>
             </div>
@@ -172,13 +201,14 @@ export const LoginPage = ({ onLogin }: Props) => {
             <div className="login-form">
               <label className="login-label">6-digit code</label>
               <p className="login-subtext">
-                Sent to <strong>{email}</strong> ┬╖{" "}
+                Sent to <strong>{email}</strong> ·{" "}
                 <button
                   className="login-link"
                   onClick={() => {
                     setStep("email");
                     setCode("");
                     setError(null);
+                    setEmailError(null);
                     setDevNotice(null);
                   }}
                 >
@@ -210,7 +240,11 @@ export const LoginPage = ({ onLogin }: Props) => {
                 onClick={() => void verifyOtp()}
                 disabled={loading || code.length !== 6}
               >
-                {loading ? "Verifying..." : "Sign in"}
+                {loading ? (
+                  <><span className="btn-spinner" aria-hidden="true" />Verifying…</>
+                ) : (
+                  "Sign in"
+                )}
               </button>
               <button className="login-resend" onClick={() => void sendOtp()} disabled={loading}>
                 Resend code

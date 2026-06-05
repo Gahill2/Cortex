@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Tab } from "../tab";
+import { FormField } from "../components/ui/FormField";
 import { useUiCustomization } from "../hooks/useUiCustomization";
 import type { CortexGoal } from "../lib/uiCustomization";
 import {
@@ -21,6 +22,7 @@ export function GoalsPage({ onNavigate }: Props) {
   const [tasks, setTasks] = useState<HomeBoardTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
+  const [draftError, setDraftError] = useState<string | undefined>();
   const [estimateDraft, setEstimateDraft] = useState("4");
 
   useEffect(() => {
@@ -89,7 +91,11 @@ export function GoalsPage({ onNavigate }: Props) {
   const addGoal = (e: FormEvent) => {
     e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text) {
+      setDraftError("Goal description is required.");
+      return;
+    }
+    setDraftError(undefined);
     const hours = Math.max(0.5, Number(estimateDraft) || 4);
     const row: CortexGoal = {
       id: crypto.randomUUID(),
@@ -149,12 +155,14 @@ export function GoalsPage({ onNavigate }: Props) {
       <section className="goals-panel">
         <h2 className="goals-panel-title">Your goals</h2>
         <form className="goals-add-row" onSubmit={addGoal}>
-          <input
-            className="form-input goals-add-input"
-            placeholder="New goal…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
+          <FormField label="New goal" required error={draftError}>
+            <input
+              className="form-input goals-add-input"
+              placeholder="New goal…"
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); if (draftError) setDraftError(undefined); }}
+            />
+          </FormField>
           <label className="goals-estimate-label">
             Est. hours
             <input
@@ -166,7 +174,7 @@ export function GoalsPage({ onNavigate }: Props) {
               onChange={(e) => setEstimateDraft(e.target.value)}
             />
           </label>
-          <button type="submit" className="btn-primary btn-sm" disabled={!draft.trim()}>
+          <button type="submit" className="btn-primary btn-sm" style={{ alignSelf: "flex-end" }}>
             Add
           </button>
         </form>

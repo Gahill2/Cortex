@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useToastStore } from "../stores/toastStore";
+import { FormField } from "../components/ui/FormField";
 import { IntegrationsPanel } from "../components/IntegrationsPanel";
 import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
@@ -24,33 +25,35 @@ interface Props {
 }
 
 function PinChangeForm() {
+  const pushToast = useToastStore((s) => s.push);
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [errors, setErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage(null);
-    if (newPin !== confirmPin) {
-      setMessage({ type: "error", text: "New PINs do not match" });
-      return;
+    const next: typeof errors = {};
+    if (!currentPin) next.current = "Current PIN is required.";
+    if (!newPin) {
+      next.new = "New PIN is required.";
+    } else if (newPin.length < 4 || newPin.length > 6 || !/^\d+$/.test(newPin)) {
+      next.new = "PIN must be 4–6 digits.";
     }
-    if (newPin.length < 4 || newPin.length > 6 || !/^\d+$/.test(newPin)) {
-      setMessage({ type: "error", text: "PIN must be 4-6 digits" });
-      return;
-    }
+    if (newPin && newPin !== confirmPin) next.confirm = "PINs do not match.";
+    if (Object.keys(next).length > 0) { setErrors(next); return; }
+    setErrors({});
     setSaving(true);
     try {
       await api.post("/settings/change-pin", { currentPin, newPin });
-      setMessage({ type: "success", text: "PIN updated successfully" });
+      pushToast({ title: "PIN updated", message: "Your session PIN has been changed.", tone: "success" });
       setCurrentPin("");
       setNewPin("");
       setConfirmPin("");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? "Failed to update PIN";
-      setMessage({ type: "error", text: msg });
+      setErrors({ current: msg });
     } finally {
       setSaving(false);
     }
@@ -66,45 +69,45 @@ function PinChangeForm() {
         </div>
       </div>
       <form onSubmit={(e) => void handleSubmit(e)} className="d-flex flex-column gap-2" style={{ maxWidth: 320 }}>
-        <input
-          type="password"
-          className="form-input"
-          placeholder="Current PIN"
-          value={currentPin}
-          onChange={(e) => setCurrentPin(e.target.value)}
-          inputMode="numeric"
-          pattern="\d{4,6}"
-          maxLength={6}
-          required
-        />
-        <input
-          type="password"
-          className="form-input"
-          placeholder="New PIN"
-          value={newPin}
-          onChange={(e) => setNewPin(e.target.value)}
-          inputMode="numeric"
-          pattern="\d{4,6}"
-          maxLength={6}
-          required
-        />
-        <input
-          type="password"
-          className="form-input"
-          placeholder="Confirm new PIN"
-          value={confirmPin}
-          onChange={(e) => setConfirmPin(e.target.value)}
-          inputMode="numeric"
-          pattern="\d{4,6}"
-          maxLength={6}
-          required
-        />
+        <FormField label="Current PIN" required error={errors.current}>
+          <input
+            type="password"
+            className="form-input"
+            placeholder="Current PIN"
+            value={currentPin}
+            onChange={(e) => { setCurrentPin(e.target.value); if (errors.current) setErrors((p) => ({ ...p, current: undefined })); }}
+            inputMode="numeric"
+            pattern="\d{4,6}"
+            maxLength={6}
+          />
+        </FormField>
+        <FormField label="New PIN" required error={errors.new} hint="4–6 digits only.">
+          <input
+            type="password"
+            className="form-input"
+            placeholder="New PIN"
+            value={newPin}
+            onChange={(e) => { setNewPin(e.target.value); if (errors.new) setErrors((p) => ({ ...p, new: undefined })); }}
+            inputMode="numeric"
+            pattern="\d{4,6}"
+            maxLength={6}
+          />
+        </FormField>
+        <FormField label="Confirm new PIN" required error={errors.confirm}>
+          <input
+            type="password"
+            className="form-input"
+            placeholder="Confirm new PIN"
+            value={confirmPin}
+            onChange={(e) => { setConfirmPin(e.target.value); if (errors.confirm) setErrors((p) => ({ ...p, confirm: undefined })); }}
+            inputMode="numeric"
+            pattern="\d{4,6}"
+            maxLength={6}
+          />
+        </FormField>
         <button type="submit" className="btn-primary btn-sm" disabled={saving} style={{ alignSelf: "flex-start" }}>
-          {saving ? "Saving…" : "Update PIN"}
+          {saving ? <><span className="btn-spinner" aria-hidden="true" />Saving…</> : "Update PIN"}
         </button>
-        {message && (
-          <p className={`settings-msg settings-msg--${message.type}`}>{message.text}</p>
-        )}
       </form>
     </div>
   );
@@ -323,8 +326,9 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     try {
       await api.post("/obsidian/vault", { path: vaultInput.trim() });
       setVaultPath(vaultInput.trim());
+      pushToast({ title: "Vault path saved", tone: "success" });
     } catch {
-      /* ignore */
+      pushToast({ title: "Failed to save vault path", tone: "error" });
     } finally {
       setVaultSaving(false);
     }
@@ -748,7 +752,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
                       onClick={() => void saveVaultPath()}
                       disabled={vaultSaving || !vaultInput.trim()}
                     >
-                      {vaultSaving ? "…" : "Save"}
+                      {vaultSaving ? <><span className="btn-spinner" aria-hidden="true" />Saving…</> : "Save"}
                     </button>
                   </div>
                 </div>

@@ -181,6 +181,7 @@ const senderName = (from?: string): string => {
 interface AddImapModalProps { onClose: () => void; onAdded: () => void }
 
 const AddImapModal = ({ onClose, onAdded }: AddImapModalProps) => {
+  const pushToast = useToastStore((s) => s.push);
   const [form, setForm] = useState({ label:"", email:"", imapHost:"", imapPort:"993", smtpHost:"", smtpPort:"587", username:"", password:"" });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
@@ -192,6 +193,7 @@ const AddImapModal = ({ onClose, onAdded }: AddImapModalProps) => {
     e.preventDefault(); setSaving(true); setError(null);
     try {
       await api.post("/mail/accounts/imap", { ...form, imapPort: Number(form.imapPort), smtpPort: Number(form.smtpPort) });
+      pushToast({ title: "Mail account added", message: form.label || form.email, tone: "success" });
       onAdded(); onClose();
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Failed to add account");
@@ -223,7 +225,7 @@ const AddImapModal = ({ onClose, onAdded }: AddImapModalProps) => {
           <div className="mail-form-row"><label>Password / App Password</label><input className="mail-input" type="password" value={form.password} onChange={set("password")} required /></div>
           <div className="mail-modal-actions">
             <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={saving}>{saving ? "Connecting…" : "Add Account"}</button>
+            <button type="submit" className="btn-primary" disabled={saving}>{saving ? <><span className="btn-spinner" aria-hidden="true" />Connecting…</> : "Add Account"}</button>
           </div>
         </form>
       </div>
@@ -243,6 +245,7 @@ interface ComposeModalProps {
 }
 
 const ComposeModal = ({ accounts, defaultAccountId, replyTo, initialBody, onClose, onSent }: ComposeModalProps) => {
+  const pushToast = useToastStore((s) => s.push);
   const [accountId, setAccountId] = useState(defaultAccountId ?? accounts[0]?.id ?? "");
   const [to, setTo]         = useState(replyTo?.from ?? "");
   const [subject, setSubject] = useState(replyTo ? `Re: ${replyTo.subject}` : "");
@@ -254,6 +257,7 @@ const ComposeModal = ({ accounts, defaultAccountId, replyTo, initialBody, onClos
     e.preventDefault(); setSending(true); setError(null);
     try {
       await api.post("/mail/send", { accountId, to, subject, body, ...(replyTo ? { replyToMessageId: replyTo.id } : {}) });
+      pushToast({ title: replyTo ? "Reply sent" : "Message sent", tone: "success" });
       onSent(); onClose();
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Failed to send");
@@ -283,7 +287,7 @@ const ComposeModal = ({ accounts, defaultAccountId, replyTo, initialBody, onClos
           </div>
           <div className="mail-modal-actions">
             <button type="button" className="btn-ghost" onClick={onClose}>Discard</button>
-            <button type="submit" className="btn-primary" disabled={sending}>{sending ? "Sending…" : "Send"}</button>
+            <button type="submit" className="btn-primary" disabled={sending}>{sending ? <><span className="btn-spinner" aria-hidden="true" />Sending…</> : "Send"}</button>
           </div>
         </form>
       </div>
