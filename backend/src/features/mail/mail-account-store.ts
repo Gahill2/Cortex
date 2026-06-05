@@ -1,9 +1,9 @@
 import type { Credentials } from "google-auth-library";
 import { prisma } from "../../db/prisma.js";
 import { fetchGoogleAccountEmail } from "../gmail/gmail-service.js";
-import { getGoogleCredentials } from "../gmail/google-token-store.js";
+import { getGoogleCredentials, saveGoogleCredentials } from "../gmail/google-token-store.js";
 
-export type MailProvider = "gmail";
+export type MailProvider = "gmail" | "microsoft" | "imap";
 
 export type MailAccountRow = {
   id: string;
@@ -36,6 +36,23 @@ export async function listMailAccounts(userId: string): Promise<MailAccountRow[]
   }));
 }
 
+/** Resolve DB account id from stored id or connected email (AI sometimes returns email). */
+export async function resolveMailAccountId(
+  userId: string,
+  accountIdOrEmail: string
+): Promise<string | null> {
+  const key = accountIdOrEmail.trim();
+  if (!key) return null;
+
+  const byId = await prisma.mailAccount.findFirst({ where: { id: key, userId } });
+  if (byId) return byId.id;
+
+  const byEmail = await prisma.mailAccount.findFirst({
+    where: { userId, email: key.toLowerCase() }
+  });
+  return byEmail?.id ?? null;
+}
+
 export async function getMailAccountTokens(
   userId: string,
   accountId?: string
@@ -49,8 +66,9 @@ export async function getMailAccountTokens(
         orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
       });
 
-  if (!row) return null;
-  return { accountId: row.id, tokens: JSON.parse(row.tokens) as Credentials };
+  if (!row || row.provider !== "gmail" || row.tokens == null) return null;
+  const tokenJson = row.tokens;
+  return { accountId: row.id, tokens: JSON.parse(tokenJson) as Credentials };
 }
 
 export async function upsertGmailAccount(
@@ -84,6 +102,10 @@ export async function upsertGmailAccount(
       autoOrganize: true
     }
   });
+
+  if (isPrimary) {
+    await saveGoogleCredentials(userId, tokens);
+  }
 
   return {
     id: row.id,

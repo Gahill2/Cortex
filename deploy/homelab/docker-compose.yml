@@ -1,0 +1,95 @@
+# Cortex homelab stack (ZimaBoard / ZimaOS / any Docker host).
+# From this directory: cp env/api.env.example env/api.env && docker compose up -d --build
+#
+# Data lives under CORTEX_DATA_DIR (default ./data) so you can bind-mount /data/cortex on the host.
+
+name: cortex-homelab
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cortex}
+      POSTGRES_USER: ${POSTGRES_USER:-cortex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ${CORTEX_DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cortex} -d ${POSTGRES_DB:-cortex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles: ["redis"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ${CORTEX_DATA_DIR:-./data}/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 128M }
+        reservations: { cpus: '0.1', memory: 32M }
+
+  cortex-api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./env/api.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: ${API_PORT:-4000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cortex}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cortex}
+      CORTEX_API_DATA_DIR: /app/data
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Canvas photos, obsidian-vaults.json, vault-index cache (see npm run server:sync-local)
+      - ${CORTEX_DATA_DIR:-./data}/api:/app/data
+      # Grey Hill Brain — override OBSIDIAN_VAULT_HOST_PATH in deploy/homelab/.env
+      - ${OBSIDIAN_VAULT_HOST_PATH:-C:/Users/greyh/Documents/GitHub/greyhill_brain}:/vault:rw
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
+
+  cortex-web:
+    build:
+      context: ../..
+      dockerfile: deploy/homelab/Dockerfile.web
+      args:
+        # Empty = same-origin /api via nginx (works for 127.0.0.1:8080 and Tailscale :8080).
+        # Set in .env only for split API/UI deploys (e.g. API on :4000, UI elsewhere).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - cortex-api
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 64M }
+        reservations: { cpus: '0.1', memory: 16M }

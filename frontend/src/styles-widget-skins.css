@@ -1,0 +1,522 @@
+/* Design skins (Notion / Canva / iOS) — applied on .canvas-widget-shell */
+
+.canvas-widget-shell {
+  height: 100%;
+  min-height: 0;
+  font-family: var(--widget-font-body, system-ui, sans-serif);
+}
+
+.canvas-widget-shell .widget,
+.canvas-widget-shell .pomodoro-widget,
+.canvas-widget-shell .quote-widget,
+.canvas-widget-shell .habit-widget,
+.canvas-widget-shell .mail-widget,
+.canvas-widget-shell .spotify-widget {
+  font-family: inherit;
+}
+
+.canvas-widget-shell .weather-temp-hero,
+.canvas-widget-shell .worldclock-digital-hero__time,
+.canvas-widget-shell .pomodoro-time,
+.canvas-widget-shell .quote-text {
+  font-family: var(--widget-font-display, var(--widget-font-body, inherit));
+}
+
+.widget-skin--cortex {
+  --widget-weight-display: 300;
+  --widget-weight-body: 450;
+}
+
+/* Apple Home Screen–style liquid glass (Cortex default) */
+.canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget,
+.widget-skin--cortex .widget,
+.canvas-widget-shell.widget-skin--cortex .widget {
+  --radius-widget: 26px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.04) 42%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  backdrop-filter: blur(28px) saturate(1.85);
+  -webkit-backdrop-filter: blur(28px) saturate(1.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-widget, 26px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.12) inset,
+    0 12px 40px rgba(0, 0, 0, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.widget-skin--cortex .widget-label,
+.canvas-widget-shell.widget-skin--cortex .widget-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+.widget-skin--notion {
+  --widget-weight-display: 600;
+  --widget-weight-body: 450;
+}
+
+.widget-skin--canva {
+  --widget-weight-display: 800;
+  --widget-weight-body: 600;
+}
+
+.widget-skin--ios {
+  --widget-weight-display: 200;
+  --widget-weight-body: 400;
+}
+
+.canvas-widget-shell .weather-temp-hero,
+.canvas-widget-shell .worldclock-digital-hero__time {
+  font-weight: var(--widget-weight-display, 600);
+}
+
+.canvas-widget-shell .widget-label,
+.canvas-widget-shell .habit-title,
+.canvas-widget-shell .quote-author {
+  font-weight: var(--widget-weight-body, 500);
+}
+
+/* —— Notion: flat, quiet, text-first —— */
+.canvas-item--widget .canvas-widget-shell.widget-skin--notion .widget,
+.widget-skin--notion .widget,
+.canvas-widget-shell.widget-skin--notion .widget {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  border-radius: 6px;
+}
+
+.widget-skin--notion .widget-label,
+.canvas-widget-shell.widget-skin--notion .widget-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.widget-skin--notion .weather-temp-hero {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.widget-skin--notion .worldclock-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* —— Canva: bold cards, gradients —— */
+.canvas-item--widget .canvas-widget-shell.widget-skin--canva .widget,
+.widget-skin--canva .widget,
+.canvas-widget-shell.widget-skin--canva .widget {
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(91, 141, 255, 0.22) 0%, rgba(168, 85, 247, 0.18) 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.widget-skin--canva.widget-display--gradient .widget--weather,
+.canvas-widget-shell.widget-skin--canva.widget-display--gradient .widget--weather {
+  background: linear-gradient(160deg, #3b82f6 0%, #8b5cf6 55%, #ec4899 100%);
+}
+
+.widget-skin--canva .weather-temp-hero {
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.widget-skin--canva .spotify-widget-art {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+/* —— iOS: large-type hero widgets (iOS 17+ style) —— */
+.canvas-item--widget .canvas-widget-shell.widget-skin--ios .widget,
+.widget-skin--ios .widget,
+.canvas-widget-shell.widget-skin--ios .widget {
+  --radius-widget: 28px;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.05) 38%,
+      rgba(120, 120, 128, 0.08) 100%
+    );
+  backdrop-filter: blur(32px) saturate(2);
+  -webkit-backdrop-filter: blur(32px) saturate(2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-widget, 28px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 16px 48px rgba(0, 0, 0, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.14);
+}
+
+.canvas-item--widget .canvas-widget-shell.widget-skin--ios .widget,
+.canvas-item--widget .canvas-widget-shell.widget-skin--cortex .widget {
+  padding: 14px 16px 12px;
+}
+
+.widget-skin--ios .worldclock-digital-hero__time {
+  font-size: clamp(2rem, 8vw, 3.5rem);
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.widget-skin--ios .weather-hero-ios .weather-temp-hero {
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  font-weight: 200;
+}
+
+/* Display: weather minimal */
+.widget-display--minimal .weather-forecast,
+.widget-display--minimal .weather-pills-row,
+.canvas-widget-shell.widget-display--minimal .weather-forecast {
+  display: none;
+}
+
+.widget-display--minimal .weather-current {
+  align-items: flex-start !important;
+}
+
+/* Display: weather hero */
+.widget-display--hero .weather-icon-hero,
+.canvas-widget-shell.widget-display--hero .weather-icon-hero {
+  font-size: 3.5rem;
+}
+
+/* Clock digital hero */
+.worldclock-digital-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 4px;
+  text-align: center;
+}
+
+.worldclock-digital-hero__time {
+  font-size: 2.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.worldclock-digital-hero__date {
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+
+.worldclock-analog-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+}
+
+.worldclock-zones-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  height: 100%;
+  align-content: start;
+  overflow: auto;
+}
+
+.worldclock-zone-card {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.worldclock-zone-card__time {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.worldclock-zone-card__label {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Spotify display variants */
+.widget-display--art .spotify-widget-body {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.widget-display--art .spotify-widget-art {
+  width: 100% !important;
+  max-width: 180px;
+  aspect-ratio: 1;
+}
+
+.widget-display--compact .spotify-widget-art {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.widget-display--compact .spotify-widget-device {
+  display: none;
+}
+
+/* Pomodoro layouts */
+.canvas-widget-shell.widget-display--digital .pomodoro-ring {
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.canvas-widget-shell.widget-display--digital .pomodoro-time {
+  font-size: clamp(2rem, 10vw, 3.25rem);
+  font-weight: var(--widget-weight-display, 300);
+  letter-spacing: -0.03em;
+}
+
+.canvas-widget-shell.widget-display--minimal .pomodoro-presets,
+.canvas-widget-shell.widget-display--minimal .pomodoro-footer {
+  display: none;
+}
+
+/* Quote layouts */
+.canvas-widget-shell.widget-display--minimal .quote-widget {
+  justify-content: center;
+  text-align: center;
+}
+
+.canvas-widget-shell.widget-display--minimal .quote-text {
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.canvas-widget-shell.widget-display--card .quote-text {
+  font-size: 1.15rem;
+  line-height: 1.55;
+}
+
+/* Mail / tasks layout hints */
+.canvas-widget-shell.widget-display--notion-list .mail-widget-row {
+  border-radius: 4px;
+  padding: 6px 4px;
+}
+
+.canvas-widget-shell.widget-display--cards .widget--tasks .task-row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Style picker UI */
+.widget-style-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.widget-style-picker--panel {
+  min-width: 260px;
+  max-width: 100%;
+}
+
+.widget-style-picker__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.widget-style-picker__summary-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.widget-style-picker__summary-meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.widget-style-picker__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.widget-style-picker__heading {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.widget-style-picker__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+.widget-style-picker__skin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.widget-style-picker__skin-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.widget-style-picker__skin-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.widget-style-picker__skin-card--active {
+  border-color: var(--accent);
+  background: rgba(91, 141, 255, 0.12);
+  color: var(--text-1);
+}
+
+.widget-style-picker__skin-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.widget-style-picker__skin-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.widget-style-picker__skin-desc {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+.widget-style-picker__skin-font {
+  font-size: 9px;
+  color: var(--text-3);
+  opacity: 0.85;
+}
+
+.widget-style-picker__display-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.widget-style-picker__layout-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-2);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.widget-style-picker__layout-card--active {
+  border-color: var(--accent);
+  color: var(--text-1);
+  background: rgba(91, 141, 255, 0.12);
+}
+
+.widget-style-picker__layout-title {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.widget-style-picker__layout-desc {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+
+.widget-style-picker__skin-swatch {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.widget-style-picker__skin-swatch--cortex {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.widget-style-picker__skin-swatch--notion {
+  background: #f7f6f3;
+  opacity: 0.9;
+}
+
+.widget-style-picker__skin-swatch--canva {
+  background: linear-gradient(135deg, #5b8dff, #a855f7);
+}
+
+.widget-style-picker__skin-swatch--ios {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+}
+
+.canvas-item__style-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.canvas-item__style-btn:hover {
+  border-color: rgba(91, 141, 255, 0.45);
+  color: var(--text-1);
+}
+
+.canvas-item__style-btn--open {
+  border-color: var(--accent);
+  color: var(--text-1);
+  background: rgba(91, 141, 255, 0.18);
+}

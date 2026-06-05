@@ -10,11 +10,19 @@ import { cortexBillingRouter } from "./billing.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
+import { cortexMicrosoftRouter } from "./microsoft.routes.js";
+import { cortexWeatherRouter } from "./weather.routes.js";
+import { cortexCalendarRouter } from "./calendar.routes.js";
+import { obsidianRouter } from "./obsidian.routes.js";
+import { notionRouter } from "./notion.routes.js";
+import { cortexNotionRouter } from "./notion.routes.js";
+import { cortexCanvaRouter } from "./canva.routes.js";
 import { cortexFirebaseRouter } from "./firebase.routes.js";
 import { cortexN8nRouter } from "./n8n.routes.js";
 import { cortexIntegrationsRouter } from "./integrations.routes.js";
-import { cortexNotionRouter } from "./notion.routes.js";
 import { cortexMemoryRouter } from "./memory.routes.js";
+import { cortexSettingsRouter } from "./settings.routes.js";
+import { cortexCanvasRouter } from "./canvas.routes.js";
 import { pingAgentmemory } from "../../features/agentmemory/client.js";
 import { getObsidianVaultPaths } from "../../features/obsidian/vault-index.js";
 import { isN8nConfigured } from "../../features/n8n/n8n-client.js";
@@ -25,6 +33,11 @@ import { env } from "../../config/env.js";
 import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 
 export const cortexRouter = Router();
+
+/** Railway / load-balancer liveness — no I/O, must respond before slow dependency pings. */
+cortexRouter.get("/health/live", (_req, res) => {
+  res.status(200).json({ status: "ok", service: "cortex-api" });
+});
 
 cortexRouter.get("/health", async (_req, res) => {
   const agentmemory = await pingAgentmemory();
@@ -48,7 +61,14 @@ cortexRouter.get("/health", async (_req, res) => {
       has_redirect_uri: Boolean(env.GOOGLE_REDIRECT_URI),
       has_redirect_url: Boolean(env.GOOGLE_REDIRECT_URL),
       redirect_uri_value: env.GOOGLE_REDIRECT_URI?.slice(0, 30) + "…",
-    }
+    },
+    canva_configured: {
+      apps_sdk_app_id: Boolean(process.env.CANVA_APP_ID?.trim()),
+      connect_client_id: Boolean(process.env.CANVA_CLIENT_ID?.trim()),
+      connect_client_secret: Boolean(process.env.CANVA_CLIENT_SECRET?.trim()),
+      connect_redirect_uri: Boolean(process.env.CANVA_REDIRECT_URI?.trim()),
+    },
+    firebase: getFirebaseAdminStatus(),
   });
 });
 
@@ -63,8 +83,15 @@ cortexRouter.use("/billing", cortexBillingRouter);
 cortexRouter.use("/spotify", cortexSpotifyRouter);
 cortexRouter.use("/tasks", cortexTasksRouter);
 cortexRouter.use("/projects", cortexProjectsRouter);
+cortexRouter.use("/microsoft", cortexMicrosoftRouter);
+cortexRouter.use("/weather", cortexWeatherRouter);
+cortexRouter.use("/calendar", cortexCalendarRouter);
+cortexRouter.use("/obsidian", obsidianRouter);
+cortexRouter.use("/notion", notionRouter);
+cortexRouter.use("/canva", cortexCanvaRouter);
 cortexRouter.use("/firebase", cortexFirebaseRouter);
 cortexRouter.use("/n8n", cortexN8nRouter);
 cortexRouter.use("/integrations", cortexIntegrationsRouter);
-cortexRouter.use("/notion", cortexNotionRouter);
 cortexRouter.use("/memory", cortexMemoryRouter);
+cortexRouter.use("/settings", cortexSettingsRouter);
+cortexRouter.use("/canvas", cortexCanvasRouter);

@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { AxiosError } from "axios";
-import { api } from "../api/client";
+import { api, AUTH_CHANGED_EVENT, AUTH_USER_STORAGE_KEY } from "../api/client";
+import type { User } from "../types";
+import { CortexBrand } from "../components/brand/CortexBrand";
+import { LoginEpicScene } from "../components/LoginEpicScene";
 
 type SendOtpResponse = {
   ok: boolean;
@@ -22,11 +25,11 @@ function authErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
-import cortexLogo from "../assets/cortex-logo.png";
-import { LoginEpicScene } from "../components/LoginEpicScene";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Props {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, user?: User) => void;
 }
 
 export const LoginPage = ({ onLogin }: Props) => {
@@ -36,6 +39,7 @@ export const LoginPage = ({ onLogin }: Props) => {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [devNotice, setDevNotice] = useState<string | null>(null);
 
   const applySendOtpPayload = (data: { devOtpCode?: string; devHint?: string }) => {
@@ -48,13 +52,24 @@ export const LoginPage = ({ onLogin }: Props) => {
   };
 
   const sendOtp = async () => {
-    if (!email.trim()) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError("Email address is required.");
+      return;
+    }
+    if (!EMAIL_RE.test(trimmed)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailError(null);
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post<SendOtpResponse>("/auth/send-otp", {
-        email: email.trim().toLowerCase(),
-      });
+      const res = await api.post<SendOtpResponse>(
+        "/auth/send-otp",
+        { email: trimmed.toLowerCase() },
+        { timeout: 25_000 }
+      );
       const data = res.data;
       applySendOtpPayload(data);
 
@@ -83,11 +98,21 @@ export const LoginPage = ({ onLogin }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/auth/verify-otp", {
-        email: email.trim().toLowerCase(),
-        code: code.trim()
-      });
-      onLogin(res.data.token as string);
+      const res = await api.post<{ token: string; user?: User }>(
+        "/auth/verify-otp",
+        { email: email.trim().toLowerCase(), code: code.trim() },
+        { timeout: 25_000 }
+      );
+      const nextUser = res.data.user;
+      if (nextUser) {
+        try {
+          localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser));
+        } catch {
+          /* private mode */
+        }
+      }
+      window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+      onLogin(res.data.token, nextUser);
     } catch (err) {
       setError(authErrorMessage(err, "Invalid or expired code. Try again."));
     } finally {
@@ -112,7 +137,7 @@ export const LoginPage = ({ onLogin }: Props) => {
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         >
           <div className="login-logo-wrap login-logo-wrap--card">
-            <img src={cortexLogo} alt="Cortex" className="cortex-logo-img login-logo-img login-logo-img--blend" />
+            <CortexBrand variant="auth" />
           </div>
           <motion.p
             className="login-tagline"
@@ -123,26 +148,52 @@ export const LoginPage = ({ onLogin }: Props) => {
             Your <strong>neural command layer</strong> — one dashboard for everything you run.
           </motion.p>
 
+          {typeof window !== "undefined" &&
+            window.location.hostname !== "localhost" &&
+            window.location.hostname !== "127.0.0.1" && (
+              <p className="login-hint login-hint--remote">
+                This address has its own saved session. Use the same email as on your PC to see the same account data
+                after you sign in.
+              </p>
+            )}
+
           {step === "email" ? (
             <div className="login-form">
-              <label className="login-label">Email address</label>
+              <label className="login-label" htmlFor="login-email-input">
+                Email address
+              </label>
               <input
-                className="login-input"
+                id="login-email-input"
+                className={`login-input${emailError ? " login-input--error" : ""}`}
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError(null);
+                }}
                 onKeyDown={(e) => e.key === "Enter" && void sendOtp()}
                 placeholder="you@example.com"
                 autoFocus
                 autoComplete="email"
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? "login-email-error" : undefined}
               />
+              {emailError && (
+                <p id="login-email-error" className="login-error" role="alert">
+                  {emailError}
+                </p>
+              )}
               {error && <p className="login-error">{error}</p>}
               <button
                 className="login-btn"
                 onClick={() => void sendOtp()}
                 disabled={loading || !email.trim()}
               >
-                {loading ? "Sending…" : "Continue →"}
+                {loading ? (
+                  <><span className="btn-spinner" aria-hidden="true" />Sending…</>
+                ) : (
+                  "Continue"
+                )}
               </button>
               <p className="login-hint">We'll email you a sign-in code — no password needed</p>
             </div>
@@ -157,6 +208,7 @@ export const LoginPage = ({ onLogin }: Props) => {
                     setStep("email");
                     setCode("");
                     setError(null);
+                    setEmailError(null);
                     setDevNotice(null);
                   }}
                 >
@@ -188,7 +240,11 @@ export const LoginPage = ({ onLogin }: Props) => {
                 onClick={() => void verifyOtp()}
                 disabled={loading || code.length !== 6}
               >
-                {loading ? "Verifying…" : "Sign in"}
+                {loading ? (
+                  <><span className="btn-spinner" aria-hidden="true" />Verifying…</>
+                ) : (
+                  "Sign in"
+                )}
               </button>
               <button className="login-resend" onClick={() => void sendOtp()} disabled={loading}>
                 Resend code

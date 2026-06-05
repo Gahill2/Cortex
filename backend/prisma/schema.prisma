@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -28,6 +28,8 @@ model User {
   createdTasks   Task[] @relation("taskCreator")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
 model Project {
@@ -47,26 +49,33 @@ model Project {
 model OAuthToken {
   id        String   @id @default(cuid())
   userId    String
-  provider  String   // "spotify" | "google"
+  provider  String   // "spotify" | "google" | "notion" | "canva"
   tokens    String   // JSON serialized
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, provider])
+  @@index([userId])
 }
 
-/// Connected mail inboxes (Gmail today; Outlook/IMAP later).
+/// Connected mail inboxes (Gmail OAuth + optional IMAP).
 model MailAccount {
-  id             String   @id @default(cuid())
-  userId         String
-  provider       String   // "gmail"
-  email          String
-  label          String?
-  isPrimary      Boolean  @default(false)
-  tokens         String   // JSON OAuth credentials
-  autoOrganize   Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // "gmail" | "imap"
+  email        String
+  label        String?
+  isPrimary    Boolean  @default(false)
+  tokens       String?  // JSON OAuth credentials (gmail)
+  imapHost     String?
+  imapPort     Int?
+  smtpHost     String?
+  smtpPort     Int?
+  username     String?
+  passwordEnc  String?  // base64-obfuscated for IMAP
+  autoOrganize Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@unique([userId, provider, email])
   @@index([userId])
@@ -81,7 +90,7 @@ model CortexProfile {
   subscriptionStatus     String    @default("free")
   stripeCurrentPeriodEnd DateTime?
   createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  updatedAt              DateTime  @default(now()) @updatedAt
 }
 
 model Task {
@@ -89,6 +98,8 @@ model Task {
   title          String
   description    String?
   status         String     @default("TODO")
+  priority       String     @default("MEDIUM")  // LOW | MEDIUM | HIGH
+  dueDate        DateTime?
   organizationId String
   projectId      String
   assigneeId     String?
@@ -100,5 +111,38 @@ model Task {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@index([projectId])
   @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+}
+
+model MailCategory {
+  id        String   @id @default(cuid())
+  userId    String
+  accountId String   @default("")
+  messageId String
+  category  String   // work | personal | finance | newsletters | social | important | other
+  summary   String?  // AI one-liner
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, accountId, messageId])
+  @@index([userId, category])
+  @@index([userId, createdAt])
+}
+
+/// Per-user UI preferences synced across devices (replaces localStorage).
+model UserSettings {
+  userId       String   @id
+  appearance   String   @default("system") // "light" | "dark" | "system"
+  wallpaper    String?  // JSON: { enabled, url, opacity }
+  aiTheme      String?  // JSON: { name, gradient, ... }
+  weatherCity  String?
+  weatherUnits String   @default("metric") // "metric" | "imperial"
+  homeGoals    String?  // JSON array
+  pinHash      String?  // bcrypt hash for PIN change feature
+  canvasLayout String?  // JSON: canvas node positions
+  extraJson    String?  // catch-all JSON for future prefs without schema migration
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 }

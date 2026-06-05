@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../../config/env.js";
+import { callAI, getAIStatus } from "../../features/ai/ai-provider.js";
+import { extractJsonObject } from "../../features/mail/mail-classify.js";
 import { HttpError } from "../../utils/http-error.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -12,7 +14,8 @@ import {
   exchangeSpotifyCode,
   getNowPlaying,
   playbackControl,
-  setVolume
+  setVolume,
+  getValidSpotifyToken
 } from "../../features/spotify/spotify-service.js";
 import {
   saveSpotifyTokens,
@@ -47,6 +50,21 @@ cortexSpotifyRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (
   const state = signSpotifyOAuthState(req.auth!.userId);
   const url = buildSpotifyAuthUrl(state);
   sendSuccess(res, { url });
+});
+
+// ── Desktop OAuth exchange (Electron deep-link flow) ─────────────────────────
+// The browser redirects to cortex://oauth/spotify?code=X&state=Y
+// Electron catches it and POSTs here to exchange the code.
+cortexSpotifyRouter.post("/oauth/exchange", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  const { code, state } = z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+  }).parse(req.body);
+  const { userId } = verifySpotifyOAuthState(state);
+  if (userId !== req.auth!.userId) throw new HttpError(403, "State userId mismatch");
+  const tokens = await exchangeSpotifyCode(code);
+  await saveSpotifyTokens(userId, tokens);
+  sendSuccess(res, { connected: true });
 });
 
 cortexSpotifyRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (req, res) => {
@@ -124,4 +142,196 @@ cortexSpotifyRouter.put("/playback/volume", requireAuth, routeRateLimit(30, 60_0
 cortexSpotifyRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), async (req, res) => {
   await clearSpotifyTokens(req.auth!.userId);
   sendSuccess(res, { disconnected: true });
+});
+
+// ── AI DJ ────────────────────────────────────────────────────────────────────
+
+const SPOTIFY_API = "https://api.spotify.com/v1";
+
+cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+  const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
+
+  const aiStatus = await getAIStatus();
+  if (aiStatus.activeProvider === "none") {
+    throw new HttpError(
+      503,
+      "No AI provider available. Start Ollama, or set ANTHROPIC_API_KEY / OPENAI_API_KEY on the API server."
+    );
+  }
+
+  // Step 1: Ask AI for track recommendations (Ollama → Anthropic fallback)
+  const aiResult_raw = await callAI(
+    [{ role: "user", content: prompt }],
+    {
+      tier: "simple",
+      systemPrompt: `You are a music expert. When given a mood or genre prompt, return ONLY a JSON object (no markdown, no explanation) with this exact shape:
+{ "playlistName": string, "tracks": Array<{ "artist": string, "title": string }> }
+Include 12-15 diverse, real tracks that match the requested mood/genre. Vary artists — avoid repeating the same artist more than twice.`,
+      maxTokens: 1024
+    }
+  );
+
+  const parsed = extractJsonObject(aiResult_raw.text);
+  if (!parsed || !Array.isArray(parsed.tracks)) {
+    throw new HttpError(502, "AI returned invalid JSON for track recommendations");
+  }
+  const aiResult = {
+    playlistName:
+      typeof parsed.playlistName === "string" && parsed.playlistName.trim()
+        ? parsed.playlistName.trim()
+        : "Cortex Mix",
+    tracks: (parsed.tracks as Array<{ artist?: string; title?: string }>)
+      .filter((t) => t?.artist && t?.title)
+      .map((t) => ({ artist: String(t.artist), title: String(t.title) }))
+  };
+  if (aiResult.tracks.length === 0) {
+    throw new HttpError(502, "AI did not return any track suggestions");
+  }
+
+  // Step 2: Search Spotify for each recommended track
+  const token = await getValidSpotifyToken(req.auth!.userId);
+  const foundTracks: Array<{
+    id: string;
+    name: string;
+    artists: string[];
+    albumArt: string | null;
+    uri: string;
+    previewUrl: string | null;
+  }> = [];
+
+  for (const { artist, title } of aiResult.tracks) {
+    try {
+      const q = encodeURIComponent(`${artist} ${title}`);
+      const r = await fetch(`${SPOTIFY_API}/search?q=${q}&type=track&limit=1`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!r.ok) continue;
+      const data = (await r.json()) as {
+        tracks: { items: Array<{
+          id: string;
+          name: string;
+          uri: string;
+          preview_url: string | null;
+          artists: Array<{ name: string }>;
+          album: { images: Array<{ url: string }> };
+        }> }
+      };
+      const item = data.tracks?.items?.[0];
+      if (!item) continue;
+      foundTracks.push({
+        id: item.id,
+        name: item.name,
+        artists: item.artists.map((a) => a.name),
+        albumArt: item.album.images[0]?.url ?? null,
+        uri: item.uri,
+        previewUrl: item.preview_url
+      });
+    } catch {
+      // Skip tracks that fail to search — best effort
+    }
+  }
+
+  if (foundTracks.length === 0) {
+    throw new HttpError(
+      502,
+      "Could not match any suggested tracks on Spotify. Try a more specific mood or artist name."
+    );
+  }
+
+  sendSuccess(res, { tracks: foundTracks, prompt, playlistName: aiResult.playlistName }, "live");
+});
+
+cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+
+  const { name, trackUris } = z.object({
+    name: z.string().min(1).max(100),
+    trackUris: z.array(z.string().min(1)).min(1).max(100)
+  }).parse(req.body);
+
+  const token = await getValidSpotifyToken(req.auth!.userId);
+
+  // Step 1: Get the Spotify user's profile
+  const profileRes = await fetch(`${SPOTIFY_API}/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!profileRes.ok) throw new HttpError(502, "Failed to fetch Spotify profile");
+  const profile = (await profileRes.json()) as { id: string };
+
+  // Step 2: Create the playlist
+  const createRes = await fetch(`${SPOTIFY_API}/users/${profile.id}/playlists`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description: "Created by Cortex AI", public: false })
+  });
+  if (!createRes.ok) throw new HttpError(502, "Failed to create Spotify playlist");
+  const playlist = (await createRes.json()) as { id: string; external_urls: { spotify: string } };
+
+  // Step 3: Add tracks to the playlist
+  const addRes = await fetch(`${SPOTIFY_API}/playlists/${playlist.id}/tracks`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ uris: trackUris })
+  });
+  if (!addRes.ok) throw new HttpError(502, "Failed to add tracks to playlist");
+
+  sendSuccess(res, {
+    playlistId: playlist.id,
+    playlistUrl: playlist.external_urls.spotify
+  });
+});
+
+// ── Queue view ──────────────────────────────────────────────────────────────
+
+cortexSpotifyRouter.get("/queue", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+
+  const token = await getValidSpotifyToken(req.auth!.userId);
+  const r = await fetch(`${SPOTIFY_API}/me/player/queue`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!r.ok) throw new HttpError(502, `Spotify queue error: ${r.status}`);
+
+  const data = await r.json() as {
+    currently_playing: { name: string; artists: { name: string }[]; album: { name: string; images: { url: string }[] }; duration_ms: number } | null;
+    queue: { name: string; artists: { name: string }[]; album: { name: string; images: { url: string }[] }; duration_ms: number; uri: string }[];
+  };
+
+  sendSuccess(res, {
+    currentlyPlaying: data.currently_playing ? {
+      name: data.currently_playing.name,
+      artists: data.currently_playing.artists.map((a) => a.name),
+      album: data.currently_playing.album.name,
+      albumArt: data.currently_playing.album.images[0]?.url ?? null,
+    } : null,
+    queue: (data.queue ?? []).slice(0, 20).map((t) => ({
+      name: t.name,
+      artists: t.artists.map((a) => a.name),
+      album: t.album.name,
+      albumArt: t.album.images[0]?.url ?? null,
+      durationMs: t.duration_ms,
+      uri: t.uri,
+    })),
+  });
+});
+
+cortexSpotifyRouter.post("/playback/queue-track", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
+
+  const { uri } = z.object({ uri: z.string().min(1) }).parse(req.body);
+  const token = await getValidSpotifyToken(req.auth!.userId);
+
+  const r = await fetch(`${SPOTIFY_API}/me/player/queue?uri=${encodeURIComponent(uri)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!r.ok && r.status !== 204) throw new HttpError(502, `Spotify queue error: ${r.status}`);
+
+  sendSuccess(res, { queued: true });
 });

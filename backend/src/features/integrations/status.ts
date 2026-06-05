@@ -3,6 +3,7 @@ import { getFirebaseAdminStatus } from "../firebase/admin.js";
 import { pingFirestore } from "../firebase/env-sync.js";
 import { isGmailConfigured } from "../gmail/gmail-service.js";
 import { getGoogleCredentials } from "../gmail/google-token-store.js";
+import { prisma } from "../../db/prisma.js";
 import { isN8nConfigured } from "../n8n/n8n-client.js";
 import { isNotionConfigured, testNotionConnection } from "../notion/notion-service.js";
 import { isSpotifyConfigured } from "../spotify/spotify-service.js";
@@ -71,7 +72,7 @@ export async function getIntegrationsStatus(userId?: string): Promise<Integratio
       configured: Boolean(env.CORTEX_MCP_MODE),
       connected: Boolean(env.CORTEX_MCP_MODE),
       detail: env.CORTEX_MCP_MODE
-        ? `${env.CORTEX_MCP_MODE} @ ${env.CORTEX_MCP_HOST}:${env.CORTEX_MCPPORT}`
+        ? `${env.CORTEX_MCP_MODE} @ ${env.CORTEX_MCP_HOST}:${env.CORTEX_MCP_PORT}`
         : "Set CORTEX_MCP_* in env"
     },
     await buildGmailStatus(userId),
@@ -84,7 +85,11 @@ async function buildGmailStatus(userId?: string): Promise<IntegrationStatus> {
   let connected = false;
   if (configured && userId) {
     const creds = await getGoogleCredentials(userId);
-    connected = Boolean(creds?.refresh_token || creds?.access_token);
+    const mailLinked = await prisma.mailAccount.count({
+      where: { userId, provider: { in: ["gmail", "microsoft"] } }
+    });
+    connected =
+      Boolean(creds?.refresh_token || creds?.access_token) || mailLinked > 0;
   }
   return {
     id: "gmail",

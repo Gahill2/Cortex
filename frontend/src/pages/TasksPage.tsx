@@ -1,210 +1,189 @@
-import { FormEvent, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { useMemo, useState } from "react";
+import { CheckSquare } from "lucide-react";
+import type { Tab } from "../tab";
+import { TasksCalendarKanban } from "../components/tasks-calendar/TasksCalendarKanban";
+import { TasksCalendarQuickAdd } from "../components/tasks-calendar/TasksCalendarQuickAdd";
+import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
+import { ProductivityShell } from "../productivity/ProductivityShell";
+import { EventInspectorPanel } from "../productivity/calendar/EventInspectorPanel";
+import { TaskSidebar } from "../productivity/tasks/TaskSidebar";
+import { TaskRow } from "../productivity/tasks/TaskRow";
+import { TaskSection } from "../productivity/tasks/TaskSection";
+import { TasksTopBar, getListTitle } from "../productivity/tasks/TasksTopBar";
+import { EmptyState } from "../productivity/shared/EmptyState";
+import type { TaskListKey, TaskSortKey } from "../productivity/types";
+import {
+  filterTasksByList,
+  filterTasksBySearch,
+  groupTasksForList,
+  sortTasks,
+  toPlannerCalView,
+} from "../productivity/tasks/taskListUtils";
 
-interface Project { id: string; name: string }
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: "TODO" | "IN_PROGRESS" | "DONE";
-  project: { id: string; name: string };
-  createdAt: string;
+interface Props {
+  onNavigate?: (tab: Tab) => void;
 }
 
-const STATUS_COLS: Array<{ key: Task["status"]; label: string }> = [
-  { key: "TODO",        label: "To Do"       },
-  { key: "IN_PROGRESS", label: "In Progress" },
-  { key: "DONE",        label: "Done"        },
-];
+export function TasksPage({ onNavigate }: Props) {
+  const [listKey, setListKey] = useState<TaskListKey>("today");
+  const [listMeta, setListMeta] = useState<{ projectId?: string; areaId?: string; labelId?: string }>();
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<TaskSortKey>("due");
+  const [boardMode, setBoardMode] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
-const NEXT: Record<Task["status"], Task["status"]> = {
-  TODO: "IN_PROGRESS",
-  IN_PROGRESS: "DONE",
-  DONE: "TODO",
-};
+  const viewDate = useMemo(() => new Date(), []);
+  const calView = toPlannerCalView("week");
 
-export const TasksPage = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks,    setTasks]    = useState<Task[]>([]);
-  const [filter,   setFilter]   = useState("all");
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
+  const {
+    tasks,
+    loading,
+    busy,
+    tasksError,
+    toggleTask,
+    createTask,
+    createTaskFromNl,
+    quickAddTask,
+    updateTaskStatus,
+    deleteTask,
+    refresh,
+  } = useTasksCalendarData(viewDate, calView);
 
-  const [showTaskForm,    setShowTaskForm]    = useState(false);
-  const [showProjectForm, setShowProjectForm] = useState(false);
-  const [newTitle,   setNewTitle]   = useState("");
-  const [newProjId,  setNewProjId]  = useState("");
-  const [newDesc,    setNewDesc]    = useState("");
-  const [enriching,  setEnriching]  = useState(false);
-  const [saving,     setSaving]     = useState(false);
-  const [newProjName, setNewProjName] = useState("");
-  const [savingProj,  setSavingProj]  = useState(false);
+  const filtered = useMemo(() => {
+    const byList = filterTasksByList(tasks, listKey, listMeta);
+    const searched = filterTasksBySearch(byList, search);
+    return sortTasks(searched, sort);
+  }, [tasks, listKey, listMeta, search, sort]);
 
-  useEffect(() => { void load(); }, []);
+  const sections = useMemo(() => groupTasksForList(filtered, listKey), [filtered, listKey]);
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
+  const title = getListTitle(listKey);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [pr, tr] = await Promise.all([api.get("/projects"), api.get("/tasks")]);
-      const p: Project[] = Array.isArray(pr.data) ? pr.data : (pr.data?.data ?? []);
-      const t: Task[]    = Array.isArray(tr.data) ? tr.data : (tr.data?.data ?? []);
-      setProjects(p);
-      setTasks(t);
-      if (p.length > 0 && !newProjId) setNewProjId(p[0].id);
-    } catch {
-      setError("Could not load tasks.");
-    } finally {
-      setLoading(false);
+  const onListChange = (
+    key: TaskListKey,
+    meta?: { projectId?: string; areaId?: string; labelId?: string },
+  ) => {
+    setListKey(key);
+    setListMeta(meta);
+  };
+
+  const onQuickAddNl = async (text: string) => {
+    const id = await createTaskFromNl(text);
+    if (id) {
+      setSelectedTaskId(id);
+      setBoardMode(false);
     }
+    return id;
   };
-
-  const enrich = async () => {
-    if (!newTitle.trim()) return;
-    setEnriching(true);
-    try {
-      const r = await api.post("/ai/tasks/enrich", { title: newTitle });
-      setNewDesc(r.data?.data?.description ?? r.data?.description ?? "");
-    } catch { /* ignore */ }
-    finally { setEnriching(false); }
-  };
-
-  const addTask = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newProjId) return;
-    setSaving(true);
-    try {
-      await api.post("/tasks", { title: newTitle, projectId: newProjId, description: newDesc || undefined });
-      setShowTaskForm(false); setNewTitle(""); setNewDesc("");
-      await load();
-    } finally { setSaving(false); }
-  };
-
-  const addProject = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newProjName.trim()) return;
-    setSavingProj(true);
-    try {
-      await api.post("/projects", { name: newProjName });
-      setShowProjectForm(false); setNewProjName("");
-      await load();
-    } finally { setSavingProj(false); }
-  };
-
-  const cycleStatus = async (task: Task) => {
-    const next = NEXT[task.status];
-    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: next } : t));
-    try { await api.patch(`/tasks/${task.id}`, { status: next }); }
-    catch { await load(); }
-  };
-
-  const deleteTask = async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    try { await api.delete(`/tasks/${id}`); }
-    catch { await load(); }
-  };
-
-  const visible = filter === "all" ? tasks : tasks.filter((t) => t.project.id === filter);
 
   return (
-    <div className="page">
-      <div className="page-titlebar">
-        <div>
-          <h1 className="page-title">Tasks</h1>
-        </div>
-        <div className="page-actions">
-          <button className="btn-ghost" onClick={() => setShowProjectForm(true)}>+ Project</button>
-          <button className="btn-primary" onClick={() => setShowTaskForm(true)}>+ New Task</button>
-        </div>
-      </div>
-
-      {/* Project filter */}
-      <div className="filter-bar">
-        <button className={`filter-chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>
-          All <span className="filter-count">{tasks.length}</span>
-        </button>
-        {projects.map((p) => {
-          const count = tasks.filter((t) => t.project.id === p.id).length;
-          return (
-            <button key={p.id} className={`filter-chip ${filter === p.id ? "active" : ""}`} onClick={() => setFilter(p.id)}>
-              {p.name} <span className="filter-count">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {error && <p className="page-error">{error}</p>}
-
-      {/* Inline forms */}
-      {showTaskForm && (
-        <div className="inline-form-card">
-          <form onSubmit={addTask}>
-            <div className="inline-form-row">
-              <input className="form-input form-input--grow" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title…" autoFocus required />
-              <select className="form-select" value={newProjId} onChange={(e) => setNewProjId(e.target.value)} required>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => void enrich()} disabled={enriching || !newTitle.trim()}>
-                {enriching ? "…" : "✦ AI enrich"}
-              </button>
-              <button type="submit" className="btn-primary btn-sm" disabled={saving || !newTitle.trim()}>
-                {saving ? "Saving…" : "Create"}
-              </button>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
+    <div className="pd-route pd-route--tasks">
+      <ProductivityShell
+        left={<TaskSidebar listKey={listKey} onListChange={onListChange} tasks={tasks} />}
+        main={
+          <div className="pd-route__stack">
+            <TasksTopBar
+              title={title}
+              count={filtered.filter((t) => !t.completed).length}
+              search={search}
+              onSearchChange={setSearch}
+              sort={sort}
+              onSortChange={setSort}
+              boardMode={boardMode}
+              onBoardModeChange={setBoardMode}
+              onQuickAdd={() => void createTask().then((id) => id && setSelectedTaskId(id))}
+              busy={busy}
+            />
+            {tasksError ? (
+              <p className="pd-route__banner pd-route__banner--error" role="alert">
+                {tasksError}
+              </p>
+            ) : null}
+            <div className="pd-route__quick-add">
+              <TasksCalendarQuickAdd busy={busy} onAdd={onQuickAddNl} />
             </div>
-            {newDesc && (
-              <textarea className="form-textarea" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={3} placeholder="Description…" />
-            )}
-          </form>
-        </div>
-      )}
-
-      {showProjectForm && (
-        <div className="inline-form-card">
-          <form onSubmit={addProject}>
-            <div className="inline-form-row">
-              <input className="form-input form-input--grow" value={newProjName} onChange={(e) => setNewProjName(e.target.value)} placeholder="Project name…" autoFocus required />
-              <button type="submit" className="btn-primary btn-sm" disabled={savingProj}>{savingProj ? "Saving…" : "Create Project"}</button>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => setShowProjectForm(false)}>Cancel</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Kanban board */}
-      {!loading && (
-        <div className="kanban-board">
-          {STATUS_COLS.map(({ key, label }) => {
-            const col = visible.filter((t) => t.status === key);
-            return (
-              <div key={key} className={`kanban-col kanban-col--${key.toLowerCase().replace("_", "-")}`}>
-                <div className="kanban-col-header">
-                  <span className="kanban-col-title">{label}</span>
-                  <span className="kanban-col-count">{col.length}</span>
-                </div>
-                <div className="kanban-col-body">
-                  {col.map((task) => (
-                    <div key={task.id} className="kanban-card">
-                      <div className="kanban-card-top">
-                        <p className={`kanban-card-title ${key === "DONE" ? "done" : ""}`}>{task.title}</p>
-                        <button className="kanban-card-delete" onClick={() => void deleteTask(task.id)}>×</button>
-                      </div>
-                      <div className="kanban-card-footer">
-                        <span className="kanban-card-project">{task.project.name}</span>
-                        <button className="kanban-card-advance" onClick={() => void cycleStatus(task)}>
-                          {key === "TODO" ? "Start →" : key === "IN_PROGRESS" ? "Done ✓" : "Reopen"}
-                        </button>
-                      </div>
+            {loading ? (
+              <p className="pd-route__loading" aria-busy="true">
+                Loading tasks…
+              </p>
+            ) : null}
+            <div className="pd-route__body pd-route__body--tasks">
+              {boardMode ? (
+                <TasksCalendarKanban
+                  tasks={filtered}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={(t) => setSelectedTaskId(t.id)}
+                  onUpdateStatus={(id, status) => void updateTaskStatus(id, status)}
+                  onDeleteTask={(id) => {
+                    void deleteTask(id);
+                    if (selectedTaskId === id) setSelectedTaskId(null);
+                  }}
+                  onQuickAdd={async (status, t) => {
+                    const id = await quickAddTask(status, t);
+                    if (id) setSelectedTaskId(id);
+                  }}
+                />
+              ) : sections.length === 0 ? (
+                <EmptyState
+                  icon={CheckSquare}
+                  title="All clear"
+                  message="No tasks in this list. Capture something or switch lists."
+                  action={
+                    <button
+                      type="button"
+                      className="pd-btn pd-btn--primary pd-btn--sm"
+                      onClick={() => void createTask().then((id) => id && setSelectedTaskId(id))}
+                    >
+                      Create your first task
+                    </button>
+                  }
+                />
+              ) : (
+                <div className="pd-task-list">
+                  {sections.map((section) => (
+                    <div key={section.id} className="pd-task-list__section">
+                      <TaskSection
+                        title={section.title}
+                        count={section.tasks.length}
+                        collapsed={collapsedSections[section.id]}
+                        onToggleCollapse={() =>
+                          setCollapsedSections((s) => ({
+                            ...s,
+                            [section.id]: !s[section.id],
+                          }))
+                        }
+                      />
+                      {!collapsedSections[section.id]
+                        ? section.tasks.map((task) => (
+                            <TaskRow
+                              key={task.id}
+                              task={task}
+                              selected={selectedTaskId === task.id}
+                              onSelect={() => setSelectedTaskId(task.id)}
+                              onToggle={() => void toggleTask(task.id)}
+                            />
+                          ))
+                        : null}
                     </div>
                   ))}
-                  {col.length === 0 && <p className="kanban-col-empty">Empty</p>}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {loading && <p className="page-loading">Loading…</p>}
+              )}
+            </div>
+          </div>
+        }
+        right={
+          <EventInspectorPanel
+            selectedEvent={null}
+            selectedTask={selectedTask}
+            onToggleTask={(id) => void toggleTask(id)}
+            onDeleteTask={(id) => {
+              void deleteTask(id);
+              if (selectedTaskId === id) setSelectedTaskId(null);
+            }}
+          />
+        }
+      />
     </div>
   );
-};
+}

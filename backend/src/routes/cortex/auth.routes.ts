@@ -10,6 +10,7 @@ import { sessionLockStore } from "../../features/auth/session-lock-store.js";
 import { otpStore } from "../../features/auth/otp-store.js";
 import { sendOtpEmail } from "../../features/auth/email-service.js";
 import { demoAuthEnabled, env } from "../../config/env.js";
+import { prisma } from "../../db/prisma.js";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -39,6 +40,31 @@ const verifyOtpSchema = z.object({
 
 export const cortexAuthRouter = Router();
 
+function isDatabaseUnavailable(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const name = "name" in error ? String((error as { name?: string }).name) : "";
+  const code = "code" in error ? String((error as { code?: string }).code) : "";
+  return name === "PrismaClientInitializationError" || code === "P1001" || code === "P1017";
+}
+
+/** Match imported Railway users (cuid id) and demo user; new OTP users keep email as id until first DB write. */
+async function resolveOtpUserId(email: string): Promise<{ userId: string; email: string }> {
+  const normalized = email.trim().toLowerCase();
+  const demoUser = await demoUserStore.getDemoUser();
+  if (normalized === demoUser.email.toLowerCase()) {
+    return { userId: demoUser.id, email: demoUser.email };
+  }
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: normalized } });
+    if (existing) {
+      return { userId: existing.id, email: existing.email };
+    }
+  } catch (error) {
+    if (!isDatabaseUnavailable(error)) throw error;
+  }
+  return { userId: normalized, email: normalized };
+}
+
 cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
   if (!demoAuthEnabled) {
     throw new HttpError(403, "Password login is disabled in production. Use email OTP.");
@@ -56,7 +82,7 @@ cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
     email: demoUser.email
   });
 
-  sessionLockStore.unlock(token);
+  sessionLockStore.lock(token);
   res.json({
     token,
     user: {
@@ -77,8 +103,12 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
   }
   const bearerToken = authHeader.slice(7).trim();
   const token = tokenSchema.parse({ token: bearerToken }).token;
-  if (sessionLockStore.isLocked(token)) {
-    throw new HttpError(423, "Session is locked, log in again");
+
+  let payload: ReturnType<typeof verifyAccessToken>;
+  try {
+    payload = verifyAccessToken(token);
+  } catch {
+    throw new HttpError(401, "Invalid or expired session token");
   }
 
   const demoUser = await demoUserStore.getDemoUser();
@@ -87,12 +117,7 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
     throw new HttpError(401, "Invalid PIN");
   }
 
-  let payload: ReturnType<typeof verifyAccessToken>;
-  try {
-    payload = verifyAccessToken(token);
-  } catch {
-    throw new HttpError(401, "Invalid or expired session token");
-  }
+  sessionLockStore.unlock(token);
   res.json({
     ok: true,
     user: payload
@@ -102,9 +127,12 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
 cortexAuthRouter.get("/session", requireAuth, routeRateLimit(30, 60_000), (req, res) => {
   const bearerToken = req.header("authorization")?.replace("Bearer ", "") ?? "";
   if (sessionLockStore.isLocked(bearerToken)) {
-    throw new HttpError(423, "Session locked");
+    if (demoAuthEnabled) {
+      throw new HttpError(423, "Session locked");
+    }
+    sessionLockStore.unlock(bearerToken);
   }
-  res.json({ authenticated: true, user: req.auth });
+  res.json({ authenticated: true, user: req.auth, pinUnlock: demoAuthEnabled });
 });
 
 cortexAuthRouter.post("/lock", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
@@ -112,6 +140,10 @@ cortexAuthRouter.post("/lock", requireAuth, routeRateLimit(10, 60_000), (req, re
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (!token) {
     throw new HttpError(401, "Missing bearer token");
+  }
+  if (!demoAuthEnabled) {
+    res.json({ ok: true, lockReason, skipped: true });
+    return;
   }
   sessionLockStore.lock(token);
   res.json({ ok: true, lockReason });
@@ -142,6 +174,9 @@ cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) =>
     throw new HttpError(503, "Set CORTEX_DESKTOP_SECRET for desktop login");
   }
   const token = signAccessToken({ userId: "local-user", email: "local@cortex.app" });
+  if (demoAuthEnabled) {
+    sessionLockStore.lock(token);
+  }
   res.json({ token, user: { id: "local-user", email: "local@cortex.app" } });
 });
 
@@ -169,10 +204,14 @@ cortexAuthRouter.post("/send-otp", routeRateLimit(OTP_SEND_LIMIT, 60_000), async
       ? "If that address is recognized, a code has been sent."
       : "Verification code could not be emailed (check server logs)."
   };
-  // Local dev: no SMTP (or send failure) — surface code in UI so login works without inbox access
-  if (env.NODE_ENV === "development" && !emailed) {
+  // Dev / homelab without SMTP — surface code in UI so login works without inbox access
+  const otpFallback = env.NODE_ENV === "development" || env.CORTEX_OTP_DEV_FALLBACK;
+  if (otpFallback && !emailed) {
     body.devOtpCode = code;
-    body.devHint = "Development only: email was not sent. Use the code below; configure SMTP_USER/SMTP_PASS to receive real mail.";
+    body.devHint =
+      env.CORTEX_OTP_DEV_FALLBACK && env.NODE_ENV === "production"
+        ? "Homelab: email not sent. Use the code below, or set SMTP_USER/SMTP_PASS in deploy/homelab/env/api.env."
+        : "Development only: email was not sent. Use the code below; configure SMTP_USER/SMTP_PASS to receive real mail.";
   }
   res.json(body);
 });
@@ -188,18 +227,16 @@ cortexAuthRouter.post("/verify-otp", routeRateLimit(10, 60_000), async (req, res
     throw new HttpError(401, "Invalid or expired verification code");
   }
 
-  // Issue a JWT for this email — reuse demo user id when emails match,
-  // otherwise use email as the userId so each user gets their own identity.
-  const demoUser = await demoUserStore.getDemoUser();
-  const userId = email.toLowerCase() === demoUser.email.toLowerCase()
-    ? demoUser.id
-    : email.toLowerCase();
+  const { userId, email: resolvedEmail } = await resolveOtpUserId(email);
 
-  const token = signAccessToken({ userId, email });
-  sessionLockStore.unlock(token);
+  const token = signAccessToken({ userId, email: resolvedEmail });
+  // Production OTP has no PIN gate — only lock when demo PIN unlock is enabled.
+  if (demoAuthEnabled) {
+    sessionLockStore.lock(token);
+  }
 
   res.json({
     token,
-    user: { id: userId, email }
+    user: { id: userId, email: resolvedEmail }
   });
 });

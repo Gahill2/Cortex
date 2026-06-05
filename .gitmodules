@@ -1,3 +1,9 @@
 [submodule "vendor/claude-skills"]
 	path = vendor/claude-skills
 	url = https://github.com/alirezarezvani/claude-skills.git
+[submodule "vendor/agentmemory"]
+	path = vendor/agentmemory
+	url = https://github.com/rohitg00/agentmemory.git
+[submodule "vendor/anthropic-skills"]
+	path = vendor/anthropic-skills
+	url = https://github.com/anthropics/skills.git

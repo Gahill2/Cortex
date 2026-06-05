@@ -1,0 +1,77 @@
+# Cortex + InsForge on your always-on Tailscale host (homelab / ZimaBoard / NAS).
+# Every other device uses this machine's Tailscale IP or MagicDNS — no local Postgres.
+#
+# On the hub (once):
+#   npm run hub:sync
+#   cp deploy/tailscale-hub/.env.example deploy/tailscale-hub/.env
+#   cp deploy/tailscale-hub/env/api.env.example deploy/tailscale-hub/env/api.env
+#   # edit secrets + TAILSCALE_HOST + URLs
+#   npm run hub:up
+#
+# On laptop / desktop (dev):
+#   cp backend/.env.tailscale.example backend/.env
+#   npm run db:migrate && npm run dev:web
+
+name: cortex-tailscale-hub
+
+include:
+  - path: ../insforge/docker-compose.yml
+    env_file: .env
+
+services:
+  # Publish Postgres on the host so dev machines on the tailnet can run Prisma against the hub.
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    # InsForge needs pg_cron; cron.database_name must match POSTGRES_DB (see deploy/tailscale-hub/.env).
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron
+      - -c
+      - cron.database_name=${POSTGRES_DB:-launchpad}
+
+  cortex-api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./env/api.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cortex}
+      INSFORGE_API_URL: http://insforge:7130
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - insforge-network
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+        reservations: { cpus: '0.25', memory: 128M }
+
+  cortex-web:
+    build:
+      context: ../..
+      dockerfile: deploy/homelab/Dockerfile.web
+      args:
+        VITE_API_BASE_URL: ${CORTEX_VITE_API_BASE_URL:?Set CORTEX_VITE_API_BASE_URL in .env}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - cortex-api
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 64M }
+        reservations: { cpus: '0.1', memory: 16M }

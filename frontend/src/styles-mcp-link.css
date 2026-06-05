@@ -1,0 +1,139 @@
+.mcp-link-page .mcp-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+.mcp-link-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-link-card--wide {
+  grid-column: 1 / -1;
+}
+
+.mcp-link-card--warn {
+  border-color: rgba(245, 166, 35, 0.35);
+  background: var(--amber-dim);
+}
+
+.mcp-link-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mcp-link-muted {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mcp-link-small {
+  font-size: 11px;
+}
+
+.mcp-link-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.mcp-link-input,
+.mcp-link-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.mcp-link-textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.mcp-link-endpoint {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mcp-link-endpoint:last-of-type {
+  border-bottom: none;
+}
+
+.mcp-link-endpoint-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.mcp-link-code {
+  display: block;
+  font-size: 12px;
+  padding: 8px 10px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+}
+
+.mcp-link-inline {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-3);
+}
+
+.mcp-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mcp-link-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.mcp-link-pill--ok {
+  background: var(--green-dim);
+  color: var(--green);
+}
+.mcp-link-pill--err {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.mcp-link-tool-list,
+.mcp-link-ol,
+.mcp-link-ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.mcp-link-tool-list li,
+.mcp-link-ol li,
+.mcp-link-ul li {
+  margin-bottom: 6px;
+}

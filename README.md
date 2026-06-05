@@ -63,6 +63,7 @@ Launchpad is a lightweight team project/task tracker SaaS MVP with org-scoped au
 
 ## Scripts
 Root:
+- `npm run canva -- <args>`: runs the official Canva CLI via `npx` (e.g. `npm run canva -- login`). Interactive only — see `docs/canva.md`.
 - `npm run dev` or `npm run dev:stack`: runs backend + frontend + desktop together
 - `npm run dev:backend`: backend only
 - `npm run dev:frontend`: frontend only

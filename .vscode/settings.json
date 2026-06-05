@@ -1,0 +1,9 @@
+{
+  "remote.autoForwardPortsOpenPreview": false,
+  "remote.portsAttributes": {
+    "5173": { "label": "Cortex Vite", "onAutoForward": "notify" },
+    "5174": { "label": "Cortex Vite", "onAutoForward": "notify" },
+    "5175": { "label": "Cortex Vite", "onAutoForward": "notify" },
+    "4000": { "label": "Cortex API", "onAutoForward": "notify" }
+  }
+}

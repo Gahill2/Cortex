@@ -13,7 +13,14 @@ export const getGoogleCredentials = async (userId: string): Promise<Credentials 
   const row = await prisma.oAuthToken.findUnique({
     where: { userId_provider: { userId, provider: "google" } },
   });
-  return row ? JSON.parse(row.tokens) as Credentials : null;
+  if (row) return JSON.parse(row.tokens) as Credentials;
+
+  const mailRow = await prisma.mailAccount.findFirst({
+    where: { userId, provider: "gmail" },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
+  });
+  if (!mailRow?.tokens) return null;
+  return JSON.parse(mailRow.tokens) as Credentials;
 };
 
 export const clearGoogleCredentials = async (userId: string): Promise<void> => {

@@ -1,0 +1,8 @@
+{
+  "name": "cortex-cloud-agent",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cursor/sdk": "^1.0.13"
+  }
+}

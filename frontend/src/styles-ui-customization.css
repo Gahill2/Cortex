@@ -1,0 +1,109 @@
+/* Surface tone + density (set on html via useUiCustomization) */
+
+html[data-surface-tone="warm"] {
+  --bg: #121110;
+  --bg-2: #1a1816;
+  --bg-3: #221f1c;
+  --surface: #2a2724;
+  --surface-2: #332f2b;
+  --widget-glass-bg: rgba(48, 44, 40, 0.62);
+}
+
+html[data-surface-tone="cool"] {
+  --bg: #0c0e12;
+  --bg-2: #12151c;
+  --bg-3: #181c26;
+  --surface: #1e2430;
+  --surface-2: #252d3d;
+  --widget-glass-bg: rgba(32, 40, 56, 0.62);
+}
+
+html[data-ui-density="compact"] .cortex-route-bootstrap {
+  --route-pad-y: var(--space-2);
+  --route-pad-x: var(--space-3);
+}
+
+html[data-ui-density="comfortable"] .cortex-route-bootstrap {
+  --route-pad-y: var(--space-3);
+  --route-pad-x: var(--space-4);
+}
+
+html[data-ui-density="spacious"] .cortex-route-bootstrap {
+  --route-pad-y: var(--space-4);
+  --route-pad-x: var(--space-5);
+}
+
+.cortex-route-bootstrap--padded {
+  padding: var(--route-pad-y, var(--space-3)) var(--route-pad-x, var(--space-4));
+  padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
+}
+
+.home-page,
+.home-page .canvas-dashboard,
+.home-page .widget-glass {
+  font-family: var(--home-font-body, var(--font-brand));
+  font-size: calc(13px * var(--home-font-scale, 1));
+}
+
+.settings-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+  margin: 0.75rem 0 0.35rem;
+}
+
+.settings-range-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.settings-range-row .settings-range {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.settings-range-value {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.appearance-seg--wrap {
+  flex-wrap: wrap;
+}
+
+.accent-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.accent-swatch {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accent-swatch--active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--bg), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.accent-swatch-check {
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}

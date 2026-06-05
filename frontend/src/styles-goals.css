@@ -1,0 +1,230 @@
+.goals-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 920px;
+}
+
+.goals-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.goals-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.goals-page-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-2);
+  max-width: 52ch;
+  line-height: 1.5;
+}
+
+.goals-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+
+.goals-summary-card {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.goals-summary-label {
+  margin: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+}
+
+.goals-summary-value {
+  margin: 0.25rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.goals-summary-value--sm {
+  font-size: 1.1rem;
+}
+
+.goals-panel {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.goals-panel--tasks {
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-dim));
+}
+
+.goals-panel-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.goals-panel-desc {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.goals-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-end;
+  margin-bottom: var(--space-4);
+}
+
+.goals-add-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.goals-estimate-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-2);
+}
+
+.goals-estimate-input {
+  width: 5rem;
+}
+
+.goals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.goals-empty {
+  padding: var(--space-3);
+  color: var(--text-2);
+  font-size: 0.875rem;
+}
+
+.goals-card {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.goals-card--done {
+  opacity: 0.72;
+}
+
+.goals-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.goals-card-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  flex: 1;
+}
+
+.goals-card-text {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.goals-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  margin: var(--space-3) 0;
+  overflow: hidden;
+}
+
+.goals-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, var(--green)));
+  transition: width 200ms ease;
+}
+
+.goals-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.75rem;
+}
+
+.goals-meta-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  flex: 1;
+  min-width: 160px;
+}
+
+.goals-meta-field input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.goals-meta-pill {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.goals-task-mini-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.goals-task-mini-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
+}
+
+.goals-task-mini-list li:last-child {
+  border-bottom: none;
+}
+
+.goals-task-title {
+  font-weight: 500;
+}
+
+.goals-task-project {
+  color: var(--text-2);
+  flex-shrink: 0;
+}

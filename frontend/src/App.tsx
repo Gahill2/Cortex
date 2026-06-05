@@ -1,44 +1,205 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
+import type { AxiosError } from "axios";
 import { LoginPage } from "./pages/LoginPage";
-import { HomePage } from "./pages/HomePage";
-import { TasksPage } from "./pages/TasksPage";
-import { AIPage } from "./pages/AIPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { MailPage } from "./pages/MailPage";
-import { MemoryPage } from "./pages/MemoryPage";
+import { SessionPinGate } from "./components/SessionPinGate";
 import { Sidebar } from "./components/Sidebar";
-import { MobileTopBar } from "./components/MobileTopBar";
 import { OAuthBootstrap } from "./components/OAuthBootstrap";
-import { api, setAuthToken, AUTH_STORAGE_KEY, AUTH_LOGOUT_EVENT } from "./api/client";
-import cortexLogo from "./assets/cortex-logo.png";
+import { PageLoading } from "./components/PageLoading";
+import { AppearanceProvider } from "./AppearanceProvider";
+import { PreferencesProvider } from "./context/PreferencesContext";
+import { useUiCustomization } from "./hooks/useUiCustomization";
+import {
+  api,
+  setAuthToken,
+  AUTH_STORAGE_KEY,
+  AUTH_USER_STORAGE_KEY,
+  AUTH_LOGOUT_EVENT,
+  AUTH_CHANGED_EVENT,
+} from "./api/client";
+import type { User } from "./types";
+import { clearPreferencesCache } from "./context/PreferencesContext";
+import { useWallpaper } from "./hooks/useWallpaper";
+import { useMediaQuery } from "./hooks/useMediaQuery";
+import { TAB_SCREEN_TITLES } from "./navigation";
+import type { Tab } from "./tab";
+import { CommandPalette, type PaletteAction } from "./components/shell/CommandPalette";
+import { AppTopNav } from "./components/shell/AppTopNav";
+import { QuickCaptureDialog } from "./components/shell/QuickCaptureDialog";
+import { ToastViewport } from "./components/shell/ToastViewport";
+import { useDesktopShortcuts } from "./hooks/useDesktopShortcuts";
 
-export type Tab = "home" | "tasks" | "ai" | "memory" | "settings" | "mail";
+export type { Tab } from "./tab";
 
-type CortexElectron = {
-  isElectron?: boolean;
-  requestDesktopAuth?: () => Promise<string>;
+const HomePage = lazy(() =>
+  import("./pages/HomePage").then((m) => ({ default: m.HomePage }))
+);
+const AIPage = lazy(() => import("./pages/AIPage").then((m) => ({ default: m.AIPage })));
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage }))
+);
+const MailPage = lazy(() =>
+  import("./pages/MailPage").then((m) => ({ default: m.MailPage }))
+);
+const SpotifyPage = lazy(() =>
+  import("./pages/SpotifyPage").then((m) => ({ default: m.SpotifyPage }))
+);
+const NotesPage = lazy(() =>
+  import("./pages/NotesPage").then((m) => ({ default: m.NotesPage }))
+);
+const GoalsPage = lazy(() =>
+  import("./pages/GoalsPage").then((m) => ({ default: m.GoalsPage }))
+);
+const CalendarPage = lazy(() =>
+  import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage }))
+);
+const TasksPage = lazy(() =>
+  import("./pages/TasksPage").then((m) => ({ default: m.TasksPage }))
+);
+const MemoryPage = lazy(() =>
+  import("./pages/MemoryPage").then((m) => ({ default: m.MemoryPage }))
+);
+/** Renderer idle lock — must match server expectations for `/auth/lock` */
+const IDLE_LOCK_MS = 15 * 60 * 1000;
+
+type ElectronWindow = Window & {
+  electron?: {
+    isElectron?: boolean;
+    getVersion?: () => Promise<string>;
+    openExternal?: (url: string) => Promise<void>;
+  };
 };
 
-function getElectron(): CortexElectron | undefined {
-  return (window as { electron?: CortexElectron }).electron;
+type OAuthWindow = Window & {
+  __handleOAuth?: (
+    provider: string,
+    params: { code?: string; state?: string; error?: string; connected?: string }
+  ) => Promise<void>;
+};
+
+function WallpaperSync() {
+  useWallpaper(true);
+  return null;
 }
 
-function isElectronApp(): boolean {
-  return !!getElectron()?.isElectron;
-}
-
-async function obtainDesktopToken(): Promise<string> {
-  const desktopAuth = getElectron()?.requestDesktopAuth;
-  if (desktopAuth) return desktopAuth();
-  const r = await api.get<{ token: string }>("/auth/desktop-token");
-  return r.data.token;
+/** Applies home font, density, accent, and surface tokens from server settings. */
+function UiCustomizationSync() {
+  useUiCustomization();
+  return null;
 }
 
 export default function App() {
-  const [token, setToken] = useState<string | null>(null);
-  const [bootstrapping, setBootstrapping] = useState(true);
+  const [isElectronEnv] = useState(() =>
+    typeof window !== "undefined" && !!(window as ElectronWindow).electron?.isElectron
+  );
+  const [token, setToken] = useState<string | null>(() =>
+    isElectronEnv ? null : localStorage.getItem(AUTH_STORAGE_KEY)
+  );
+  const [sessionUnlocked, setSessionUnlocked] = useState(false);
+  const [sessionProbeDone, setSessionProbeDone] = useState(false);
+  const [pinUnlockRequired, setPinUnlockRequired] = useState(true);
+  const [pinGateReason, setPinGateReason] = useState<"sign-in" | "idle" | "manual">("sign-in");
+  const prevTokenRef = useRef<string | null>(null);
   const [tab, setTab] = useState<Tab>("home");
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
+  const [navDrawerClosing, setNavDrawerClosing] = useState(false);
+  const navDrawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMobileLayout = useMediaQuery("(max-width: 768px)");
+  const [tokenReady, setTokenReady] = useState(() => !isElectronEnv);
+
+  const lockSession = useCallback(async () => {
+    try {
+      await api.post("/auth/lock", { lockReason: "manual" });
+    } catch {
+      /* still show gate */
+    }
+    setPinGateReason("manual");
+    setSessionUnlocked(false);
+  }, []);
+
+  const paletteActions = useMemo<PaletteAction[]>(
+    () => [
+      { id: "nav-home", label: "Go to Home", group: "Navigate", keywords: "dashboard home", onSelect: () => setTab("home") },
+      {
+        id: "nav-calendar",
+        label: "Go to Calendar",
+        group: "Navigate",
+        keywords: "calendar schedule events",
+        onSelect: () => setTab("calendar"),
+      },
+      {
+        id: "nav-tasks",
+        label: "Go to Tasks",
+        group: "Navigate",
+        keywords: "tasks todo inbox today",
+        onSelect: () => setTab("tasks"),
+      },
+      {
+        id: "nav-goals",
+        label: "Go to Goals",
+        group: "Navigate",
+        keywords: "progress etc targets",
+        onSelect: () => setTab("goals"),
+      },
+      { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant", onSelect: () => setTab("ai") },
+      {
+        id: "nav-notes",
+        label: "Go to Notes",
+        group: "Navigate",
+        keywords: "brain obsidian graph vault",
+        onSelect: () => setTab("notes"),
+      },
+      { id: "nav-mail", label: "Go to Mail", group: "Navigate", keywords: "email gmail", onSelect: () => setTab("mail") },
+      {
+        id: "nav-settings",
+        label: "Go to Settings",
+        group: "Navigate",
+        keywords: "preferences integrations",
+        onSelect: () => setTab("settings"),
+      },
+      {
+        id: "brain-capture",
+        label: "Quick capture",
+        group: "Brain",
+        keywords: "obsidian note inbox daily capture",
+        shortcut: "⌃⇧N",
+        onSelect: () => setCaptureOpen(true),
+      },
+      {
+        id: "session-lock",
+        label: "Lock session",
+        group: "Session",
+        keywords: "pin security logout",
+        shortcut: "⌃L",
+        onSelect: () => {
+          void lockSession();
+        },
+      },
+    ],
+    [lockSession]
+  );
+
+  useDesktopShortcuts({
+    enabled: Boolean(token && sessionUnlocked && sessionProbeDone),
+    paletteOpen,
+    expandedModuleOpen: false,
+    onOpenPalette: () => setPaletteOpen(true),
+    onClosePalette: () => setPaletteOpen(false),
+    onCloseExpanded: () => {},
+    onLock: lockSession,
+    onQuickCapture: () => setCaptureOpen(true),
+  });
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (token) root.classList.add("cortex-notion");
+    else root.classList.remove("cortex-notion");
+    return () => {
+      root.classList.remove("cortex-notion");
+    };
+  }, [token]);
 
   useEffect(() => {
     const onLogout = () => setToken(null);
@@ -47,125 +208,396 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    setAuthToken(token);
+  }, [token]);
 
+  useEffect(() => {
+    if (!token) {
+      prevTokenRef.current = null;
+      setSessionUnlocked(false);
+      setPinUnlockRequired(true);
+      setSessionProbeDone(true);
+      return;
+    }
+
+    const isNewToken = prevTokenRef.current !== token;
+    prevTokenRef.current = token;
+    if (isNewToken) {
+      setPinGateReason("sign-in");
+    }
+
+    setSessionProbeDone(false);
+    let cancelled = false;
     void (async () => {
       try {
-        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-
-        if (stored) {
-          setAuthToken(stored);
-          if (cancelled) return;
-          setToken(stored);
+        const session = await api.get<{ user?: User; pinUnlock?: boolean }>("/auth/session");
+        const needsPin = session.data.pinUnlock === true;
+        if (!cancelled) setPinUnlockRequired(needsPin);
+        if (session.data.user) {
           try {
-            await api.get("/auth/session");
-            return;
+            localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.data.user));
           } catch {
-            setAuthToken(null);
-            setToken(null);
+            /* ignore */
           }
         }
-
-        if (isElectronApp()) {
-          const t = await obtainDesktopToken();
-          if (cancelled) return;
-          setAuthToken(t);
-          setToken(t);
+        if (!cancelled) setSessionUnlocked(true);
+      } catch (err) {
+        if (cancelled) return;
+        const ax = err as AxiosError<{ error?: { message?: string } }>;
+        const status = ax.response?.status;
+        if (status === 423) {
+          setPinUnlockRequired(true);
+          setSessionUnlocked(false);
+          return;
         }
-      } catch {
-        if (!cancelled) {
+        if (status === 401) {
           setAuthToken(null);
           setToken(null);
+          try {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
         }
       } finally {
-        if (!cancelled) setBootstrapping(false);
+        if (!cancelled) setSessionProbeDone(true);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    setAuthToken(token);
   }, [token]);
 
-  const onLogin = (t: string) => {
-    setAuthToken(t);
-    setToken(t);
-  };
+  useEffect(() => {
+    if (!token || !sessionUnlocked || !pinUnlockRequired) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        void api
+          .post("/auth/lock", { lockReason: "idle" })
+          .catch(() => {})
+          .finally(() => {
+            setPinGateReason("idle");
+            setSessionUnlocked(false);
+          });
+      }, IDLE_LOCK_MS);
+    };
+    schedule();
+    const onActivity = () => {
+      schedule();
+    };
+    const opts: AddEventListenerOptions = { passive: true };
+    window.addEventListener("pointerdown", onActivity, opts);
+    window.addEventListener("keydown", onActivity, opts);
+    window.addEventListener("touchstart", onActivity, opts);
+    window.addEventListener("wheel", onActivity, opts);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      window.removeEventListener("touchstart", onActivity);
+      window.removeEventListener("wheel", onActivity);
+    };
+  }, [token, sessionUnlocked, pinUnlockRequired]);
+
+  useEffect(() => {
+    if (!isElectronEnv) return;
+    api
+      .get<{ token: string }>("/auth/desktop-token")
+      .then((r) => {
+        setAuthToken(r.data.token);
+        setToken(r.data.token);
+      })
+      .catch(() => {
+        /* fall through to login page */
+      })
+      .finally(() => setTokenReady(true));
+  }, [isElectronEnv]);
+
+  useEffect(() => {
+    if (!isElectronEnv) return;
+    (window as OAuthWindow).__handleOAuth = async (
+      provider: string,
+      params: { code?: string; state?: string; error?: string; connected?: string }
+    ) => {
+      if (params.error) {
+        console.error("[oauth] provider error:", params.error);
+        return;
+      }
+      try {
+        if (params.connected) {
+          /* Server-side exchange already done */
+        } else if (!params.code || !params.state) {
+          console.error("[oauth] missing code/state", params);
+          return;
+        } else if (provider === "spotify") {
+          await api.post("/spotify/oauth/exchange", { code: params.code, state: params.state });
+        } else if (provider === "notion") {
+          await api.post("/notion/oauth/exchange", { code: params.code, state: params.state });
+        } else if (provider === "google") {
+          await api.post("/gmail/oauth/exchange", { code: params.code, state: params.state });
+        }
+        window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider } }));
+        if (provider === "mail" || provider === "microsoft") {
+          setTab("mail");
+        } else if (provider === "notion") {
+          setTab("notes");
+        } else {
+          setTab("settings");
+        }
+      } catch (e) {
+        console.error("[oauth] exchange failed:", e);
+      }
+    };
+    return () => {
+      delete (window as OAuthWindow).__handleOAuth;
+    };
+  }, [isElectronEnv, token]);
+
+  useEffect(() => {
+    if (!isMobileLayout) setNavDrawerOpen(false);
+  }, [isMobileLayout]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has("spotify_connected")) {
-      sessionStorage.removeItem("cortex_oauth_auto_spotify");
+    if (params.has("mail_connected") || params.has("microsoft_connected")) {
       window.history.replaceState({}, "", window.location.pathname);
-      setTab("settings");
-    }
-    if (params.has("mail_connected") || params.has("gmail_connected")) {
+      const providerParam = params.get("provider");
+      const provider =
+        providerParam === "microsoft" || params.has("microsoft_connected")
+          ? "microsoft"
+          : "mail";
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider } }));
+      setTab("mail");
+    } else if (params.has("spotify_connected") || params.has("gmail_connected")) {
+      sessionStorage.removeItem("cortex_oauth_auto_spotify");
       sessionStorage.removeItem("cortex_oauth_auto_gmail");
       window.history.replaceState({}, "", window.location.pathname);
-      setTab("mail");
+      if (params.has("gmail_connected")) {
+        window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "gmail" } }));
+        setTab("mail");
+      } else {
+        window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "spotify" } }));
+        sessionStorage.setItem("cortex_settings_section", "integrations");
+        setTab("settings");
+      }
+    } else if (params.has("notion_connected")) {
+      window.history.replaceState({}, "", window.location.pathname);
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "notion" } }));
+      setTab("notes");
+    } else if (
+      params.has("spotify_error") ||
+      params.has("gmail_error") ||
+      params.has("mail_error") ||
+      params.has("microsoft_error")
+    ) {
+      const errKey = params.has("spotify_error")
+        ? "spotify_error"
+        : params.has("gmail_error")
+          ? "gmail_error"
+          : params.has("microsoft_error")
+            ? "microsoft_error"
+            : "mail_error";
+      const errMsg = params.get(errKey) ?? "oauth_failed";
+      window.history.replaceState({}, "", window.location.pathname);
+      const mailOAuthErr = errKey === "mail_error" || errKey === "microsoft_error";
+      if (mailOAuthErr) {
+        sessionStorage.setItem("cortex_oauth_error", decodeURIComponent(errMsg));
+        setTab("mail");
+      } else {
+        sessionStorage.setItem("cortex_settings_section", "integrations");
+        sessionStorage.setItem("cortex_oauth_error", decodeURIComponent(errMsg));
+        setTab("settings");
+      }
     }
   }, []);
 
-  if (bootstrapping) {
-    return (
-      <div className="auth-bootstrap">
-        <img src={cortexLogo} alt="Cortex" className="cortex-logo-img auth-bootstrap-logo" />
-        <p>Starting Cortex…</p>
-      </div>
-    );
+  useEffect(() => {
+    if (!token) return;
+    const refreshIntegrations = () => {
+      if (document.visibilityState !== "visible") return;
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "refresh" } }));
+    };
+    window.addEventListener("focus", refreshIntegrations);
+    document.addEventListener("visibilitychange", refreshIntegrations);
+    return () => {
+      window.removeEventListener("focus", refreshIntegrations);
+      document.removeEventListener("visibilitychange", refreshIntegrations);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    return () => {
+      if (navDrawerCloseTimerRef.current) clearTimeout(navDrawerCloseTimerRef.current);
+    };
+  }, []);
+
+  if (!tokenReady) {
+    return <div style={{ background: "#0e0e10", height: "100vh" }} />;
   }
 
   if (!token) {
-    return <LoginPage onLogin={onLogin} />;
+    return (
+      <LoginPage
+        onLogin={(next, user) => {
+          clearPreferencesCache();
+          setAuthToken(next);
+          setToken(next);
+          if (user) {
+            try {
+              localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+            } catch {
+              /* ignore */
+            }
+          }
+          window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+        }}
+      />
+    );
   }
+
+  if (token && !sessionProbeDone) {
+    return <div style={{ background: "#0e0e10", height: "100vh" }} aria-busy="true" />;
+  }
+
+  if (!sessionUnlocked && pinUnlockRequired) {
+    return (
+      <SessionPinGate
+        reason={pinGateReason}
+        onUnlocked={() => setSessionUnlocked(true)}
+        onSessionExpired={() => {
+          setAuthToken(null);
+          setToken(null);
+        }}
+      />
+    );
+  }
+
+  if (!sessionUnlocked) {
+    return <div style={{ background: "#0e0e10", height: "100vh" }} aria-busy="true" />;
+  }
+
+  const closeNavDrawer = () => {
+    if (!navDrawerOpen || navDrawerClosing) return;
+    setNavDrawerClosing(true);
+    if (navDrawerCloseTimerRef.current) clearTimeout(navDrawerCloseTimerRef.current);
+    navDrawerCloseTimerRef.current = setTimeout(() => {
+      setNavDrawerOpen(false);
+      setNavDrawerClosing(false);
+      navDrawerCloseTimerRef.current = null;
+    }, 320);
+  };
+
+  const openNavDrawer = () => {
+    if (navDrawerCloseTimerRef.current) {
+      clearTimeout(navDrawerCloseTimerRef.current);
+      navDrawerCloseTimerRef.current = null;
+    }
+    setNavDrawerClosing(false);
+    setNavDrawerOpen(true);
+  };
 
   const goTab = (next: Tab) => {
     setTab(next);
-    setMobileNavOpen(false);
+    closeNavDrawer();
   };
 
   return (
-    <>
+    <PreferencesProvider>
+      <AppearanceProvider>
+      <WallpaperSync />
+      <UiCustomizationSync />
       <OAuthBootstrap enabled />
-      <div className="desktop-shell">
-      {mobileNavOpen && (
-        <button
-          type="button"
-          className="sidebar-backdrop"
-          aria-label="Close menu"
-          onClick={() => setMobileNavOpen(false)}
-        />
-      )}
-      <Sidebar
-        active={tab}
-        onChange={goTab}
-        mobileOpen={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-      />
-      <div className="desktop-content">
-        <MobileTopBar active={tab} onMenuOpen={() => setMobileNavOpen(true)} />
-        <main className="desktop-main">
-          {tab === "home"     && <HomePage onNavigate={goTab} />}
-          {tab === "tasks"    && <TasksPage />}
-          {tab === "ai"       && <AIPage />}
-          {tab === "settings" && (
-            <SettingsPage
-              onLogout={() => {
-                setAuthToken(null);
-                setToken(null);
-                setTab("home");
-              }}
-            />
+      <div
+        className={`desktop-shell flex-grow-1 min-vh-0${
+          isMobileLayout ? " desktop-shell--burger desktop-shell--mobile" : " desktop-shell--topnav"
+        }${import.meta.env.DEV ? " desktop-shell--dev" : ""}`}
+        title={import.meta.env.DEV ? "Vite dev server (hot reload)" : undefined}
+      >
+        {!isMobileLayout ? (
+          <AppTopNav active={tab} onChange={goTab} onOpenPalette={() => setPaletteOpen(true)} />
+        ) : (
+          <header className="burger-appbar">
+            <button
+              type="button"
+              className="burger-appbar__btn"
+              onClick={openNavDrawer}
+              aria-label="Open menu"
+            >
+              <span className="burger-appbar__icon" aria-hidden>
+                <span className="burger-appbar__line" />
+                <span className="burger-appbar__line" />
+                <span className="burger-appbar__line" />
+              </span>
+            </button>
+            <span className="burger-appbar__title">{TAB_SCREEN_TITLES[tab]}</span>
+          </header>
+        )}
+
+        {(navDrawerOpen || navDrawerClosing) &&
+          createPortal(
+            <div
+              className={`burger-drawer-root${navDrawerClosing ? " burger-drawer-root--closing" : ""}`}
+              role="presentation"
+            >
+              <button
+                type="button"
+                className="burger-drawer-backdrop"
+                onClick={closeNavDrawer}
+                aria-label="Close menu"
+              />
+              <Sidebar active={tab} onChange={goTab} mobileOpen onClose={closeNavDrawer} />
+            </div>,
+            document.body,
           )}
-          {tab === "memory"   && <MemoryPage />}
-          {tab === "mail"     && <MailPage />}
+
+        <main className="desktop-main d-flex flex-column flex-grow-1 min-vh-0">
+          <div
+            className={`container-fluid flex-grow-1 d-flex flex-column min-vh-0 cortex-route-bootstrap cortex-animate-in${
+              tab === "home"
+                ? " cortex-route-bootstrap--home-full"
+                : tab === "calendar" || tab === "tasks"
+                  ? " cortex-route-bootstrap--planner-full"
+                  : " cortex-route-bootstrap--padded"
+            }`}
+          >
+            {tab === "calendar" || tab === "tasks" ? (
+              <Suspense fallback={<PageLoading />}>
+                {tab === "calendar" && <CalendarPage onNavigate={goTab} />}
+                {tab === "tasks" && <TasksPage onNavigate={goTab} />}
+              </Suspense>
+            ) : (
+              <Suspense fallback={<PageLoading />}>
+                {tab === "home" && (
+                  <HomePage onNavigate={goTab} onCommand={() => setPaletteOpen(true)} />
+                )}
+                {tab === "goals" && <GoalsPage onNavigate={goTab} />}
+                {tab === "ai" && <AIPage />}
+                {tab === "notes" && <NotesPage />}
+                {tab === "settings" && (
+                  <SettingsPage
+                    onLogout={() => {
+                      setAuthToken(null);
+                      setToken(null);
+                      setTab("home");
+                    }}
+                    onLockSession={lockSession}
+                  />
+                )}
+                {tab === "mail" && <MailPage />}
+                {tab === "spotify" && <SpotifyPage />}
+                {tab === "memory" && <MemoryPage />}
+              </Suspense>
+            )}
+          </div>
         </main>
       </div>
-    </div>
-    </>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} actions={paletteActions} />
+      <QuickCaptureDialog open={captureOpen} onOpenChange={setCaptureOpen} />
+      <ToastViewport />
+      </AppearanceProvider>
+    </PreferencesProvider>
   );
 }

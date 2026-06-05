@@ -1,22 +1,23 @@
 {
   "name": "frontend",
   "version": "1.0.0",
-  "description": "Launchpad web app",
+  "description": "Cortex web app",
   "private": true,
   "main": "dist/index.html",
   "scripts": {
     "dev": "vite",
+    "dev:lite": "vite --mode lite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "launchpad",
+    "cortex",
     "react",
     "vite"
   ],
-  "author": "launchpad",
+  "author": "Cortex",
   "license": "ISC",
   "type": "module",
   "dependencies": {
@@ -30,8 +31,10 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "axios": "^1.16.0",
+    "bootstrap": "^5.3.3",
     "cmdk": "^1.1.1",
     "framer-motion": "^12.38.0",
+    "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-resizable-panels": "^4.11.0",

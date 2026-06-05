@@ -20,6 +20,7 @@ function resolveCredentialPath(): string | null {
 
 export function getFirebaseAdminStatus(): FirebaseAdminStatus {
   const projectId = process.env.FIREBASE_PROJECT_ID?.trim() || null;
+  const credPathEnv = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim() || null;
   const jsonPath = resolveCredentialPath();
   const hasEnvCreds =
     Boolean(process.env.FIREBASE_CLIENT_EMAIL?.trim()) &&
@@ -28,18 +29,44 @@ export function getFirebaseAdminStatus(): FirebaseAdminStatus {
   if (!projectId) {
     return { configured: false, projectId: null, credentialSource: "none" };
   }
+
+  if (credPathEnv && !jsonPath) {
+    return {
+      configured: false,
+      projectId,
+      credentialSource: "none",
+      error: `Service account file not found: ${resolve(process.cwd(), credPathEnv)} — download JSON from Firebase Console → Project settings → Service accounts → Generate new private key, save as backend/firebase-service-account.json`
+    };
+  }
+
   if (jsonPath) {
     return { configured: true, projectId, credentialSource: "json_path" };
   }
   if (hasEnvCreds) {
     return { configured: true, projectId, credentialSource: "env_vars" };
   }
-  return { configured: true, projectId, credentialSource: "application_default" };
+
+  if (process.env.FIREBASE_USE_APPLICATION_DEFAULT === "true") {
+    return { configured: true, projectId, credentialSource: "application_default" };
+  }
+
+  return {
+    configured: false,
+    projectId,
+    credentialSource: "none",
+    error:
+      "No Firebase credentials — save service account JSON as backend/firebase-service-account.json and set GOOGLE_APPLICATION_CREDENTIALS, or set FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY"
+  };
 }
 
 export function getFirebaseApp(): App | null {
   const status = getFirebaseAdminStatus();
-  if (!status.configured || !status.projectId) return null;
+  if (!status.configured || !status.projectId) {
+    if (status.error) {
+      logger.error("Firebase not configured", { error: status.error });
+    }
+    return null;
+  }
 
   if (getApps().length > 0) {
     return getApps()[0]!;
@@ -72,7 +99,11 @@ export function getFirebaseApp(): App | null {
       });
     }
 
-    return initializeApp({ projectId: status.projectId });
+    if (status.credentialSource === "application_default") {
+      return initializeApp({ projectId: status.projectId });
+    }
+
+    return null;
   } catch (err) {
     logger.error("Firebase init failed", {
       error: err instanceof Error ? err.message : String(err)

@@ -1,7 +1,10 @@
-import { api } from "../api/client";
-import type { SpotifyNowPlaying } from "../lib/spotify";
+import { api, resolveCortexApiBaseURL } from "../api/client";
 
-type NowPlaying = SpotifyNowPlaying;
+interface NowPlaying {
+  isPlaying: boolean;
+  track?: { name: string; artists: string; albumArt?: string };
+  device?: { name: string; volumePercent: number };
+}
 
 interface Props {
   connected: boolean;
@@ -21,7 +24,7 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
           <h2 className="widget-title">♫ Spotify</h2>
           <a
             className="btn-primary btn-sm"
-            href={`${import.meta.env.VITE_API_BASE_URL ?? "/api"}/spotify/oauth/url`}
+            href={`${resolveCortexApiBaseURL()}/spotify/oauth/url`}
           >
             Connect
           </a>
@@ -31,14 +34,14 @@ export const SpotifyWidget = ({ connected, nowPlaying, onRefresh }: Props) => {
     );
   }
 
-  if (!nowPlaying?.track) {
+  if (!nowPlaying?.isPlaying) {
     return (
       <div className="widget-card spotify-widget">
         <div className="widget-header">
           <h2 className="widget-title">♫ Spotify</h2>
           <button className="btn-ghost btn-sm" onClick={onRefresh}>Refresh</button>
         </div>
-        <p className="widget-empty">Nothing playing — start Spotify, then refresh</p>
+        <p className="widget-empty">Nothing playing</p>
       </div>
     );
   }

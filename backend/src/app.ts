@@ -14,9 +14,26 @@ const defaultOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000"
 ];
-const corsOrigins = env.CORS_ORIGINS
-  ? env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
-  : defaultOrigins;
+
+function buildCorsOrigins(): string[] {
+  const fromEnv = env.CORS_ORIGINS
+    ? env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : env.NODE_ENV === "production"
+      ? []
+      : [...defaultOrigins];
+  const frontend = env.CORTEX_FRONTEND_URL?.trim();
+  if (frontend && !fromEnv.includes(frontend)) {
+    fromEnv.push(frontend);
+  }
+  if (env.NODE_ENV === "production" && fromEnv.length === 0) {
+    console.warn(
+      "[cortex] CORS_ORIGINS and CORTEX_FRONTEND_URL are unset — API will boot for healthchecks; configure before browser traffic (see backend/.env.railway.example)"
+    );
+  }
+  return fromEnv.length > 0 ? fromEnv : defaultOrigins;
+}
+
+const corsOrigins = buildCorsOrigins();
 
 export const app = express();
 // CSRF: API uses Bearer JWT in Authorization (not cookies). Browsers do not attach
@@ -48,7 +65,7 @@ app.use(
   cortexBillingWebhookRouter
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 
 app.use("/api", cortexRouter);
 app.use(notFoundHandler);

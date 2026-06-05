@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { env } from "../../config/env.js";
-import { listInbox, modifyMessageLabels, type InboxRow } from "../gmail/gmail-service.js";
+import { callAI, getAIStatus } from "../ai/ai-provider.js";
+import { extractJsonArray } from "./mail-classify.js";
+import { listInboxUpTo, modifyMessageLabels, type InboxRow } from "../gmail/gmail-service.js";
 import { getMailAccountTokens } from "./mail-account-store.js";
 
 export type OrganizeAction = {
@@ -33,8 +33,7 @@ function ruleBasedOrganize(messages: InboxRow[]): OrganizeAction[] {
 }
 
 async function aiOrganize(messages: InboxRow[]): Promise<OrganizeAction[]> {
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY! });
-  const sample = messages.filter((m) => m.unread).slice(0, 15);
+  const sample = messages.filter((m) => m.unread).slice(0, 25);
   const payload = sample.map((m) => ({
     id: m.id,
     from: m.from,
@@ -42,20 +41,31 @@ async function aiOrganize(messages: InboxRow[]): Promise<OrganizeAction[]> {
     snippet: m.snippet.slice(0, 120)
   }));
 
-  const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 800,
-    system:
-      "You triage email. Return ONLY valid JSON array: [{\"id\",\"action\":\"archive\"|\"mark_read\"|\"keep\",\"reason\"}]. Archive promos/newsletters; mark_read low-priority FYIs; keep personal/urgent.",
-    messages: [{ role: "user", content: JSON.stringify(payload) }]
-  });
+  const status = await getAIStatus();
+  if (status.activeProvider === "none") return ruleBasedOrganize(messages);
 
-  const text = (msg.content[0] as { type: "text"; text: string }).text;
-  const match = text.match(/\[[\s\S]*\]/);
-  if (!match) return ruleBasedOrganize(messages);
   try {
-    const parsed = JSON.parse(match[0]) as OrganizeAction[];
-    return parsed.filter((a) => a.messageId && ["archive", "mark_read", "keep"].includes(a.action));
+    const result = await callAI(
+      [{ role: "user", content: JSON.stringify(payload) }],
+      {
+        tier: "simple",
+        maxTokens: 1200,
+        systemPrompt:
+          'Triage email. Return ONLY a JSON array: [{"id":"...","action":"archive"|"mark_read"|"keep","reason":"..."}]. Archive promos/newsletters; mark_read low-priority FYIs; keep personal/urgent.'
+      }
+    );
+    const parsed = extractJsonArray(result.text);
+    if (!parsed) return ruleBasedOrganize(messages);
+    return parsed
+      .map((row) => {
+        const r = row as Record<string, unknown>;
+        const id = r.id != null ? String(r.id) : "";
+        const action = r.action != null ? String(r.action) : "keep";
+        const reason = r.reason != null ? String(r.reason) : "";
+        if (!id || !["archive", "mark_read", "keep"].includes(action)) return null;
+        return { messageId: id, action: action as OrganizeAction["action"], reason };
+      })
+      .filter((a): a is OrganizeAction => a !== null);
   } catch {
     return ruleBasedOrganize(messages);
   }
@@ -70,12 +80,9 @@ export async function organizeInbox(
     return { scanned: 0, archived: 0, markedRead: 0, actions: [] };
   }
 
-  const { messages } = await listInbox(userId, 30, "in:inbox is:unread", account.tokens);
+  const { messages } = await listInboxUpTo(userId, 80, "in:inbox is:unread", account.tokens);
   const unread = messages.filter((m) => m.unread);
-  const plan =
-    env.ANTHROPIC_API_KEY && unread.length > 0
-      ? await aiOrganize(messages)
-      : ruleBasedOrganize(messages);
+  const plan = unread.length > 0 ? await aiOrganize(messages) : ruleBasedOrganize(messages);
 
   let archived = 0;
   let markedRead = 0;

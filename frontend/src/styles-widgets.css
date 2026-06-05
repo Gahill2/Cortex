@@ -1,0 +1,403 @@
+/* ── Widget polish styles ──────────────────────────────────── */
+
+/* Spotify progress bar animation */
+@keyframes spotify-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.spotify-progress-bar-track {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(30,215,96,0.15);
+}
+.spotify-progress-bar-fill {
+  height: 100%;
+  background: #1ed760;
+  animation: spotify-progress 180s linear infinite;
+  border-radius: 2px;
+}
+
+/* Sender avatar circles */
+.mail-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Task progress bar */
+.task-progress-bar { height: 3px; background: var(--bg-3); border-radius: 2px; margin: 4px 0 8px; }
+.task-progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.5s; }
+
+/* Photo placeholder */
+.photo-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(91,141,255,0.08) 0%, rgba(168,85,247,0.08) 100%);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background 140ms;
+}
+.photo-placeholder:hover { background: linear-gradient(135deg, rgba(91,141,255,0.14) 0%, rgba(168,85,247,0.14) 100%); }
+.photo-placeholder-icon { font-size: 32px; opacity: 0.4; }
+.photo-placeholder-text { font-size: 11px; color: var(--text-3); }
+
+/* Briefing bullets */
+.briefing-line {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 3px 0;
+  font-size: 12px; color: var(--text-2); line-height: 1.5;
+}
+.briefing-bullet {
+  width: 2px; min-height: 14px; background: var(--accent);
+  border-radius: 2px; flex-shrink: 0; margin-top: 4px; opacity: 0.6;
+}
+.briefing-ai-badge {
+  font-size: 9px; color: var(--text-3); letter-spacing: 0.08em;
+  margin-top: auto; align-self: flex-end;
+  text-transform: uppercase;
+}
+
+.briefing-body-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 4px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Widget AI input pill */
+.widget-ai-pill {
+  display: flex; align-items: center;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  padding: 6px 6px 6px 14px;
+  gap: 6px;
+}
+.widget-ai-pill input {
+  flex: 1; font-size: 12px; background: none; border: none; outline: none; color: var(--text);
+}
+.widget-ai-pill input::placeholder { color: var(--text-3); }
+.widget-ai-pill-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+  transition: opacity 140ms;
+  border: none; cursor: pointer;
+}
+.widget-ai-pill-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* Clock: animated colon pulse */
+@keyframes colon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.clock-colon-sep {
+  animation: colon-pulse 1s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Clock: gradient shimmer on time digits */
+@keyframes shimmer-sweep {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.clock-time-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--text) 0%,
+    var(--text) 40%,
+    rgba(255,255,255,0.55) 50%,
+    var(--text) 60%,
+    var(--text) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer-sweep 6s linear infinite;
+}
+
+/* Weather: large hero icon */
+.weather-icon-hero {
+  font-size: 48px;
+  line-height: 1;
+  display: block;
+  text-align: center;
+  margin: 0 auto 4px;
+}
+.weather-temp-hero {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  display: block;
+}
+.weather-pills-row {
+  display: flex; gap: 6px; justify-content: center;
+  flex-wrap: wrap; margin: 6px 0;
+}
+.weather-pill {
+  font-size: 10px; font-weight: 500;
+  padding: 3px 8px;
+  background: var(--bg-3);
+  border-radius: 999px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.weather-forecast {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+.weather-day-stacked {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 4px 6px;
+  flex: 1 1 52px;
+  min-width: 44px;
+  box-sizing: border-box;
+}
+.weather-day-stacked .weather-day-name { font-size: 10px; color: var(--text-3); }
+.weather-day-stacked .weather-day-icon { font-size: 18px; line-height: 1; }
+.weather-day-stacked .weather-day-temps { font-size: 10px; }
+.weather-day-stacked .weather-day-high { font-weight: 600; color: var(--text); }
+.weather-day-stacked .weather-day-low { color: var(--text-3); }
+
+/* Spotify: album art pulse glow when playing */
+@keyframes art-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(30,215,96,0.0), 0 4px 12px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(30,215,96,0.25), 0 4px 12px rgba(0,0,0,0.4); }
+}
+.spotify-art-playing {
+  animation: art-glow 2s ease-in-out infinite;
+}
+.spotify-art-img {
+  width: 60px; height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+.spotify-art-fallback-lg {
+  width: 60px; height: 60px;
+  border-radius: 6px;
+  background: var(--bg-3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  color: var(--text-3);
+}
+.spotify-track-name {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.spotify-artist-name {
+  font-size: 12px; color: var(--text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.spotify-controls-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; margin-top: 8px;
+}
+.spotify-ctrl-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-2); font-size: 18px;
+  padding: 4px; border-radius: 50%;
+  transition: color 120ms, background 120ms;
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+}
+.spotify-ctrl-btn:hover { color: var(--text); background: var(--bg-3); }
+.spotify-ctrl-btn--pp {
+  width: 36px; height: 36px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 20px;
+}
+.spotify-ctrl-btn--pp:hover { background: var(--bg-4, var(--bg-3)); }
+
+/* Spotify not-connected CTA card */
+.spotify-cta-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 12px;
+  border: 1px dashed var(--border-2);
+  border-radius: 12px;
+  margin: 8px 0;
+  text-align: center;
+}
+.spotify-cta-icon { font-size: 28px; opacity: 0.5; }
+.spotify-cta-text { font-size: 12px; color: var(--text-3); }
+
+/* Bento card: tighter Spotify when nested in HomeProduction */
+.home-prod-card--spotify .spotify-ctrl-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+.home-prod-card--spotify .spotify-ctrl-btn--pp {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+}
+
+/* Tasks: priority color dot */
+.task-priority-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 5px;
+}
+.task-priority-dot--high { background: #ef4444; }
+.task-priority-dot--medium { background: #f97316; }
+.task-priority-dot--low { background: #22c55e; }
+.task-priority-dot--default { background: var(--text-3); }
+.task-count-footer {
+  font-size: 11px; color: var(--text-3); margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid var(--border-1, var(--bg-3));
+}
+
+/* Tasks: better empty state */
+.tasks-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px) 0;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.tasks-empty-icon { font-size: 24px; opacity: 0.3; }
+
+/* Tasks widget in bento — list clips inside card */
+.widget--tasks .widget-task-list {
+  min-height: 0;
+}
+.widget--tasks .widget-label,
+.widget--tasks .task-progress-bar {
+  flex-shrink: 0;
+}
+
+/* Mail: better row layout */
+.gmail-row-v2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-1, 4px) 0;
+  border-bottom: 1px solid var(--border-1, rgba(255, 255, 255, 0.04));
+}
+.gmail-row-v2:last-child { border-bottom: none; }
+.gmail-row-content { min-width: 0; flex: 1; }
+.gmail-row-from {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gmail-row-subject {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gmail-row-v2.unread .gmail-row-from { color: var(--text); }
+.gmail-row-v2.unread .gmail-row-subject { color: var(--text-2); }
+
+/* Mail compact (production bento) */
+.widget--gmail-compact {
+  gap: var(--space-2, 8px);
+}
+.widget--gmail-compact .widget-label {
+  flex-shrink: 0;
+}
+.widget--gmail-compact .gmail-widget-list {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.widget--gmail-compact .widget-cta {
+  flex-shrink: 0;
+  padding: var(--space-1, 4px) 0;
+}
+
+/* Mail: unread count badge */
+.mail-unread-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--accent); color: #fff;
+  font-size: 9px; font-weight: 700; border-radius: 999px;
+  margin-left: 4px; vertical-align: middle;
+}
+
+/* AI widget: response bubble */
+.widget-ai-bubble {
+  background: var(--bg-3);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px; color: var(--text-2); line-height: 1.5;
+  position: relative;
+  margin-bottom: 8px;
+  max-height: 132px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.widget-ai-bubble-close {
+  position: absolute; top: 4px; right: 6px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-3); font-size: 14px; line-height: 1;
+}
+.widget-ai-open-link {
+  font-size: 11px; font-weight: 600;
+  color: var(--accent);
+  padding: 3px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  cursor: pointer;
+  background: none;
+  margin-top: 6px;
+  transition: background 120ms;
+  display: inline-block;
+}
+.widget-ai-open-link:hover { background: rgba(91,141,255,0.1); }
+
+/* Settings widget: row styles */
+.settings-row-v2 {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms;
+}
+.settings-row-v2:hover { background: var(--bg-3); }
+.settings-row-icon { font-size: 14px; width: 20px; text-align: center; }
+.settings-row-label { flex: 1; font-size: 12px; color: var(--text-2); }
+.settings-row-right { display: flex; align-items: center; gap: 6px; }
+.settings-row-arrow { color: var(--text-3); font-size: 14px; }
+.settings-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.settings-status-dot--connected { background: #22c55e; }
+.settings-status-dot--disconnected { background: var(--text-3); opacity: 0.4; }
+
+/* Photo widget: edit overlay bar */
+.photo-edit-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.55);
+  padding: 6px 12px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  font-size: 11px; color: #fff; font-weight: 600;
+  letter-spacing: 0.04em;
+}

@@ -1,34 +1,48 @@
-import { existsSync } from "fs";
-import { config } from "dotenv";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { z } from "zod";
 
-/**
- * Single env story for the monorepo:
- * 1) `<repo>/.env` if it exists (shared by `npm run dev`, Electron-spawned API, tools)
- * 2) else `<repo>/backend/.env` (legacy / Prisma-friendly default)
- *
- * Works from `src/config/` (tsx) and `dist/src/config/` (compiled / Electron).
- */
-function resolveBackendEnvPath(): string {
+function loadEnvFile(filePath: string) {
+  try {
+    const content = readFileSync(filePath, "utf8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const raw = trimmed.slice(eq + 1).trim();
+      const val = raw.replace(/^["']|["']$/g, "");
+      if (!process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  } catch {
+    /* file not found — skip */
+  }
+}
+
+function resolveBackendEnvPaths(): string[] {
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 16; i++) {
     if (existsSync(join(dir, "prisma", "schema.prisma"))) {
       const backendRoot = dir;
       const repoRoot = dirname(backendRoot);
-      const rootEnv = join(repoRoot, ".env");
-      if (existsSync(rootEnv)) return rootEnv;
-      return join(backendRoot, ".env");
+      const paths = [join(repoRoot, ".env"), join(backendRoot, ".env"), join(repoRoot, ".env.local")];
+      return paths.filter((p) => existsSync(p));
     }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return join(dirname(fileURLToPath(import.meta.url)), "../../../.env");
+  const fallbackDir = dirname(fileURLToPath(import.meta.url));
+  return [join(fallbackDir, "../../.env"), join(fallbackDir, "../../../.env.local")];
 }
 
-config({ path: resolveBackendEnvPath(), override: true });
+for (const p of resolveBackendEnvPaths()) {
+  loadEnvFile(p);
+}
 
 const WEAK_DEMO_PASSWORDS = new Set(["ChangeMe123!", "Password123!", "password", "12345678"]);
 
@@ -46,29 +60,52 @@ const envSchema = z.object({
   GOOGLE_REDIRECT_URL: z.string().optional().default(""),
   CORTEX_FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
   ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional().default(""),
+  OPENAI_MODEL: z.string().optional().default("gpt-4o-mini"),
+  OPENAI_BASE_URL: z.string().optional().default("https://api.openai.com"),
   SMTP_HOST: z.string().default("smtp.gmail.com"),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
+  /** Homelab/local: return OTP in API + UI when SMTP is missing (do not use on public internet). */
+  CORTEX_OTP_DEV_FALLBACK: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   SPOTIFY_CLIENT_ID: z.string().optional().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().optional().default(""),
   SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),
+  OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
+  OLLAMA_MODEL: z.string().optional().default("llama3.2"),
+  MICROSOFT_CLIENT_ID: z.string().optional().default(""),
+  MICROSOFT_CLIENT_SECRET: z.string().optional().default(""),
+  MICROSOFT_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/microsoft/oauth/callback"),
+  NOTION_CLIENT_ID: z.string().optional().default(""),
+  NOTION_CLIENT_SECRET: z.string().optional().default(""),
+  NOTION_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/notion/oauth/callback"),
+  NOTION_TOKEN: z.string().optional().default(""),
+  NOTION_PERSONAL_TOKEN: z.string().optional().default(""),
+  NOTION_INTERNAL_TOKEN: z.string().optional().default(""),
+  CANVA_APP_ID: z.string().optional().default(""),
+  CANVA_APP_ORIGIN: z.string().optional().default(""),
+  CANVA_HMR_ENABLED: z.string().optional().default(""),
+  CANVA_CLIENT_ID: z.string().optional().default(""),
+  CANVA_CLIENT_SECRET: z.string().optional().default(""),
+  CANVA_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/canva/oauth/callback"),
+  CANVA_CONNECT_SCOPES: z.string().optional().default("design:meta:read"),
   FIREBASE_PROJECT_ID: z.string().optional().default(""),
   FIREBASE_CLIENT_EMAIL: z.string().optional().default(""),
   FIREBASE_PRIVATE_KEY: z.string().optional().default(""),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional().default(""),
+  FIREBASE_USE_APPLICATION_DEFAULT: z.string().optional().default(""),
   FIRESTORE_ENV_DOC: z.string().optional().default("cortex_config/env"),
   ALLOW_FIREBASE_ENV_SYNC: z.string().optional().default(""),
   N8N_WEBHOOK_URL: z.string().optional().default(""),
   N8N_WEBHOOK_SECRET: z.string().optional().default(""),
-  NOTION_TOKEN: z.string().optional().default(""),
-  NOTION_PERSONAL_TOKEN: z.string().optional().default(""),
-  NOTION_INTERNAL_TOKEN: z.string().optional().default(""),
-  CANVA_CLIENT_ID: z.string().optional().default(""),
-  CANVA_APP_ID: z.string().optional().default(""),
   CORTEX_MCP_MODE: z.string().optional().default(""),
   CORTEX_MCP_HOST: z.string().optional().default(""),
-  CORTEX_MCPPORT: z.string().optional().default(""),
+  CORTEX_MCP_PORT: z.string().optional().default(""),
   CORTEX_DESKTOP_SECRET: z.string().optional().default(""),
   CORS_ORIGINS: z.string().optional().default(""),
   STRIPE_SECRET_KEY: z.string().optional().default(""),
@@ -84,11 +121,26 @@ const envSchema = z.object({
     .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   OBSIDIAN_VAULT_PATH: z.string().optional().default(""),
   OBSIDIAN_VAULT_PATHS: z.string().optional().default(""),
+  OBSIDIAN_VAULT_NAME: z.string().optional().default("greyhill_brain"),
+  OBSIDIAN_AI_LOG_PATH: z.string().optional().default("Cortex/AI Log.md"),
+  OBSIDIAN_CAPTURE_PATH: z.string().optional().default("Cortex/Capture.md"),
+  OBSIDIAN_USE_CLI: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  OBSIDIAN_AI_LOG_ENABLED: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   CORTEX_ENABLE_VAULT_WATCHER: z
     .string()
     .optional()
     .default("false")
-    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase()))
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  /** Persistent API files (canvas images, obsidian sidecar, vault index). Homelab: `/app/data`. */
+  CORTEX_API_DATA_DIR: z.string().optional().default("")
 });
 
 const parsed = envSchema.parse(process.env);
@@ -107,7 +159,6 @@ if (isProd) {
   }
 }
 
-/** Legacy password/PIN login — disabled in production unless all demo env vars are explicitly set. */
 export const demoAuthEnabled =
   !isProd || Boolean(demoEmail && demoPassword && demoPin);
 

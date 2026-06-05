@@ -1,0 +1,22 @@
+# Faster homelab / hub image builds (web context is repo root)
+.git
+.cursor
+.pi
+node_modules
+**/node_modules
+dist
+**/dist
+dist-electron
+mobile
+electron
+vendor
+deploy/homelab/data
+deploy/tailscale-hub/data
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+*.md
+docs
+scripts/cloud-agent
+agent-transcripts

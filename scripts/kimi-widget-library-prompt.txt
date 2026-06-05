@@ -1,0 +1,9 @@
+Fix Cortex Home widget picker UX in frontend:
+
+1. WidgetLibrary modal (frontend/src/dashboard/WidgetLibrary.tsx + styles-dashboard.css): must be visually centered on screen. Framer Motion must NOT override centering transform — use flexbox on overlay to center Dialog.Content.
+
+2. Remove duplicate widget flows in CanvasToolbar.tsx: when onOpenWidgetLibrary is provided, the Add dropdown must NOT list individual widgets with chevron that opens a second style sub-menu. Widgets only via the library modal. Add menu keeps Layout, Content, Create only.
+
+3. Polish widget library design: spacing, typography, one-click add on card (defaults from getDefaultWidgetStyle), subtle not generic-SaaS. Match existing canvas glass toolbar aesthetic.
+
+Run npm run typecheck in frontend when done. Do not commit.
