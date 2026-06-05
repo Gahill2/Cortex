@@ -7,6 +7,7 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasSelectionToolbar } from "./CanvasSelectionToolbar";
 import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
+import { WidgetConfigPanel } from "./WidgetConfigPanel";
 import {
   type CanvasBackground,
   canvasBackgroundCss,
@@ -194,6 +195,7 @@ export function CanvasDashboard({
   const [pendingDragId, setPendingDragId] = useState<string | null>(null);
   const [resizeId, setResizeId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [configPanelNodeId, setConfigPanelNodeId] = useState<string | null>(null);
   const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [guides, setGuides] = useState<{ type: "h" | "v"; pos: number }[]>([]);
   const [editModeLocal, setEditModeLocal] = useState(false);
@@ -1174,6 +1176,10 @@ export function CanvasDashboard({
                   : undefined
               }
               onSendToBack={node.type === "backdrop" ? () => sendToBack(node.id) : undefined}
+              onDuplicate={() => duplicateNode(node.id)}
+              onBringToFront={() => bringToFront(node.id)}
+              onSendToBackZ={() => sendToBack(node.id)}
+              onOpenConfigPanel={editMode ? () => setConfigPanelNodeId(node.id) : undefined}
             />
           ))}
         </div>
@@ -1218,6 +1224,37 @@ export function CanvasDashboard({
       <div className="canvas-hints">
         Scroll to pan · Ctrl/Alt+scroll to zoom · Grid & snap bottom-right · Shift+drag to select
       </div>
+
+      {/* Widget config panel — slides in from right when a node is selected in edit mode */}
+      {editMode && configPanelNodeId && (() => {
+        const cpNode = nodes.find((n) => n.id === configPanelNodeId);
+        if (!cpNode) return null;
+        return (
+          <WidgetConfigPanel
+            node={cpNode}
+            onUpdate={(patch) => {
+              setNodes((prev) => prev.map((n) => {
+                if (n.id !== configPanelNodeId) return n;
+                // When variant changes, resize to preset dimensions
+                if (patch.widgetVariant && n.widgetKey) {
+                  const preset = getVariantPreset(n.widgetKey, patch.widgetVariant);
+                  return { ...n, ...patch, w: preset.w, h: preset.h };
+                }
+                return { ...n, ...patch };
+              }));
+            }}
+            onClose={() => setConfigPanelNodeId(null)}
+            onDelete={() => {
+              removeNode(configPanelNodeId);
+              setConfigPanelNodeId(null);
+            }}
+            onDuplicate={() => {
+              duplicateNode(configPanelNodeId);
+              setConfigPanelNodeId(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

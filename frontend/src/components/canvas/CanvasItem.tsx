@@ -12,6 +12,7 @@ import {
   getWidgetTypeDef,
   type WidgetSizeVariant,
 } from "./widgetVariants";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 
 import { BACKDROP_COLORS, DEFAULT_BACKDROP_COLOR } from "./backdropColors";
 import { CanvasImage } from "./CanvasImage";
@@ -45,6 +46,11 @@ interface Props {
   }) => void;
   onBackdropChange?: (patch: BackdropStylePatch) => void;
   onSendToBack?: () => void;
+  /** Context-menu / config panel actions */
+  onDuplicate?: () => void;
+  onBringToFront?: () => void;
+  onSendToBackZ?: () => void;
+  onOpenConfigPanel?: () => void;
 }
 
 export function CanvasItem({
@@ -61,6 +67,10 @@ export function CanvasItem({
   onWidgetStyleChange,
   onBackdropChange,
   onSendToBack,
+  onDuplicate,
+  onBringToFront,
+  onSendToBackZ,
+  onOpenConfigPanel,
 }: Props) {
   const [hovered, setHovered] = useState(false);
   const [showStylePicker, setShowStylePicker] = useState(false);
@@ -345,6 +355,8 @@ export function CanvasItem({
   }
 
   return (
+    <ContextMenu.Root>
+    <ContextMenu.Trigger asChild>
     <div
       className={`canvas-item canvas-item--${node.type}${hovered ? " canvas-item--hovered" : ""}${isSelected ? " canvas-item--selected" : ""}${editMode ? " canvas-item--edit-mode" : " canvas-item--view-mode"}${node.type === "widget" ? ` canvas-item--variant-${widgetVariant}` : ""}`}
       style={{
@@ -438,5 +450,45 @@ export function CanvasItem({
 
       {!isWidget ? <div className="canvas-item__frame" /> : null}
     </div>
+    </ContextMenu.Trigger>
+
+    <ContextMenu.Portal>
+      <ContextMenu.Content className="canvas-ctx-content" onPointerDown={(e) => e.stopPropagation()}>
+        {onOpenConfigPanel && node.type === "widget" && (
+          <ContextMenu.Item className="canvas-ctx-item" onSelect={onOpenConfigPanel}>
+            <span className="canvas-ctx-item__icon">⚙</span>
+            Edit settings
+          </ContextMenu.Item>
+        )}
+        {onDuplicate && (
+          <ContextMenu.Item className="canvas-ctx-item" onSelect={onDuplicate}>
+            <span className="canvas-ctx-item__icon">⧉</span>
+            Duplicate
+          </ContextMenu.Item>
+        )}
+        <ContextMenu.Separator className="canvas-ctx-separator" />
+        {onBringToFront && (
+          <ContextMenu.Item className="canvas-ctx-item" onSelect={onBringToFront}>
+            <span className="canvas-ctx-item__icon">↑</span>
+            Bring to front
+          </ContextMenu.Item>
+        )}
+        {onSendToBackZ && (
+          <ContextMenu.Item className="canvas-ctx-item" onSelect={onSendToBackZ}>
+            <span className="canvas-ctx-item__icon">↓</span>
+            Send to back
+          </ContextMenu.Item>
+        )}
+        <ContextMenu.Separator className="canvas-ctx-separator" />
+        <ContextMenu.Item
+          className="canvas-ctx-item canvas-ctx-item--danger"
+          onSelect={onRemove}
+        >
+          <span className="canvas-ctx-item__icon">✕</span>
+          Delete
+        </ContextMenu.Item>
+      </ContextMenu.Content>
+    </ContextMenu.Portal>
+    </ContextMenu.Root>
   );
 }

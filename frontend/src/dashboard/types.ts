@@ -11,7 +11,7 @@ export type WidgetCategory =
   | "automations"
   | "analytics";
 
-export type WidgetConfigFieldType = "text" | "toggle" | "color" | "select";
+export type WidgetConfigFieldType = "text" | "toggle" | "boolean" | "color" | "select" | "number";
 
 export interface WidgetConfigField {
   key: string;
