@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { api } from "../api/client";
 import type { Project } from "../types";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export const ProjectsPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -33,39 +34,37 @@ export const ProjectsPage = () => {
 
   return (
     <div className="page projects-page">
-      <div className="page-titlebar">
-        <div>
-          <h1 className="page-title">Projects</h1>
-          <p className="page-subtitle">
-            Manage your projects and track progress across teams.
-          </p>
-        </div>
-        <form
-          className="page-actions"
-          onSubmit={onSubmit}
-          style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}
-        >
-          <input
-            className="form-input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Project name"
-            required
-            style={{ minWidth: 160 }}
-          />
-          <input
-            className="form-input"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description"
-            style={{ minWidth: 200 }}
-          />
-          <button type="submit" className="btn-primary btn-sm">
-            <Plus size={14} aria-hidden />
-            Add Project
-          </button>
-        </form>
-      </div>
+      <PageHeader
+        title="Projects"
+        subtitle="Manage your projects and track progress across teams."
+        actions={
+          <form
+            className="page-actions"
+            onSubmit={onSubmit}
+            style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}
+          >
+            <input
+              className="form-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Project name"
+              required
+              style={{ minWidth: 160 }}
+            />
+            <input
+              className="form-input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description"
+              style={{ minWidth: 200 }}
+            />
+            <button type="submit" className="btn-primary btn-sm">
+              <Plus size={14} aria-hidden />
+              Add Project
+            </button>
+          </form>
+        }
+      />
 
       <div className="page-workbench">
         {loading ? (

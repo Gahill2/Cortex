@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { PageHeader } from "../components/ui/PageHeader";
 
 type DashboardStats = {
   projectsCount: number;
@@ -20,14 +21,10 @@ export const DashboardPage = () => {
 
   return (
     <div className="page dashboard-page">
-      <div className="page-titlebar">
-        <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">
-            At-a-glance overview of your projects, tasks, and progress.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="At-a-glance overview of your projects, tasks, and progress."
+      />
 
       <div className="page-workbench">
         {!stats ? (
