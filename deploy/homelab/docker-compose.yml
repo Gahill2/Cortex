@@ -64,8 +64,11 @@ services:
     volumes:
       # Canvas photos, obsidian-vaults.json, vault-index cache (see npm run server:sync-local)
       - ${CORTEX_DATA_DIR:-./data}/api:/app/data
-      # Grey Hill Brain — override OBSIDIAN_VAULT_HOST_PATH in deploy/homelab/.env
-      - ${OBSIDIAN_VAULT_HOST_PATH:-C:/Users/greyh/Documents/GitHub/greyhill_brain}:/vault:rw
+      # Obsidian vault — set OBSIDIAN_VAULT_HOST_PATH in deploy/homelab/.env (required for vault features).
+      # Linux hub example: OBSIDIAN_VAULT_HOST_PATH=/mnt/data/greyhill_brain
+      # Windows dev machine: OBSIDIAN_VAULT_HOST_PATH=C:/Users/greyh/Documents/GitHub/greyhill_brain
+      # Falls back to an empty directory under CORTEX_DATA_DIR (vault API calls will return empty).
+      - ${OBSIDIAN_VAULT_HOST_PATH:-${CORTEX_DATA_DIR:-./data}/vault-placeholder}:/vault:rw
     deploy:
       resources:
         limits: { cpus: '1.0', memory: 512M }

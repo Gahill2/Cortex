@@ -43,11 +43,16 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cortex}
       INSFORGE_API_URL: http://insforge:7130
+      CORTEX_API_DATA_DIR: /app/data
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ${CORTEX_DATA_DIR:-./data}/api:/app/data
+      # Obsidian vault — set OBSIDIAN_VAULT_HOST_PATH in deploy/tailscale-hub/.env
+      - ${OBSIDIAN_VAULT_HOST_PATH:-${CORTEX_DATA_DIR:-./data}/vault-placeholder}:/vault:rw
     networks:
       - insforge-network
     deploy:
