@@ -16,6 +16,7 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 
 import { BACKDROP_COLORS, DEFAULT_BACKDROP_COLOR } from "./backdropColors";
 import { CanvasImage } from "./CanvasImage";
+import { TextCanvasNode } from "./TextCanvasNode";
 
 export type BackdropStylePatch = Partial<
   Pick<
@@ -51,6 +52,11 @@ interface Props {
   onBringToFront?: () => void;
   onSendToBackZ?: () => void;
   onOpenConfigPanel?: () => void;
+  /** Text node editing props */
+  isEditingText?: boolean;
+  onStartEditingText?: () => void;
+  onStopEditingText?: () => void;
+  onTextContentChange?: (text: string) => void;
 }
 
 export function CanvasItem({
@@ -71,6 +77,10 @@ export function CanvasItem({
   onBringToFront,
   onSendToBackZ,
   onOpenConfigPanel,
+  isEditingText,
+  onStartEditingText,
+  onStopEditingText,
+  onTextContentChange,
 }: Props) {
   const [hovered, setHovered] = useState(false);
   const [showStylePicker, setShowStylePicker] = useState(false);
@@ -118,6 +128,8 @@ export function CanvasItem({
   const handleBodyPointerDown = (e: React.PointerEvent) => {
     if (!editMode) return;
     if (node.type === "note" || node.type === "custom") return;
+    // If text node is in edit mode, don't start drag
+    if (node.type === "text" && isEditingText) return;
     if (isInteractiveCanvasTarget(e.target)) return;
     prepareCanvasPointerGesture(e);
     onDragStart(e);
@@ -188,10 +200,17 @@ export function CanvasItem({
           </div>
         );
       case "text":
-        return wrapScaled(
-          <div className="canvas-item__text">
-            <p>{node.content}</p>
-          </div>,
+        return (
+          <div className="canvas-item__text-wrap" style={{ width: "100%", height: "100%" }}>
+            <TextCanvasNode
+              node={node}
+              editMode={editMode}
+              isEditing={isEditingText}
+              onStartEditing={onStartEditingText}
+              onStopEditing={onStopEditingText}
+              onTextChange={(text) => onTextContentChange?.(text)}
+            />
+          </div>
         );
       case "note":
         return wrapScaled(

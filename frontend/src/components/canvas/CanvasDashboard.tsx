@@ -49,6 +49,8 @@ import {
 } from "../../lib/canvasHistory";
 import { PresetPicker } from "../../dashboard/PresetPicker";
 import { useToastStore } from "../../stores/toastStore";
+import { TextToolbar } from "./TextToolbar";
+import type { TextContent } from "./TextCanvasNode";
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -86,6 +88,8 @@ export interface CanvasNode {
   rotation?: number;
   /** Per-widget settings (title override, accent, compact flag) — sync-ready via prefs later */
   widgetConfig?: Record<string, unknown>;
+  /** Rich text node content and formatting */
+  textContent?: TextContent;
   zIndex: number;
 }
 
@@ -230,6 +234,8 @@ export function CanvasDashboard({
   const historyRef = useRef<CanvasHistory>(createHistory());
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
   const pushToast = useToastStore((s) => s.push);
+  const [textToolActive, setTextToolActive] = useState(false);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -431,6 +437,16 @@ export function CanvasDashboard({
     const isCanvas = e.currentTarget === e.target;
     const curPan = panRef.current;
     const curZoom = zoomRef.current;
+    // Text tool: click on canvas to insert text node
+    if (textToolActive && e.button === 0 && isCanvas) {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const wx = (e.clientX - rect.left - curPan.x) / curZoom;
+      const wy = (e.clientY - rect.top - curPan.y) / curZoom;
+      addText(wx, wy);
+      setTextToolActive(false);
+      return;
+    }
     if (e.button === 1 || (e.button === 0 && isCanvas && !e.shiftKey)) {
       prepareCanvasPointerGesture(e);
       setIsPanning(true);
@@ -954,6 +970,55 @@ export function CanvasDashboard({
     ]);
   }, [maxZ, viewCenter]);
 
+  const addText = useCallback((canvasX: number, canvasY: number) => {
+    const newZ = maxZ + 1;
+    setMaxZ(newZ);
+    const id = generateId();
+    const defaultTc: TextContent = {
+      text: "",
+      fontFamily: "Inter, sans-serif",
+      fontSize: 16,
+      fontWeight: 400,
+      fontStyle: "normal",
+      textDecoration: "none",
+      color: "var(--color-text, #e2e8f0)",
+      align: "left",
+      lineHeight: 1.5,
+      letterSpacing: 0,
+      background: "transparent",
+      padding: 8,
+    };
+    setNodes((prev) => [
+      ...prev,
+      { id, type: "text", x: canvasX - 100, y: canvasY - 25, w: 200, h: 50, zIndex: newZ, textContent: defaultTc },
+    ]);
+    setSelected(new Set([id]));
+    setEditingTextId(id);
+  }, [maxZ]);
+
+  const updateTextContent = useCallback((id: string, patch: Partial<TextContent>) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== id) return n;
+        const base: TextContent = {
+          text: "",
+          fontFamily: "Inter, sans-serif",
+          fontSize: 16,
+          fontWeight: 400,
+          fontStyle: "normal",
+          textDecoration: "none",
+          color: "var(--color-text, #e2e8f0)",
+          align: "left",
+          lineHeight: 1.5,
+          letterSpacing: 0,
+          background: "transparent",
+          padding: 8,
+        };
+        return { ...n, textContent: { ...base, ...n.textContent, ...patch } };
+      }),
+    );
+  }, []);
+
   const addNote = useCallback(() => {
     const newZ = maxZ + 1;
     setMaxZ(newZ);
@@ -1086,7 +1151,7 @@ export function CanvasDashboard({
     });
   }, [nodes]);
 
-  // Delete selected with keyboard + Ctrl+Z undo / Ctrl+Shift+Z redo
+  // Delete selected with keyboard + Ctrl+Z undo / Ctrl+Shift+Z redo; T to activate text tool; Escape to cancel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const active = document.activeElement;
@@ -1095,6 +1160,15 @@ export function CanvasDashboard({
         active.tagName === "TEXTAREA" ||
         (active as HTMLElement).isContentEditable
       );
+
+      if (e.key === "Escape" && textToolActive) {
+        setTextToolActive(false);
+        return;
+      }
+      if (e.key === "t" && !inInput && !textToolActive) {
+        setTextToolActive(true);
+        return;
+      }
 
       if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
         if (inInput) return;
@@ -1144,7 +1218,7 @@ export function CanvasDashboard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, nodes, pushToast]);
+  }, [selected, nodes, pushToast, textToolActive]);
 
   // Selection box in screen coords
   const selRect = selBox ? {
@@ -1215,6 +1289,15 @@ export function CanvasDashboard({
             background={background}
             onBackgroundChange={onBackgroundChange}
           />
+          <button
+            type="button"
+            className={`canvas-toolbar__btn canvas-toolbar__btn--text-tool${textToolActive ? " is-active" : ""}`}
+            title={textToolActive ? "Click on canvas to place text (Esc to cancel)" : "Add text (T)"}
+            onClick={() => setTextToolActive((v) => !v)}
+            style={{ marginLeft: 4, fontWeight: 700, fontSize: 15 }}
+          >
+            T
+          </button>
         </div>
         {selectedNode && (
           <div className="canvas-chrome-dock__row canvas-chrome-dock__row--inspector">
@@ -1248,9 +1331,21 @@ export function CanvasDashboard({
         )}
       </div>
 
+      {/* Text toolbar: shown when a text node is selected */}
+      {selectedNode?.type === "text" && (
+        <TextToolbar
+          nodeRect={{ x: selectedNode.x, y: selectedNode.y, w: selectedNode.w, h: selectedNode.h }}
+          pan={pan}
+          zoom={zoom}
+          textContent={selectedNode.textContent ?? { text: "", fontFamily: "Inter, sans-serif", fontSize: 16, fontWeight: 400, fontStyle: "normal", textDecoration: "none", color: "var(--color-text, #e2e8f0)", align: "left", lineHeight: 1.5, letterSpacing: 0, background: "transparent", padding: 8 }}
+          onUpdate={(patch) => updateTextContent(selectedNode.id, patch)}
+          containerRef={containerRef}
+        />
+      )}
+
       <div
         ref={viewportRef}
-        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId || pendingDragId ? " canvas-viewport--dragging" : ""}${resizeId ? " canvas-viewport--resizing" : ""}${selBox ? " canvas-viewport--selecting" : ""}${isPanning || dragId || pendingDragId || resizeId || selBox ? " canvas-viewport--interacting" : ""}${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
+        className={`canvas-viewport${textToolActive ? " canvas-viewport--text-tool" : ""}${isPanning ? " canvas-viewport--panning" : ""}${dragId || pendingDragId ? " canvas-viewport--dragging" : ""}${resizeId ? " canvas-viewport--resizing" : ""}${selBox ? " canvas-viewport--selecting" : ""}${isPanning || dragId || pendingDragId || resizeId || selBox ? " canvas-viewport--interacting" : ""}${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
         onWheel={onWheel}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPointerMove}
@@ -1300,6 +1395,14 @@ export function CanvasDashboard({
               onBringToFront={() => bringToFront(node.id)}
               onSendToBackZ={() => sendToBack(node.id)}
               onOpenConfigPanel={editMode ? () => setConfigPanelNodeId(node.id) : undefined}
+              isEditingText={node.type === "text" && editingTextId === node.id}
+              onStartEditingText={node.type === "text" ? () => setEditingTextId(node.id) : undefined}
+              onStopEditingText={node.type === "text" ? () => setEditingTextId(null) : undefined}
+              onTextContentChange={
+                node.type === "text"
+                  ? (text) => updateTextContent(node.id, { text })
+                  : undefined
+              }
             />
           ))}
         </div>
