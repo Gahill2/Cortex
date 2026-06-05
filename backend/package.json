@@ -17,7 +17,8 @@
     "mcp:dev": "tsx watch src/mcp/runMcp.ts",
     "mcp:start": "node dist/src/mcp/runMcp.js",
     "sync:env:pull": "tsx scripts/sync-env-firestore.ts pull",
-    "sync:env:push": "tsx scripts/sync-env-firestore.ts push"
+    "sync:env:push": "tsx scripts/sync-env-firestore.ts push",
+    "health-check": "tsx src/health.ts"
   },
   "keywords": [
     "launchpad",

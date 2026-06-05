@@ -9,6 +9,18 @@ import { logger } from "./utils/logger.js";
 const listenHost = process.env.HOST?.trim() || "0.0.0.0";
 const backendRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
+// NOTE: Migrations run asynchronously after the HTTP server starts listening.
+// This is intentional for Railway/container deployments where the platform
+// health-checks the port before the process is considered live. Running
+// migrations synchronously before listen() would delay readiness and risk
+// health-check timeouts on slow migration runs.
+//
+// Trade-off: a request that arrives in the brief window between listen() and
+// migration completion could see a stale schema. This is acceptable here
+// because: (a) Railway routes traffic only after the health-check passes, and
+// (b) the migration script is idempotent. If synchronous pre-listen migrations
+// are ever required, replace the spawn+callback pattern below with an awaited
+// execSync or a promisified child_process.exec call before the app.listen() call.
 function runMigrationsAfterListen(): void {
   if (env.NODE_ENV !== "production") return;
 

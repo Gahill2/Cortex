@@ -42,17 +42,35 @@ export const notFoundHandler = (_req: Request, res: Response): void => {
   sendError(res, 404, "NOT_FOUND", "Route not found", _req.path);
 };
 
+const logError = (req: Request, statusCode: number, message: string, error: unknown): void => {
+  const userId = (req as Request & { user?: { id?: string } }).user?.id;
+  console.error(JSON.stringify({
+    path: req.path,
+    method: req.method,
+    userId: userId ?? null,
+    statusCode,
+    message,
+    stack: error instanceof Error ? error.stack : undefined
+  }));
+};
+
+const isPrismaInitError = (error: unknown): boolean =>
+  error instanceof Error && error.constructor.name === "PrismaClientInitializationError";
+
 export const errorHandler = (error: unknown, req: Request, res: Response, _next: NextFunction): void => {
   if (error instanceof ZodError) {
+    logError(req, 400, "Request validation failed", error);
     sendError(res, 400, "VALIDATION_ERROR", "Request validation failed", req.path, error.flatten());
     return;
   }
 
   if (error instanceof HttpError) {
+    logError(req, error.statusCode, error.message, error);
     sendError(res, error.statusCode, "HTTP_ERROR", error.message, req.path);
     return;
   }
 
-  console.error("[error]", req.method, req.path, error);
-  sendError(res, 500, "INTERNAL_SERVER_ERROR", "Unexpected server error", req.path);
+  const userMessage = isPrismaInitError(error) ? "Database error" : "Unexpected server error";
+  logError(req, 500, userMessage, error);
+  sendError(res, 500, "INTERNAL_SERVER_ERROR", userMessage, req.path);
 };
