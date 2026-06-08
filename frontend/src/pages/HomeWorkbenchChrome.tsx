@@ -1,6 +1,5 @@
-import { LayoutGrid, Plus, SlidersHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Tab } from "../tab";
-import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
 import { HomeGlanceBar } from "../components/home/HomeGlanceBar";
 
 interface Props {
@@ -9,11 +8,8 @@ interface Props {
   onNavigate: (tab: Tab) => void;
 }
 
-/** Home controls for the canvas board (add widget, customize). */
+/** Home controls for the canvas board (add widget). */
 export function HomeWorkbenchChrome({ onOpenLibrary, onCommand, onNavigate }: Props) {
-  const editMode = useDashboardLayoutStore((s) => s.editMode);
-  const setEditMode = useDashboardLayoutStore((s) => s.setEditMode);
-
   return (
     <div className="home-workbench-chrome">
       <HomeGlanceBar onNavigate={onNavigate} />
@@ -29,14 +25,6 @@ export function HomeWorkbenchChrome({ onOpenLibrary, onCommand, onNavigate }: Pr
         <button type="button" className="home-workbench-chrome__btn" onClick={onOpenLibrary}>
           <Plus size={17} />
           Add widget
-        </button>
-        <button
-          type="button"
-          className={`home-workbench-chrome__btn${editMode ? " home-workbench-chrome__btn--active" : ""}`}
-          onClick={() => setEditMode(!editMode)}
-        >
-          {editMode ? <LayoutGrid size={17} /> : <SlidersHorizontal size={17} />}
-          {editMode ? "Done" : "Customize"}
         </button>
       </div>
     </div>

@@ -73,7 +73,7 @@ export function AIWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) {
         </div>
       )}
       {!reply && (
-        <p className="widget-ai-idle" style={{ fontSize: 12, color: "var(--text-3)", margin: "4px 0 8px" }}>
+        <p className="widget-ai-idle" style={{ color: "var(--text-3)", margin: "4px 0 8px" }}>
           Ask anything…
         </p>
       )}

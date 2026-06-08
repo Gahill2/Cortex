@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { usePreferences } from "../context/PreferencesContext";
 import {
   applyUiCustomizationToDocument,
@@ -13,7 +13,7 @@ export function useUiCustomization(): {
   ui: UiCustomization;
   goals: CortexGoal[];
   patchUi: (partial: Partial<UiCustomization>) => void;
-  setGoals: (goals: CortexGoal[]) => void;
+  setGoals: (goals: CortexGoal[] | ((prev: CortexGoal[]) => CortexGoal[])) => void;
 } {
   const { settings, patch, ready } = usePreferences();
 
@@ -43,9 +43,16 @@ export function useUiCustomization(): {
     });
   };
 
-  const setGoals = (next: CortexGoal[]) => {
-    patch({ homeGoals: next });
-  };
+  const setGoals = useCallback(
+    (next: CortexGoal[] | ((prev: CortexGoal[]) => CortexGoal[])) => {
+      const current = parseGoals(settings.homeGoals);
+      const fallback = parseGoals(settings.extraJson?.goals);
+      const base = current.length > 0 ? current : fallback;
+      const resolved = typeof next === "function" ? next(base) : next;
+      patch({ homeGoals: resolved });
+    },
+    [patch, settings.homeGoals, settings.extraJson?.goals],
+  );
 
   return { ui, goals, patchUi, setGoals };
 }

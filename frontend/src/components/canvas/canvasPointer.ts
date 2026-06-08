@@ -34,6 +34,20 @@ export function isInteractiveCanvasTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** True when the pointer hit the canvas backdrop — not a widget, guide, or marquee. */
+export function isBackgroundCanvasTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el?.closest(".canvas-viewport")) return false;
+  if (
+    el.closest(
+      ".canvas-item, .canvas-guide, .canvas-sel-box, .widget-library-dock, .dashboard-empty__card",
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
 /** In customize mode, pointer-down on the widget tile body should drag (not navigate). */
 export function isCanvasDragSurface(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;

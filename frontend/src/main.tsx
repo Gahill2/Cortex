@@ -29,6 +29,7 @@ import "./styles-homelab.css";
 import "./styles-cloud.css";
 import "./styles-productivity-dashboard.css";
 import "./styles-productivity.css";
+import "./styles-google-workspace.css";
 import "./styles-layout-spacing.css";
 
 if ("serviceWorker" in navigator) {

@@ -3,6 +3,7 @@ import { api } from "./client";
 /** Public `/api/health` flags — env keys on the API server (no OAuth). */
 export type ServerIntegrationConfig = {
   spotify: boolean;
+  linkedin: boolean;
   gmail: boolean;
   notion: boolean;
   anthropic: boolean;
@@ -15,6 +16,7 @@ type HealthResponse = {
   firebase_configured?: boolean;
   n8n_configured?: boolean;
   spotify_configured?: boolean;
+  linkedin_configured?: boolean;
   notion_configured?: boolean;
   gmail_configured?: { is_configured?: boolean };
 };
@@ -32,6 +34,7 @@ export async function getServerIntegrationConfig(): Promise<ServerIntegrationCon
       const h = r.data;
       const cfg: ServerIntegrationConfig = {
         spotify: Boolean(h.spotify_configured),
+        linkedin: Boolean(h.linkedin_configured),
         gmail: Boolean(h.gmail_configured?.is_configured),
         notion: Boolean(h.notion_configured),
         anthropic: Boolean(h.anthropic_configured),
@@ -43,6 +46,7 @@ export async function getServerIntegrationConfig(): Promise<ServerIntegrationCon
     } catch {
       return {
         spotify: false,
+        linkedin: false,
         gmail: false,
         notion: false,
         anthropic: false,

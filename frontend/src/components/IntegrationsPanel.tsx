@@ -32,7 +32,9 @@ export const IntegrationsPanel = ({ compact, onNavigateSettings }: Props) => {
             const envConfigured =
               item.id === "spotify"
                 ? server.spotify
-                : item.id === "gmail"
+                : item.id === "linkedin"
+                  ? server.linkedin
+                : item.id === "google" || item.id === "gmail"
                   ? server.gmail
                   : item.id === "notion"
                     ? server.notion
@@ -47,7 +49,8 @@ export const IntegrationsPanel = ({ compact, onNavigateSettings }: Props) => {
         setItems(
           [
             { id: "spotify", name: "Spotify", configured: server.spotify, connected: false },
-            { id: "gmail", name: "Gmail", configured: server.gmail, connected: false },
+            { id: "google", name: "Google", configured: server.gmail, connected: false },
+            { id: "linkedin", name: "LinkedIn", configured: server.linkedin, connected: false },
             { id: "notion", name: "Notion", configured: server.notion, connected: false },
           ].filter((i) => i.configured)
         );

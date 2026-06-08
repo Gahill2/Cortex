@@ -8,6 +8,7 @@ import { cortexGmailRouter } from "./gmail.routes.js";
 import { cortexMailRouter } from "./mail.routes.js";
 import { cortexBillingRouter } from "./billing.routes.js";
 import { cortexSpotifyRouter } from "./spotify.routes.js";
+import { cortexLinkedInRouter } from "./linkedin.routes.js";
 import { cortexTasksRouter } from "./tasks.routes.js";
 import { cortexProjectsRouter } from "./projects.routes.js";
 import { cortexMicrosoftRouter } from "./microsoft.routes.js";
@@ -30,6 +31,7 @@ import { isN8nConfigured } from "../../features/n8n/n8n-client.js";
 import { isGmailConfigured } from "../../features/gmail/gmail-service.js";
 import { isNotionConfigured } from "../../features/notion/notion-service.js";
 import { isSpotifyConfigured } from "../../features/spotify/spotify-service.js";
+import { isLinkedInConfigured } from "../../features/linkedin/linkedin-service.js";
 import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-service.js";
 import { getAIStatus } from "../../features/ai/ai-provider.js";
 import { env } from "../../config/env.js";
@@ -64,6 +66,7 @@ cortexRouter.get("/health", async (_req, res) => {
     firebase_configured: getFirebaseAdminStatus().configured,
     n8n_configured: isN8nConfigured(),
     spotify_configured: isSpotifyConfigured(),
+    linkedin_configured: isLinkedInConfigured(),
     notion_configured: isNotionConfigured(),
     agentmemory_configured: agentmemory.ok,
     agentmemory_url: env.AGENTMEMORY_URL,
@@ -95,6 +98,7 @@ cortexRouter.use("/gmail", cortexGmailRouter);
 cortexRouter.use("/mail", cortexMailRouter);
 cortexRouter.use("/billing", cortexBillingRouter);
 cortexRouter.use("/spotify", cortexSpotifyRouter);
+cortexRouter.use("/linkedin", cortexLinkedInRouter);
 cortexRouter.use("/tasks", cortexTasksRouter);
 cortexRouter.use("/projects", cortexProjectsRouter);
 cortexRouter.use("/microsoft", cortexMicrosoftRouter);

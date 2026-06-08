@@ -6,14 +6,21 @@ import type {
   RichTextItemResponse,
 } from "@notionhq/client/build/src/api-endpoints.js";
 import { env } from "../../config/env.js";
+import {
+  hasEnvIntegrationOAuth,
+  isIntegrationOAuthReady,
+  resolveIntegrationOAuth,
+} from "../integrations/oauth-config.js";
 import { HttpError } from "../../utils/http-error.js";
 import { getNotionTokens } from "./notion-token-store.js";
 
 const NOTION_AUTH = "https://api.notion.com/v1/oauth/authorize";
 const NOTION_TOKEN = "https://api.notion.com/v1/oauth/token";
 
-export const isNotionOAuthConfigured = (): boolean =>
-  Boolean(env.NOTION_CLIENT_ID && env.NOTION_CLIENT_SECRET && env.NOTION_REDIRECT_URI);
+export const isNotionOAuthConfigured = (): boolean => hasEnvIntegrationOAuth("notion");
+
+export const isNotionOAuthConfiguredAsync = async (): Promise<boolean> =>
+  isIntegrationOAuthReady("notion");
 
 export const hasNotionInternalToken = (): boolean => Boolean(env.NOTION_INTERNAL_TOKEN?.trim());
 
@@ -22,12 +29,14 @@ export const hasNotionPersonalToken = (): boolean => Boolean(env.NOTION_PERSONAL
 export const isNotionConfigured = (): boolean =>
   isNotionOAuthConfigured() || hasNotionInternalToken() || hasNotionPersonalToken();
 
-export const buildNotionAuthUrl = (state: string): string => {
+export const buildNotionAuthUrl = async (state: string): Promise<string> => {
+  const oauth = await resolveIntegrationOAuth("notion");
+  if (!oauth) throw new HttpError(503, "Notion OAuth not configured");
   const u = new URL(NOTION_AUTH);
-  u.searchParams.set("client_id", env.NOTION_CLIENT_ID);
+  u.searchParams.set("client_id", oauth.clientId);
   u.searchParams.set("response_type", "code");
   u.searchParams.set("owner", "user");
-  u.searchParams.set("redirect_uri", env.NOTION_REDIRECT_URI);
+  u.searchParams.set("redirect_uri", oauth.redirectUri);
   u.searchParams.set("state", state);
   return u.toString();
 };
@@ -40,8 +49,9 @@ export interface NotionTokenExchangeResult {
 }
 
 export const exchangeNotionCode = async (code: string): Promise<NotionTokenExchangeResult> => {
-  if (!isNotionOAuthConfigured()) throw new HttpError(503, "Notion OAuth not configured");
-  const basic = Buffer.from(`${env.NOTION_CLIENT_ID}:${env.NOTION_CLIENT_SECRET}`).toString("base64");
+  const oauth = await resolveIntegrationOAuth("notion");
+  if (!oauth) throw new HttpError(503, "Notion OAuth not configured");
+  const basic = Buffer.from(`${oauth.clientId}:${oauth.clientSecret}`).toString("base64");
   const r = await fetch(NOTION_TOKEN, {
     method: "POST",
     headers: {
@@ -51,7 +61,7 @@ export const exchangeNotionCode = async (code: string): Promise<NotionTokenExcha
     body: JSON.stringify({
       grant_type: "authorization_code",
       code,
-      redirect_uri: env.NOTION_REDIRECT_URI,
+      redirect_uri: oauth.redirectUri,
     }),
   });
   if (!r.ok) {

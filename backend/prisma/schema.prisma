@@ -131,6 +131,15 @@ model MailCategory {
   @@index([userId, category])
 }
 
+/// Server-wide OAuth app credentials (encrypted). Alternative to api.env — configure from Settings.
+model IntegrationOAuthApp {
+  provider          String   @id
+  clientId          String
+  clientSecretEnc   String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 /// Per-user UI preferences synced across devices (replaces localStorage).
 model UserSettings {
   userId       String   @id

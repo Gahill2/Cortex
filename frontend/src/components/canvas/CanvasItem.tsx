@@ -37,6 +37,7 @@ interface Props {
   ) => ReactNode;
   editMode?: boolean;
   isSelected?: boolean;
+  onSelect?: () => void;
   onDragStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
   onRemove: () => void;
@@ -57,6 +58,7 @@ export function CanvasItem({
   renderWidget,
   editMode = false,
   isSelected,
+  onSelect,
   onDragStart,
   onResizeStart,
   onRemove,
@@ -93,6 +95,7 @@ export function CanvasItem({
   const dashboardWidget = isWidget && Boolean(renderWidget);
   const showWidgetHeader = editMode && !locked && (!dashboardWidget || isSelected || hovered);
   const showEditChrome = isWidget ? showWidgetHeader : editMode && !locked;
+  const showResizeHandle = editMode && !locked && (isSelected || hovered);
   const showItemStylePicker =
     !dashboardWidget &&
     showStylePicker &&
@@ -120,9 +123,30 @@ export function CanvasItem({
     return style;
   };
 
-  const handleBodyPointerDown = (e: React.PointerEvent) => {
+  /** Capture phase — runs before widget stopPropagation so selection always works. */
+  const handleSelectPointerCapture = (e: React.PointerEvent) => {
+    if (locked || e.button !== 0) return;
+    if (!editMode) {
+      if (dashboardWidget || isWidget) {
+        onSelect?.();
+        e.preventDefault();
+      }
+      return;
+    }
+    if (isInteractiveCanvasTarget(e.target) && !dashboardWidget) return;
+    if (dashboardWidget && isInteractiveCanvasTarget(e.target)) return;
+    onSelect?.();
+  };
+
+  const handleBodyPointerCapture = (e: React.PointerEvent) => {
     if (!editMode || locked) return;
+    if ((e.target as HTMLElement).closest(".canvas-item__resize")) return;
     if (node.type === "note" || node.type === "custom") return;
+    if (dashboardWidget) {
+      prepareCanvasPointerGesture(e);
+      onDragStart(e);
+      return;
+    }
     if (isInteractiveCanvasTarget(e.target) && !isCanvasDragSurface(e.target)) return;
     prepareCanvasPointerGesture(e);
     onDragStart(e);
@@ -350,6 +374,7 @@ export function CanvasItem({
         }}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
+        onPointerDownCapture={handleSelectPointerCapture}
       >
         <div className="canvas-item__body canvas-item__body--backdrop">{renderContent()}</div>
         {locked ? (
@@ -358,15 +383,22 @@ export function CanvasItem({
           </div>
         ) : null}
         {editMode && showChrome ? renderBackdropChrome() : null}
-        {editMode && !locked && (
-          <div className="canvas-item__resize" onPointerDown={onResizeStart}>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+        {showResizeHandle ? (
+          <div
+            className="canvas-item__resize"
+            title="Drag to resize"
+            onPointerDownCapture={(e) => {
+              e.stopPropagation();
+              onResizeStart(e);
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
               <circle cx="10" cy="10" r="1.5" />
               <circle cx="6" cy="10" r="1.5" />
               <circle cx="10" cy="6" r="1.5" />
             </svg>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -387,6 +419,7 @@ export function CanvasItem({
         setHovered(false);
         if (!isSelected) setShowStylePicker(false);
       }}
+      onPointerDownCapture={handleSelectPointerCapture}
     >
       <div
         className={`canvas-item__header${showEditChrome ? "" : " canvas-item__header--hidden"}`}
@@ -450,19 +483,29 @@ export function CanvasItem({
         </div>
       ) : null}
 
-      <div className="canvas-item__body" onPointerDown={handleBodyPointerDown}>
+      <div
+        className="canvas-item__body"
+        onPointerDownCapture={editMode ? handleBodyPointerCapture : undefined}
+      >
         {renderContent()}
       </div>
 
-      {showEditChrome && !locked && (
-        <div className="canvas-item__resize" onPointerDown={onResizeStart}>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+      {showResizeHandle ? (
+        <div
+          className="canvas-item__resize"
+          title="Drag to resize"
+          onPointerDownCapture={(e) => {
+            e.stopPropagation();
+            onResizeStart(e);
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
             <circle cx="10" cy="10" r="1.5" />
             <circle cx="6" cy="10" r="1.5" />
             <circle cx="10" cy="6" r="1.5" />
           </svg>
         </div>
-      )}
+      ) : null}
 
       {!isWidget ? <div className="canvas-item__frame" /> : null}
     </div>

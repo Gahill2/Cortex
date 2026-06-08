@@ -1,4 +1,9 @@
-import { env } from "../../config/env.js";
+import {
+  hasEnvIntegrationOAuth,
+  isIntegrationOAuthReady,
+  resolveIntegrationOAuth,
+  type IntegrationOAuthCredentials,
+} from "../integrations/oauth-config.js";
 import {
   getSpotifyTokens,
   saveSpotifyTokens,
@@ -20,21 +25,32 @@ const SCOPES = [
   "playlist-modify-private"
 ].join(" ");
 
+/** Fast env-only check (health). Use isSpotifyConfiguredAsync for routes. */
 export function isSpotifyConfigured(): boolean {
-  return Boolean(env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET);
+  return hasEnvIntegrationOAuth("spotify");
+}
+
+export async function isSpotifyConfiguredAsync(): Promise<boolean> {
+  return isIntegrationOAuthReady("spotify");
+}
+
+async function spotifyBasicAuth(oauth: IntegrationOAuthCredentials): Promise<string> {
+  return Buffer.from(`${oauth.clientId}:${oauth.clientSecret}`).toString("base64");
 }
 
 // ── OAuth ────────────────────────────────────────────────────────────────────
 
-export function buildSpotifyAuthUrl(
+export async function buildSpotifyAuthUrl(
   state: string,
   options?: { showDialog?: boolean },
-): string {
+): Promise<string> {
+  const oauth = await resolveIntegrationOAuth("spotify");
+  if (!oauth) throw new Error("Spotify OAuth not configured");
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: env.SPOTIFY_CLIENT_ID!,
+    client_id: oauth.clientId,
     scope: SCOPES,
-    redirect_uri: env.SPOTIFY_REDIRECT_URI!,
+    redirect_uri: oauth.redirectUri,
     state,
   });
   if (options?.showDialog) params.set("show_dialog", "true");
@@ -42,19 +58,19 @@ export function buildSpotifyAuthUrl(
 }
 
 export async function exchangeSpotifyCode(code: string): Promise<SpotifyTokens> {
+  const oauth = await resolveIntegrationOAuth("spotify");
+  if (!oauth) throw new Error("Spotify OAuth not configured");
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: env.SPOTIFY_REDIRECT_URI!
+    redirect_uri: oauth.redirectUri,
   });
 
   const res = await fetch(`${SPOTIFY_ACCOUNTS}/api/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(
-        `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
-      ).toString("base64")}`
+      Authorization: `Basic ${await spotifyBasicAuth(oauth)}`,
     },
     body
   });
@@ -80,6 +96,8 @@ export async function exchangeSpotifyCode(code: string): Promise<SpotifyTokens> 
 // ── Token refresh ────────────────────────────────────────────────────────────
 
 async function refreshAccessToken(tokens: SpotifyTokens): Promise<SpotifyTokens> {
+  const oauth = await resolveIntegrationOAuth("spotify");
+  if (!oauth) throw new Error("Spotify OAuth not configured");
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: tokens.refresh_token
@@ -89,9 +107,7 @@ async function refreshAccessToken(tokens: SpotifyTokens): Promise<SpotifyTokens>
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(
-        `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
-      ).toString("base64")}`
+      Authorization: `Basic ${await spotifyBasicAuth(oauth)}`,
     },
     body
   });

@@ -138,6 +138,22 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && req.url === "/stack-up") {
+    busy = true;
+    try {
+      const r = await runScript(join(ROOT, "scripts/homelab-stack-up.sh"));
+      const out = (r.stdout + r.stderr).trim();
+      json(r.code === 0 ? 200 : 502, {
+        ok: r.code === 0,
+        output: out.slice(-8000),
+        exitCode: r.code,
+      });
+    } finally {
+      busy = false;
+    }
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/deploy") {
     busy = true;
     try {

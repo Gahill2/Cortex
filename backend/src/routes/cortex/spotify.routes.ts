@@ -13,7 +13,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { signSpotifyOAuthState, verifySpotifyOAuthState } from "../../features/spotify/spotify-state.js";
 import {
-  isSpotifyConfigured,
+  isSpotifyConfiguredAsync,
   buildSpotifyAuthUrl,
   exchangeSpotifyCode,
   getNowPlaying,
@@ -38,23 +38,23 @@ export const cortexSpotifyRouter = Router();
 // ── Status ───────────────────────────────────────────────────────────────────
 
 cortexSpotifyRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
-  const configured = isSpotifyConfigured();
+  const configured = await isSpotifyConfiguredAsync();
   const connected = configured && await isSpotifyConnected(req.auth!.userId);
   sendSuccess(res, { configured, connected });
 });
 
 // ── OAuth ────────────────────────────────────────────────────────────────────
 
-cortexSpotifyRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isSpotifyConfigured()) {
+cortexSpotifyRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isSpotifyConfiguredAsync())) {
     throw new HttpError(
       503,
-      "Spotify OAuth not configured. Set SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI."
+      "Spotify is not enabled yet. Add OAuth credentials in Settings → Integrations."
     );
   }
   const state = signSpotifyOAuthState(req.auth!.userId);
   const showDialog = req.query.reconnect === "1" || req.query.reconnect === "true";
-  const url = buildSpotifyAuthUrl(state, { showDialog });
+  const url = await buildSpotifyAuthUrl(state, { showDialog });
   sendSuccess(res, { url });
 });
 
@@ -98,7 +98,7 @@ cortexSpotifyRouter.get("/oauth/callback", routeRateLimit(60, 60_000), async (re
 // ── Now playing ──────────────────────────────────────────────────────────────
 
 cortexSpotifyRouter.get("/now-playing", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) {
+  if (!(await isSpotifyConfiguredAsync())) {
     sendSuccess(res, { configured: false, connected: false, playing: false });
     return;
   }
@@ -125,7 +125,7 @@ cortexSpotifyRouter.get("/now-playing", requireAuth, routeRateLimit(60, 60_000),
 // ── Playback controls ────────────────────────────────────────────────────────
 
 cortexSpotifyRouter.post("/playback/:action", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const { action } = spotifyPlaybackActionSchema.parse({ action: req.params.action });
@@ -135,7 +135,7 @@ cortexSpotifyRouter.post("/playback/:action", requireAuth, routeRateLimit(60, 60
 });
 
 cortexSpotifyRouter.put("/playback/volume", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const { volumePercent } = volumeSchema.parse(req.body);
@@ -155,7 +155,7 @@ cortexSpotifyRouter.post("/disconnect", requireAuth, routeRateLimit(5, 60_000), 
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
 cortexSpotifyRouter.get("/stats", requireAuth, routeRateLimit(20, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
   try {
     const stats = await getSpotifyStatsDashboard(req.auth!.userId);
@@ -169,7 +169,7 @@ cortexSpotifyRouter.get("/stats", requireAuth, routeRateLimit(20, 60_000), async
 });
 
 cortexSpotifyRouter.get("/ai/suggestions", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
   try {
     const result = await getPlaylistSuggestionsForUser(req.auth!.userId);
@@ -183,7 +183,7 @@ cortexSpotifyRouter.get("/ai/suggestions", requireAuth, routeRateLimit(30, 60_00
 });
 
 cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
   const { prompt } = z.object({ prompt: z.string().min(1).max(500) }).parse(req.body);
 
@@ -207,7 +207,7 @@ cortexSpotifyRouter.post("/ai/recommend", requireAuth, routeRateLimit(10, 60_000
 });
 
 cortexSpotifyRouter.post("/ai/create-from-prompt", requireAuth, routeRateLimit(8, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
   const { prompt, name } = z.object({
     prompt: z.string().min(1).max(500),
@@ -235,7 +235,7 @@ cortexSpotifyRouter.post("/ai/create-from-prompt", requireAuth, routeRateLimit(8
 });
 
 cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const { name, trackUris } = z.object({
@@ -254,7 +254,7 @@ cortexSpotifyRouter.post("/ai/create-playlist", requireAuth, routeRateLimit(10, 
 // ── Queue view ──────────────────────────────────────────────────────────────
 
 cortexSpotifyRouter.get("/queue", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const token = await getValidSpotifyToken(req.auth!.userId);
@@ -288,7 +288,7 @@ cortexSpotifyRouter.get("/queue", requireAuth, routeRateLimit(30, 60_000), async
 });
 
 cortexSpotifyRouter.post("/playback/queue-track", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
-  if (!isSpotifyConfigured()) throw new HttpError(503, "Spotify not configured");
+  if (!(await isSpotifyConfiguredAsync())) throw new HttpError(503, "Spotify not configured");
   if (!await isSpotifyConnected(req.auth!.userId)) throw new HttpError(401, "Spotify not connected");
 
   const { uri } = z.object({ uri: z.string().min(1) }).parse(req.body);

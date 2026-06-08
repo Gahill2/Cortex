@@ -1,4 +1,8 @@
-import { env } from "../../config/env.js";
+import {
+  hasEnvIntegrationOAuth,
+  isIntegrationOAuthReady,
+  resolveIntegrationOAuth,
+} from "../integrations/oauth-config.js";
 import { resolveMicrosoftOAuthRedirectUri } from "../oauth/oauth-frontend-redirect.js";
 import { prisma } from "../../db/prisma.js";
 
@@ -25,17 +29,22 @@ export interface MicrosoftTokens {
 // ── Config ────────────────────────────────────────────────────────────────────
 
 export function isMicrosoftConfigured(): boolean {
-  return Boolean(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_CLIENT_SECRET);
+  return hasEnvIntegrationOAuth("microsoft");
+}
+
+export async function isMicrosoftConfiguredAsync(): Promise<boolean> {
+  return isIntegrationOAuthReady("microsoft");
 }
 
 // ── OAuth URL ─────────────────────────────────────────────────────────────────
 
-export function buildMicrosoftAuthUrl(state: string, returnOrigin?: string): string {
-  const redirect_uri = resolveMicrosoftOAuthRedirectUri(returnOrigin);
+export async function buildMicrosoftAuthUrl(state: string, returnOrigin?: string): Promise<string> {
+  const oauth = await resolveIntegrationOAuth("microsoft", returnOrigin);
+  if (!oauth) throw new Error("Microsoft OAuth not configured");
   const params = new URLSearchParams({
-    client_id: env.MICROSOFT_CLIENT_ID!,
+    client_id: oauth.clientId,
     response_type: "code",
-    redirect_uri,
+    redirect_uri: oauth.redirectUri,
     scope: SCOPES,
     response_mode: "query",
     prompt: "select_account",
@@ -47,12 +56,13 @@ export function buildMicrosoftAuthUrl(state: string, returnOrigin?: string): str
 // ── Token exchange ────────────────────────────────────────────────────────────
 
 export async function exchangeMicrosoftCode(code: string, returnOrigin?: string): Promise<MicrosoftTokens> {
-  const redirect_uri = resolveMicrosoftOAuthRedirectUri(returnOrigin);
+  const oauth = await resolveIntegrationOAuth("microsoft", returnOrigin);
+  if (!oauth) throw new Error("Microsoft OAuth not configured");
   const body = new URLSearchParams({
-    client_id: env.MICROSOFT_CLIENT_ID!,
-    client_secret: env.MICROSOFT_CLIENT_SECRET!,
+    client_id: oauth.clientId,
+    client_secret: oauth.clientSecret,
     code,
-    redirect_uri,
+    redirect_uri: oauth.redirectUri,
     grant_type: "authorization_code",
   });
   const res = await fetch(`${AUTHORITY}/token`, {
@@ -76,9 +86,11 @@ export async function exchangeMicrosoftCode(code: string, returnOrigin?: string)
 // ── Token refresh ─────────────────────────────────────────────────────────────
 
 async function refreshMicrosoftToken(tokens: MicrosoftTokens): Promise<MicrosoftTokens> {
+  const oauth = await resolveIntegrationOAuth("microsoft");
+  if (!oauth) throw new Error("Microsoft OAuth not configured");
   const body = new URLSearchParams({
-    client_id: env.MICROSOFT_CLIENT_ID!,
-    client_secret: env.MICROSOFT_CLIENT_SECRET!,
+    client_id: oauth.clientId,
+    client_secret: oauth.clientSecret,
     refresh_token: tokens.refresh_token,
     grant_type: "refresh_token",
     scope: SCOPES,

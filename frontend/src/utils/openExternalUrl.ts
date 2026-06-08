@@ -1,6 +1,12 @@
+type ElectronWindow = Window & {
+  electron?: {
+    openExternal?: (url: string) => Promise<void>;
+  };
+};
+
 /**
- * Open a URL in a new tab/window. iOS Safari often blocks `window.open`;
- * programmatic <a click> is more reliable from button handlers.
+ * Open a URL in the system browser or a new tab.
+ * Electron: system browser. Web: window.open, then <a click> fallback (iOS Safari).
  */
 export function openExternalUrl(url: string): boolean {
   const trimmed = url?.trim();
@@ -12,6 +18,15 @@ export function openExternalUrl(url: string): boolean {
   } catch {
     return false;
   }
+
+  const win = window as ElectronWindow;
+  if (win.electron?.openExternal) {
+    void win.electron.openExternal(trimmed);
+    return true;
+  }
+
+  const popup = window.open(trimmed, "_blank", "noopener,noreferrer");
+  if (popup) return true;
 
   const anchor = document.createElement("a");
   anchor.href = trimmed;

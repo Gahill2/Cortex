@@ -11,6 +11,7 @@ import {
   createOAuth2Client,
   exchangeAuthorizationCode,
   isGmailConfigured,
+  isGmailConfiguredAsync,
   listInbox,
   modifyMessageLabels
 } from "../../features/gmail/gmail-service.js";
@@ -44,11 +45,11 @@ cortexGmailRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async 
   });
 });
 
-cortexGmailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isGmailConfigured()) {
+cortexGmailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isGmailConfiguredAsync())) {
     throw new HttpError(
       503,
-      "Gmail OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI on the API server."
+      "Google is not enabled yet. Add OAuth credentials in Settings → Integrations."
     );
   }
   // desktop=1 query param lets the frontend signal Electron mode; we embed it in
@@ -56,7 +57,7 @@ cortexGmailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (re
   const isDesktop = req.query.desktop === "1";
   const returnOrigin = typeof req.query.returnOrigin === "string" ? req.query.returnOrigin : undefined;
   const state = signGmailOAuthState(req.auth!.userId, { desktop: isDesktop, returnOrigin });
-  const url = buildGmailAuthUrl(state, returnOrigin);
+  const url = await buildGmailAuthUrl(state, returnOrigin);
   sendSuccess(res, { url }, "live");
 });
 

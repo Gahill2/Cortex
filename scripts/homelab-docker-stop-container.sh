@@ -16,10 +16,17 @@ fi
 # snap Docker + AppArmor: runc cannot signal init from outside the container.
 if docker ps -q -f "name=^${name}$" -f status=running 2>/dev/null | grep -q .; then
   docker exec "$name" sh -c 'kill -TERM 1' >/dev/null 2>&1 || true
-  for _ in $(seq 1 15); do
+  for _ in $(seq 1 8); do
     docker ps -q -f "name=^${name}$" -f status=running 2>/dev/null | grep -q . || break
     sleep 1
   done
+  if docker ps -q -f "name=^${name}$" -f status=running 2>/dev/null | grep -q .; then
+    docker exec "$name" sh -c 'kill -KILL 1' >/dev/null 2>&1 || true
+    for _ in $(seq 1 15); do
+      docker ps -q -f "name=^${name}$" -f status=running 2>/dev/null | grep -q . || break
+      sleep 1
+    done
+  fi
 fi
 
 docker rm -f "$name" >/dev/null 2>&1 || {

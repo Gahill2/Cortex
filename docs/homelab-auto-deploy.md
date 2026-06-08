@@ -2,15 +2,33 @@
 
 On the **cortex** hub, redeploy Docker when code changes — **without sudo** for normal operation.
 
-## First time only (stuck containers / snap Docker AppArmor)
+## First time only (Docker permission denied)
 
-If `docker stop` fails with **permission denied** (common with **snap Docker** on Ubuntu):
+If `docker restart` / `docker stop` fails with **permission denied** (snap Docker + AppArmor on Ubuntu):
+
+```bash
+npm run server:docker:setup-perms
+```
+
+Run **once in your terminal** (sudo will prompt). It:
+
+1. Ensures your user is in the `docker` group
+2. Grants **passwordless sudo** for `docker`, `docker compose`, and Docker systemd/snap services
+3. Optionally removes **snap docker** when both snap and apt `docker.io` are installed (root cause on this hub)
+
+After setup, manage any container without fighting permissions:
+
+```bash
+npm run docker:restart -- cortex-qbittorrent
+npm run docker:restart -- cortex-radarr
+npm run docker:rm -- cortex-nas-jellyfin-1
+```
+
+Stuck Cortex API/web only (no sudo):
 
 ```bash
 npm run server:docker:fix-once
 ```
-
-This does **not** need sudo. It stops containers from inside (AppArmor workaround), removes them, and redeploys.
 
 Check anytime:
 
@@ -20,12 +38,7 @@ npm run server:docker:doctor
 
 ### Dual Docker installs (root cause on this hub)
 
-This machine has **both** `docker.io` (apt) and **snap `docker`** running. That triggers AppArmor denials when stopping containers. Long-term, pick one:
-
-- **Recommended:** `sudo snap remove docker --purge` then use apt `docker.io` only, **or**
-- Remove apt docker and use snap only
-
-After removing one: `sudo aa-remove-unknown` and reboot.
+This machine has **both** `docker.io` (apt) and **snap `docker`** running. That triggers AppArmor denials when stopping containers. `server:docker:setup-perms` can remove snap and keep apt — **reboot** after that. Or pick one manually and run `sudo aa-remove-unknown`.
 
 ## Enable auto-deploy (no sudo)
 

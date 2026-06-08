@@ -4,7 +4,11 @@ import { requireAuth } from "../../middleware/auth.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
-import { isGmailConfigured, buildGmailAuthUrl } from "../../features/gmail/gmail-service.js";
+import {
+  isGmailConfigured,
+  isGmailConfiguredAsync,
+  buildGmailAuthUrl,
+} from "../../features/gmail/gmail-service.js";
 import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-service.js";
 import { signMailOAuthState } from "../../features/mail/mail-oauth-state.js";
 import { signGmailOAuthState } from "../../features/gmail/gmail-state.js";
@@ -94,24 +98,24 @@ const mailConnectBodySchema = z.object({
   returnOrigin: z.string().max(500).optional()
 });
 
-cortexMailRouter.post("/accounts/gmail/connect", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isGmailConfigured()) {
-    throw new HttpError(503, "Gmail OAuth not configured on the server.");
+cortexMailRouter.post("/accounts/gmail/connect", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isGmailConfiguredAsync())) {
+    throw new HttpError(503, "Google is not enabled yet. Add OAuth credentials in Settings → Integrations.");
   }
   const body = mailConnectBodySchema.parse(req.body ?? {});
   const state = signMailOAuthState(req.auth!.userId, {
     desktop: body.desktop === true,
     returnOrigin: body.returnOrigin
   });
-  sendSuccess(res, { url: buildGmailAuthUrl(state, body.returnOrigin) }, "live");
+  sendSuccess(res, { url: await buildGmailAuthUrl(state, body.returnOrigin) }, "live");
 });
 
-cortexMailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isGmailConfigured()) {
-    throw new HttpError(503, "Gmail OAuth not configured on the server.");
+cortexMailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isGmailConfiguredAsync())) {
+    throw new HttpError(503, "Google is not enabled yet. Add OAuth credentials in Settings → Integrations.");
   }
   const state = signGmailOAuthState(req.auth!.userId);
-  sendSuccess(res, { url: buildGmailAuthUrl(state) });
+  sendSuccess(res, { url: await buildGmailAuthUrl(state) });
 });
 
 cortexMailRouter.get("/inbox", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {

@@ -4,6 +4,7 @@ import type { Tab } from "../tab";
 import { useUiCustomization } from "../hooks/useUiCustomization";
 import { usePreferences } from "../context/PreferencesContext";
 import type { CortexGoal } from "../lib/uiCustomization";
+import { newId } from "../lib/newId";
 import {
   formatEtc,
   goalEstimatedCompletion,
@@ -100,24 +101,24 @@ export function GoalsPage({ onNavigate }: Props) {
     if (!text) return;
     const hours = Math.max(0.5, Number(estimateDraft) || 4);
     const row: CortexGoal = {
-      id: crypto.randomUUID(),
+      id: newId("goal"),
       text,
       done: false,
       estimateHours: hours,
       progressPercent: 0,
       targetDate: targetDraft ? new Date(`${targetDraft}T12:00:00`).toISOString() : undefined,
     };
-    setGoals([...goals, row]);
+    setGoals((prev) => [...prev, row]);
     setDraft("");
     setTargetDraft("");
   };
 
   const updateGoal = (id: string, patch: Partial<CortexGoal>) => {
-    setGoals(goals.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   };
 
   const removeGoal = (id: string) => {
-    setGoals(goals.filter((g) => g.id !== id));
+    setGoals((prev) => prev.filter((g) => g.id !== id));
   };
 
   if (!prefsReady) {

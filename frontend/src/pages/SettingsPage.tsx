@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useToastStore } from "../stores/toastStore";
-import { IntegrationsPanel } from "../components/IntegrationsPanel";
-import { MicrosoftSetupCard } from "../components/settings/MicrosoftSetupCard";
+import { IntegrationsSettingsSection } from "../components/settings/IntegrationsSettingsSection";
+import type { Tab } from "../tab";
 import { useAppearance, type AppearanceMode } from "../AppearanceProvider";
 import { useWallpaper, WALLPAPER_PRESETS } from "../hooks/useWallpaper";
 import { useTheme, type AppTheme } from "../hooks/useTheme";
 import { clearCortexUiPreferences } from "../lib/cortexUiStorageKeys";
 import { usePreferences } from "../context/PreferencesContext";
-import { startOAuthFlow } from "../lib/oauth";
 import { SettingsShell } from "../components/settings/SettingsShell";
 import { UiCustomizationSettings } from "../components/settings/UiCustomizationSettings";
 import { MemoryPage } from "./MemoryPage";
@@ -23,6 +22,7 @@ import {
 interface Props {
   onLogout: () => void;
   onLockSession?: () => void | Promise<void>;
+  onOpenTab?: (tab: Tab) => void;
 }
 
 function PinChangeForm() {
@@ -122,7 +122,7 @@ const APPEARANCE_OPTIONS: { id: AppearanceMode; label: string }[] = [
   { id: "system", label: "System" },
 ];
 
-export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
+export const SettingsPage = ({ onLogout, onLockSession, onOpenTab }: Props) => {
   const pushToast = useToastStore((s) => s.push);
   const [section, setSection] = useState<SettingsSectionId>(
     () => readSettingsSection() ?? "appearance"
@@ -141,101 +141,9 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
   const [topicInput, setTopicInput] = useState("");
   const [themeLoading, setThemeLoading] = useState(false);
   const [themeError, setThemeError] = useState<string | null>(null);
-  const [spotifyConnected, setSpotifyConnected] = useState(false);
-  const [spotifyUrl, setSpotifyUrl] = useState<string | null>(null);
-  const [spotifyLoading, setSpotifyLoading] = useState(true);
-
-  type NotionStatus = {
-    configured: boolean;
-    oauth_configured: boolean;
-    internal_token_configured: boolean;
-    user_oauth_connected: boolean;
-    connected: boolean;
-  };
-  const [notionStatus, setNotionStatus] = useState<NotionStatus | null>(null);
-  const [notionUrl, setNotionUrl] = useState<string | null>(null);
-  const [notionLoading, setNotionLoading] = useState(true);
-
-  const [vaultPath, setVaultPath] = useState("");
-  const [vaultInput, setVaultInput] = useState("");
-  const [vaultSaving, setVaultSaving] = useState(false);
-
-  type CanvaStatus = {
-    apps_sdk: { app_id_configured: boolean; app_origin_configured: boolean; hmr_enabled: boolean };
-    connect: {
-      client_id_configured: boolean;
-      client_secret_configured: boolean;
-      redirect_uri_configured: boolean;
-      oauth_exchange_ready: boolean;
-      connected: boolean;
-    };
-    redirect_uri_to_register: string | null;
-  };
-  const [canvaStatus, setCanvaStatus] = useState<CanvaStatus | null>(null);
-  const [canvaUrl, setCanvaUrl] = useState<string | null>(null);
-  const [canvaLoading, setCanvaLoading] = useState(true);
-  const [canvaOauthBanner, setCanvaOauthBanner] = useState<string | null>(null);
   const [oauthErrorBanner, setOauthErrorBanner] = useState<string | null>(null);
 
   const isElectron = !!(window as ElectronWindow).electron?.isElectron;
-
-  const loadSpotify = async () => {
-    setSpotifyLoading(true);
-    try {
-      const r = await api.get<{ data?: { connected?: boolean } }>("/spotify/status");
-      setSpotifyConnected(r.data?.data?.connected ?? false);
-      if (!r.data?.data?.connected) {
-        const u = await api.get<{ data?: { url?: string } }>("/spotify/oauth/url");
-        setSpotifyUrl(u.data?.data?.url ?? null);
-      } else {
-        setSpotifyUrl(null);
-      }
-    } catch (e) { console.error("[spotify] load failed:", e); }
-    finally { setSpotifyLoading(false); }
-  };
-
-  const loadNotion = async () => {
-    setNotionLoading(true);
-    try {
-      const r = await api.get<{ data?: NotionStatus }>("/notion/status");
-      const s = r.data?.data;
-      setNotionStatus(s ?? null);
-      if (s?.configured && s.oauth_configured && !s.user_oauth_connected) {
-        const u = await api.get<{ data?: { url?: string } }>("/notion/oauth/url");
-        setNotionUrl(u.data?.data?.url ?? null);
-      } else {
-        setNotionUrl(null);
-      }
-    } catch {
-      setNotionStatus(null);
-    } finally {
-      setNotionLoading(false);
-    }
-  };
-
-  const loadCanva = async () => {
-    setCanvaLoading(true);
-    try {
-      const r = await api.get<{ data?: CanvaStatus }>("/canva/status");
-      const s = r.data?.data ?? null;
-      setCanvaStatus(s);
-      if (s?.connect.oauth_exchange_ready && !s.connect.connected) {
-        const u = await api.get<{ data?: { url?: string } }>("/canva/oauth/url");
-        setCanvaUrl(u.data?.data?.url ?? null);
-      } else {
-        setCanvaUrl(null);
-      }
-    } catch {
-      setCanvaStatus(null);
-      setCanvaUrl(null);
-    } finally {
-      setCanvaLoading(false);
-    }
-  };
-
-  useEffect(() => { void loadSpotify(); }, []);
-  useEffect(() => { void loadNotion(); }, []);
-  useEffect(() => { void loadCanva(); }, []);
 
   useEffect(() => {
     const target = sessionStorage.getItem("cortex_settings_scroll_to");
@@ -253,94 +161,6 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     setOauthErrorBanner(`Connection failed: ${err}`);
     onSectionChange("integrations");
   }, []);
-
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    let changed = false;
-    if (p.get("canva_oauth") === "connected") {
-      setCanvaOauthBanner("Canva Connect is linked. Connect API calls can use the token stored on this API server.");
-      p.delete("canva_oauth");
-      changed = true;
-    }
-    const err = p.get("canva_oauth_error");
-    if (err) {
-      setCanvaOauthBanner(`Canva OAuth did not complete: ${decodeURIComponent(err)}`);
-      p.delete("canva_oauth_error");
-      changed = true;
-    }
-    if (changed) {
-      const qs = p.toString();
-      const path = window.location.pathname;
-      window.history.replaceState({}, "", `${path}${qs ? `?${qs}` : ""}${window.location.hash}`);
-      void loadCanva();
-    }
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const r = await api.get<{ data?: { path: string | null } }>("/obsidian/vault");
-        const p = r.data?.data?.path ?? "";
-        setVaultPath(p);
-        setVaultInput(p);
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, []);
-
-  // Reload when Electron deep-link completes
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const provider = (e as CustomEvent<{ provider: string }>).detail?.provider;
-      if (provider === "spotify" || provider === "refresh") void loadSpotify();
-      if (provider === "notion") void loadNotion();
-      if (provider === "canva") void loadCanva();
-    };
-    window.addEventListener("oauth-connected", handler);
-    return () => window.removeEventListener("oauth-connected", handler);
-  }, []);
-
-  const openOAuth = (url: string | null) => {
-    startOAuthFlow(url);
-  };
-
-  const disconnectSpotify = async () => {
-    try { await api.post("/spotify/disconnect"); await loadSpotify(); } catch { /* ignore */ }
-  };
-
-  /** Force Spotify consent screen (fixes "not correct permissions" / missing scopes). */
-  const reconnectSpotifyPermissions = async () => {
-    try {
-      const u = await api.get<{ data?: { url?: string } }>("/spotify/oauth/url?reconnect=1");
-      openOAuth(u.data?.data?.url ?? null);
-    } catch {
-      setOauthErrorBanner("Could not start Spotify reconnect. Check SPOTIFY_REDIRECT_URI in api.env.");
-    }
-  };
-
-  const disconnectNotion = async () => {
-    try { await api.post("/notion/disconnect"); await loadNotion(); } catch { /* ignore */ }
-  };
-
-  const disconnectCanva = async () => {
-    try {
-      await api.post("/canva/disconnect");
-      await loadCanva();
-    } catch { /* ignore */ }
-  };
-
-  const saveVaultPath = async () => {
-    setVaultSaving(true);
-    try {
-      await api.post("/obsidian/vault", { path: vaultInput.trim() });
-      setVaultPath(vaultInput.trim());
-    } catch {
-      /* ignore */
-    } finally {
-      setVaultSaving(false);
-    }
-  };
 
   const generateTheme = async () => {
     if (!topicInput.trim()) return;
@@ -360,30 +180,6 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
     host !== "" &&
     host !== "localhost" &&
     host !== "127.0.0.1";
-
-  const canvaAppId = (import.meta.env.VITE_CANVA_APP_ID as string | undefined)?.trim() ?? "";
-  const canvaAppIdConfigured = canvaAppId.length > 0;
-
-  const canvaStatusLabel = (): { tone: "connected" | "disconnected"; text: string } => {
-    if (canvaLoading) return { tone: "disconnected", text: "Checking…" };
-    const c = canvaStatus?.connect;
-    if (c?.connected) return { tone: "connected", text: "Connect linked" };
-    if (c?.oauth_exchange_ready) return { tone: "disconnected", text: "Ready to connect" };
-    if (canvaStatus?.apps_sdk.app_id_configured || canvaStatus?.apps_sdk.app_origin_configured) {
-      return { tone: "disconnected", text: "Apps SDK env on API" };
-    }
-    if (canvaAppIdConfigured) return { tone: "connected", text: "App ID in build" };
-    return { tone: "disconnected", text: "Docs only" };
-  };
-  const cv = canvaStatusLabel();
-
-  const openExternalUrl = (url: string) => {
-    if (isElectron) {
-      void (window as ElectronWindow).electron!.openExternal!(url);
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  };
 
   return (
     <div className="page settings-page settings-page--shell">
@@ -576,228 +372,7 @@ export const SettingsPage = ({ onLogout, onLockSession }: Props) => {
           )}
 
           {section === "integrations" && (
-          <>
-          <IntegrationsPanel compact={false} />
-
-          <MicrosoftSetupCard />
-
-          <section className="settings-section" id="settings-integrations">
-            <h2 className="settings-section-title">Integrations</h2>
-
-            {oauthErrorBanner && (
-              <p className="settings-oauth-error" role="alert">
-                {oauthErrorBanner}
-              </p>
-            )}
-
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-icon settings-item-icon--spotify">♫</div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <p className="settings-item-name">Spotify</p>
-                    {!spotifyLoading && (
-                      <span className={`integration-status integration-status--${spotifyConnected ? "connected" : "disconnected"}`}>
-                        ● {spotifyConnected ? "Connected" : "Disconnected"}
-                      </span>
-                    )}
-                  </div>
-                  <p className="settings-item-desc">
-                    {spotifyLoading
-                      ? "Checking…"
-                      : spotifyConnected
-                        ? "Playback, stats, and AI playlists need top-artist & playlist scopes — use Refresh permissions if Spotify says permissions are wrong."
-                        : "Connect for playback, listening stats, and AI playlists"}
-                  </p>
-                </div>
-              </div>
-              {!spotifyLoading && (
-                spotifyConnected ? (
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <button
-                      className="btn-primary btn-sm"
-                      onClick={() => void reconnectSpotifyPermissions()}
-                    >
-                      Refresh permissions
-                    </button>
-                    <button className="btn-ghost btn-sm" onClick={() => void disconnectSpotify()}>
-                      Disconnect
-                    </button>
-                  </div>
-                ) : (
-                  <button className="btn-primary btn-sm" onClick={() => openOAuth(spotifyUrl)}>
-                    Connect
-                  </button>
-                )
-              )}
-            </div>
-
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-icon">📓</div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <p className="settings-item-name">Notion</p>
-                    {!notionLoading && notionStatus && (
-                      <span
-                        className={`integration-status integration-status--${
-                          notionStatus.connected ? "connected" : "disconnected"
-                        }`}
-                      >
-                        ● {notionStatus.connected ? "Connected" : "Disconnected"}
-                      </span>
-                    )}
-                  </div>
-                  <p className="settings-item-desc">
-                    {notionLoading
-                      ? "Checking…"
-                      : notionStatus?.internal_token_configured && !notionStatus.user_oauth_connected
-                        ? "Using server NOTION_INTERNAL_TOKEN — open Notes to browse pages shared with that integration."
-                        : notionStatus?.connected
-                          ? "Search and preview pages from the Notes tab."
-                          : notionStatus?.configured
-                            ? "Connect your workspace (OAuth) or set NOTION_INTERNAL_TOKEN on the server."
-                            : "Not configured — add Notion env vars on the API server."}
-                  </p>
-                </div>
-              </div>
-              {!notionLoading && notionStatus?.oauth_configured && (
-                notionStatus.user_oauth_connected ? (
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => void disconnectNotion()}>
-                    Disconnect
-                  </button>
-                ) : (
-                  <button type="button" className="btn-primary btn-sm" onClick={() => openOAuth(notionUrl)}>
-                    Connect
-                  </button>
-                )
-              )}
-            </div>
-
-            <div className="settings-item settings-item--canva-spotlight">
-              <div className="settings-item-left">
-                <div className="settings-item-icon settings-item-icon--canva" aria-hidden>
-                  ◆
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <p className="settings-item-name">Canva</p>
-                    <span className={`integration-status integration-status--${cv.tone}`}>
-                      ● {cv.text}
-                    </span>
-                  </div>
-                  {canvaOauthBanner && (
-                    <p className="settings-item-desc" style={{ marginTop: 6 }} role="status">
-                      {canvaOauthBanner}
-                    </p>
-                  )}
-                  <p className="settings-item-desc">
-                    Cortex does not embed the Canva editor. Use the official Apps SDK inside a Canva app, or
-                    Connect APIs from this API server after linking. See{" "}
-                    <code className="settings-origin-code">docs/canva.md</code>.
-                    {canvaAppIdConfigured ? " VITE_CANVA_APP_ID is set in the frontend build." : ""}
-                    {canvaStatus?.redirect_uri_to_register ? (
-                      <>
-                        {" "}
-                        Register redirect{" "}
-                        <code className="settings-origin-code">{canvaStatus.redirect_uri_to_register}</code> in the
-                        Connect integration (Authentication).
-                      </>
-                    ) : null}
-                  </p>
-                  <div className="d-flex flex-wrap gap-2" style={{ marginTop: 8 }}>
-                    {!canvaLoading && canvaStatus?.connect.oauth_exchange_ready && (
-                      canvaStatus.connect.connected ? (
-                        <button type="button" className="btn-ghost btn-sm" onClick={() => void disconnectCanva()}>
-                          Disconnect Connect
-                        </button>
-                      ) : (
-                        <button type="button" className="btn-primary btn-sm" onClick={() => openOAuth(canvaUrl)}>
-                          Link Connect (OAuth)
-                        </button>
-                      )
-                    )}
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openExternalUrl("https://www.canva.com/")}
-                    >
-                      Open Canva
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openExternalUrl("https://www.canva.com/developers/apps")}
-                    >
-                      Your apps (preview)
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openExternalUrl("https://www.canva.com/developers/")}
-                    >
-                      Developers
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openExternalUrl("https://www.canva.dev/docs/apps/")}
-                    >
-                      Apps SDK docs
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openExternalUrl("https://www.canva.dev/docs/connect/")}
-                    >
-                      Connect APIs docs
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-icon">🗂️</div>
-                <div>
-                  <p className="settings-item-name">Obsidian vault</p>
-                  <p className="settings-item-desc">
-                    Local folder of markdown files — used in the Notes tab next to Notion.
-                    {vaultPath ? ` Current: ${vaultPath}` : ""}
-                  </p>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8, maxWidth: "100%" }}>
-                    <input
-                      className="form-input"
-                      style={{ flex: 1, minWidth: 0 }}
-                      value={vaultInput}
-                      onChange={(e) => setVaultInput(e.target.value)}
-                      placeholder="C:\path\to\vault"
-                    />
-                    <button
-                      type="button"
-                      className="btn-primary btn-sm"
-                      onClick={() => void saveVaultPath()}
-                      disabled={vaultSaving || !vaultInput.trim()}
-                    >
-                      {vaultSaving ? "…" : "Save"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-icon">✉️</div>
-                <div>
-                  <p className="settings-item-name">Mail accounts</p>
-                  <p className="settings-item-desc">Add Gmail or IMAP accounts in the Mail tab</p>
-                </div>
-              </div>
-            </div>
-          </section>
-          </>
+            <IntegrationsSettingsSection oauthErrorBanner={oauthErrorBanner} onOpenTab={onOpenTab} />
           )}
 
           {section === "shortcuts" && (

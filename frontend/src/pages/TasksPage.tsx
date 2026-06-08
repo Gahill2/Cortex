@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Flag } from "lucide-react";
 import type { Tab } from "../tab";
 import { useUiCustomization } from "../hooks/useUiCustomization";
 import type { CortexGoal } from "../lib/uiCustomization";
+import { newId } from "../lib/newId";
 import { TasksCalendarKanban } from "../components/tasks-calendar/TasksCalendarKanban";
 import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
 import { ProductivityShell } from "../productivity/ProductivityShell";
@@ -11,6 +12,7 @@ import { TaskSidebar } from "../productivity/tasks/TaskSidebar";
 import { TasksTopBar, getListTitle } from "../productivity/tasks/TasksTopBar";
 import { TaskCreateBar } from "../productivity/tasks/TaskCreateBar";
 import { TasksPlanBoard } from "../productivity/tasks/TasksPlanBoard";
+import { TasksPageTabs, type TasksPageTab } from "../productivity/tasks/TasksPageTabs";
 import { EmptyState } from "../productivity/shared/EmptyState";
 import type { TaskListKey, TaskSortKey } from "../productivity/types";
 import {
@@ -33,8 +35,11 @@ function itemKey(item: PlanItem): string {
   return item.kind === "task" ? `t:${item.task.id}` : `g:${item.goal.id}`;
 }
 
+const GOAL_LIST_KEYS = new Set<TaskListKey>(["all", "completed"]);
+
 export function TasksPage({ onNavigate }: Props) {
   const { goals, setGoals } = useUiCustomization();
+  const [pageTab, setPageTab] = useState<TasksPageTab>("tasks");
   const [listKey, setListKey] = useState<TaskListKey>("all");
   const [listMeta, setListMeta] = useState<{ projectId?: string }>();
   const [search, setSearch] = useState("");
@@ -85,8 +90,21 @@ export function TasksPage({ onNavigate }: Props) {
     return sortTasks(list, sort);
   }, [tasks, search, sort]);
 
+  const activeGoals = useMemo(() => {
+    const base =
+      listKey === "completed"
+        ? goals.filter((g) => g.done)
+        : goals.filter((g) => !g.done);
+    const q = search.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((g) => g.text.toLowerCase().includes(q));
+  }, [goals, listKey, search]);
+
   const planItems = useMemo(() => {
-    const filtered = filterPlanItems(searchedTasks, goals, listKey, listMeta);
+    if (pageTab === "goals") {
+      return activeGoals.map((goal) => ({ kind: "goal" as const, goal }));
+    }
+    const filtered = filterPlanItems(searchedTasks, [], listKey, listMeta);
     if (!search.trim()) return filtered;
     const q = search.trim().toLowerCase();
     return filtered.filter((i) => {
@@ -96,9 +114,9 @@ export function TasksPage({ onNavigate }: Props) {
           (i.task.notes?.toLowerCase().includes(q) ?? false)
         );
       }
-      return i.goal.text.toLowerCase().includes(q);
+      return false;
     });
-  }, [searchedTasks, goals, listKey, listMeta, search]);
+  }, [pageTab, searchedTasks, activeGoals, listKey, listMeta, search]);
 
   const progressSections = useMemo(
     () => groupPlanItemsByProgress(planItems, listKey !== "completed"),
@@ -124,16 +142,43 @@ export function TasksPage({ onNavigate }: Props) {
   const selectedGoal = selectedItem?.kind === "goal" ? selectedItem.goal : null;
 
   const title =
-    listKey === "project" && listMeta?.projectId
+    pageTab === "tasks" && listKey === "project" && listMeta?.projectId
       ? projects.find((p) => p.id === listMeta.projectId)?.name ?? "Project"
-      : getListTitle(listKey);
+      : getListTitle(listKey, pageTab);
 
   const openCount = planItems.length;
+  const openTaskCount = useMemo(
+    () => tasks.filter((t) => !t.completed).length,
+    [tasks],
+  );
+  const openGoalCount = useMemo(
+    () => goals.filter((g) => !g.done).length,
+    [goals],
+  );
 
   const onListChange = (key: TaskListKey, meta?: { projectId?: string }) => {
     setListKey(key);
     setListMeta(meta);
     setSelectedKey(null);
+  };
+
+  const onPageTabChange = (tab: TasksPageTab) => {
+    setPageTab(tab);
+    setBoardMode(false);
+    if (
+      selectedKey &&
+      ((tab === "tasks" && selectedKey.startsWith("g:")) ||
+        (tab === "goals" && selectedKey.startsWith("t:")))
+    ) {
+      setSelectedKey(null);
+    }
+    if (tab === "goals" && !GOAL_LIST_KEYS.has(listKey)) {
+      setListKey("all");
+      setListMeta(undefined);
+    }
+    if (tab === "tasks" && listKey === "completed" && goals.some((g) => g.done) && !tasks.some((t) => t.completed)) {
+      setListKey("all");
+    }
   };
 
   const handleCreateTask = useCallback(
@@ -163,17 +208,17 @@ export function TasksPage({ onNavigate }: Props) {
   const handleCreateGoal = useCallback(
     (fields: { title: string; targetDate?: string | null; estimateHours?: number }) => {
       const row: CortexGoal = {
-        id: crypto.randomUUID(),
+        id: newId("goal"),
         text: fields.title,
         done: false,
         estimateHours: fields.estimateHours ?? 4,
         progressPercent: 0,
         targetDate: fields.targetDate ?? undefined,
       };
-      setGoals([...goals, row]);
+      setGoals((prev) => [...prev, row]);
       setSelectedKey(`g:${row.id}`);
     },
-    [goals, setGoals],
+    [setGoals],
   );
 
   const handleCreateProject = async () => {
@@ -184,8 +229,8 @@ export function TasksPage({ onNavigate }: Props) {
   };
 
   const handleToggleGoal = (id: string) => {
-    setGoals(
-      goals.map((g) =>
+    setGoals((prev) =>
+      prev.map((g) =>
         g.id === id
           ? {
               ...g,
@@ -198,11 +243,11 @@ export function TasksPage({ onNavigate }: Props) {
   };
 
   const handleUpdateGoal = (id: string, patch: Partial<CortexGoal>) => {
-    setGoals(goals.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   };
 
   const handleDeleteGoal = (id: string) => {
-    setGoals(goals.filter((g) => g.id !== id));
+    setGoals((prev) => prev.filter((g) => g.id !== id));
     if (selectedKey === `g:${id}`) setSelectedKey(null);
   };
 
@@ -217,6 +262,7 @@ export function TasksPage({ onNavigate }: Props) {
         onMobileInspectorOpenChange={setMobileInspectorOpen}
         left={
           <TaskSidebar
+            pageTab={pageTab}
             listKey={listKey}
             listMeta={listMeta}
             onListChange={(key, meta) => {
@@ -232,7 +278,14 @@ export function TasksPage({ onNavigate }: Props) {
         }
         main={
           <div className="pd-route__stack pd-route__stack--planner">
+            <TasksPageTabs
+              tab={pageTab}
+              taskCount={openTaskCount}
+              goalCount={openGoalCount}
+              onChange={onPageTabChange}
+            />
             <TasksTopBar
+              pageTab={pageTab}
               title={title}
               count={openCount}
               search={search}
@@ -248,7 +301,7 @@ export function TasksPage({ onNavigate }: Props) {
               onOpenInspector={() => setMobileInspectorOpen(true)}
               showInspectorButton={Boolean(selectedItem)}
             />
-            {projects.length === 0 && !loading ? (
+            {pageTab === "tasks" && projects.length === 0 && !loading ? (
               <p className="pd-route__banner" role="status">
                 Create a project for API-backed tasks. Goals work without one.{" "}
                 <button type="button" className="pd-link-btn" onClick={() => void handleCreateProject()}>
@@ -264,6 +317,7 @@ export function TasksPage({ onNavigate }: Props) {
             <TaskCreateBar
               busy={busy}
               focusToken={createFocusToken}
+              lockedKind={pageTab === "goals" ? "goal" : "task"}
               onCreateTask={handleCreateTask}
               onCreateGoal={handleCreateGoal}
             />
@@ -273,7 +327,7 @@ export function TasksPage({ onNavigate }: Props) {
               </p>
             ) : null}
             <div className="pd-route__body pd-route__body--tasks">
-              {boardMode ? (
+              {pageTab === "tasks" && boardMode ? (
                 <TasksCalendarKanban
                   tasks={boardTasks}
                   selectedTaskId={selectedTask?.id ?? null}
@@ -293,9 +347,13 @@ export function TasksPage({ onNavigate }: Props) {
                 />
               ) : progressSections.length === 0 ? (
                 <EmptyState
-                  icon={CheckSquare}
+                  icon={pageTab === "goals" ? Flag : CheckSquare}
                   title="Nothing here yet"
-                  message="Add a task or goal above. Items group by how far along you are — no due date required."
+                  message={
+                    pageTab === "goals"
+                      ? "Add a goal above. Goals group by progress — track long-term outcomes here."
+                      : "Add a task above. Items group by how far along you are — no due date required."
+                  }
                 />
               ) : (
                 <TasksPlanBoard

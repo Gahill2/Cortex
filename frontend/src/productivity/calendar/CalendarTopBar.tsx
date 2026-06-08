@@ -107,7 +107,7 @@ export function CalendarTopBar({
             {loading ? "Loading…" : "Refresh"}
           </button>
         ) : null}
-        <button type="button" className="pd-btn pd-btn--ghost pd-btn--sm" onClick={onToday}>
+        <button type="button" className="pd-btn pd-btn--today pd-btn--sm" onClick={onToday}>
           Today
         </button>
         <div className="pd-cal-nav">
@@ -129,7 +129,7 @@ export function CalendarTopBar({
           </button>
         </div>
         <button type="button" className="pd-btn pd-btn--primary pd-btn--sm" onClick={onQuickAdd}>
-          Quick add
+          + Create
         </button>
       </div>
     </header>

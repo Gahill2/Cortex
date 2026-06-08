@@ -1,11 +1,17 @@
 import { Router } from "express";
-import { google } from "googleapis";
 import { z } from "zod";
 import { requireAuth } from "../../middleware/auth.js";
 import { sendSuccess } from "../../utils/api-response.js";
 import { HttpError } from "../../utils/http-error.js";
-import { createOAuth2Client } from "../../features/gmail/gmail-service.js";
-import { getGoogleCredentials } from "../../features/gmail/google-token-store.js";
+import {
+  getGoogleCredentials,
+  getGoogleCredentialsForEmail,
+} from "../../features/gmail/google-token-store.js";
+import {
+  googleCalendarForCredentials,
+  hasGoogleCalendarScope,
+  isGoogleAuthError,
+} from "../../features/calendar/google-calendar-client.js";
 import { getValidMicrosoftToken } from "../../features/microsoft/microsoft-service.js";
 import { prisma } from "../../db/prisma.js";
 
@@ -57,22 +63,67 @@ function calendarScopeHint(source: "google" | "microsoft"): string {
 }
 
 function isScopeOrAuthError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return /403|401|insufficient|scope|permission|consent|forbidden/i.test(msg);
+  return isGoogleAuthError(err);
 }
 
-// ── Google Calendar ────────────────────────────────────────────────────────────
+type GoogleCalendarSource = {
+  credentials: import("google-auth-library").Credentials;
+  mailAccountId?: string;
+  accountEmail?: string;
+};
 
-async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: string): Promise<FetchResult> {
+async function listGoogleCalendarSources(userId: string): Promise<GoogleCalendarSource[]> {
+  const mailAccounts = await prisma.mailAccount.findMany({
+    where: { userId, provider: "gmail" },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+  });
+
+  const sources: GoogleCalendarSource[] = [];
+  const seenRefresh = new Set<string>();
+
+  for (const acc of mailAccounts) {
+    if (!acc.tokens) continue;
+    const credentials = JSON.parse(acc.tokens) as GoogleCalendarSource["credentials"];
+    const refreshKey = credentials.refresh_token ?? acc.id;
+    if (seenRefresh.has(refreshKey)) continue;
+    seenRefresh.add(refreshKey);
+    sources.push({
+      credentials,
+      mailAccountId: acc.id,
+      accountEmail: acc.email,
+    });
+  }
+
+  if (!sources.length) {
+    const legacy = await getGoogleCredentials(userId);
+    if (legacy?.access_token || legacy?.refresh_token) {
+      sources.push({ credentials: legacy });
+    }
+  }
+
+  return sources;
+}
+
+async function fetchGoogleEventsForSource(
+  userId: string,
+  source: GoogleCalendarSource,
+  timeMin: string,
+  timeMax: string
+): Promise<FetchResult> {
   const warnings: string[] = [];
-  const creds = await getGoogleCredentials(userId);
-  if (!creds?.access_token && !creds?.refresh_token) {
+  const { credentials, mailAccountId, accountEmail } = source;
+  const label = accountEmail ?? "Google account";
+
+  if (!credentials.access_token && !credentials.refresh_token) {
     return { events: [], warnings };
   }
 
-  const auth = createOAuth2Client();
-  auth.setCredentials(creds);
-  const cal = google.calendar({ version: "v3", auth });
+  if (!hasGoogleCalendarScope(credentials)) {
+    warnings.push(`${label}: reconnect Gmail in Mail to grant Google Calendar access.`);
+    return { events: [], warnings };
+  }
+
+  const cal = await googleCalendarForCredentials(credentials, userId, mailAccountId);
 
   try {
     const listRes = await cal.calendarList.list({ minAccessRole: "reader" });
@@ -89,7 +140,7 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
           timeMax,
           singleEvents: true,
           orderBy: "startTime",
-          maxResults: 50,
+          maxResults: 100,
         });
         for (const ev of evRes.data.items ?? []) {
           const allDay = Boolean(ev.start?.date && !ev.start.dateTime);
@@ -98,7 +149,7 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
             id: `google_${calId}_${providerEventId}`,
             title: ev.summary ?? "(No title)",
             start: ev.start?.dateTime ?? ev.start?.date ?? "",
-            end:   ev.end?.dateTime   ?? ev.end?.date   ?? "",
+            end: ev.end?.dateTime ?? ev.end?.date ?? "",
             allDay,
             location: ev.location ?? undefined,
             description: ev.description ?? undefined,
@@ -107,6 +158,7 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
             color,
             providerEventId,
             calendarId: calId,
+            accountEmail,
           });
         }
       } catch (err) {
@@ -115,14 +167,44 @@ async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: strin
     }
     return { events, warnings };
   } catch (err) {
-    console.error("[calendar] google fetch failed:", err);
+    console.error("[calendar] google fetch failed for", label, err);
     if (isScopeOrAuthError(err)) {
-      warnings.push(calendarScopeHint("google"));
+      if (/invalid_grant|revoked/i.test(err instanceof Error ? err.message : String(err))) {
+        warnings.push(`${label}: session expired — reconnect this Gmail account in Mail.`);
+      } else {
+        warnings.push(`${label}: ${calendarScopeHint("google")}`);
+      }
     } else {
-      warnings.push("Could not load Google Calendar. Try reconnecting Gmail in Mail.");
+      warnings.push(`${label}: could not load Google Calendar. Try reconnecting Gmail in Mail.`);
     }
     return { events: [], warnings };
   }
+}
+
+async function fetchGoogleEvents(userId: string, timeMin: string, timeMax: string): Promise<FetchResult> {
+  const sources = await listGoogleCalendarSources(userId);
+  if (!sources.length) {
+    return { events: [], warnings: [] };
+  }
+
+  const results = await Promise.all(
+    sources.map((source) => fetchGoogleEventsForSource(userId, source, timeMin, timeMax))
+  );
+
+  const seen = new Set<string>();
+  const events: CalendarEvent[] = [];
+  const warnings: string[] = [];
+
+  for (const result of results) {
+    warnings.push(...result.warnings);
+    for (const ev of result.events) {
+      if (seen.has(ev.id)) continue;
+      seen.add(ev.id);
+      events.push(ev);
+    }
+  }
+
+  return { events, warnings };
 }
 
 // ── Microsoft Calendar ─────────────────────────────────────────────────────────
@@ -205,16 +287,31 @@ async function patchGoogleEvent(
   start: string,
   end: string,
   allDay: boolean,
-  timeZone: string
+  timeZone: string,
+  accountEmail?: string
 ): Promise<void> {
-  const creds = await getGoogleCredentials(userId);
+  let creds = await getGoogleCredentials(userId);
+  let mailAccountId: string | undefined;
+
+  if (accountEmail) {
+    const match = await getGoogleCredentialsForEmail(userId, accountEmail);
+    if (match) {
+      creds = match.credentials;
+      mailAccountId = match.mailAccountId;
+    }
+  } else if (calendarId.includes("@")) {
+    const match = await getGoogleCredentialsForEmail(userId, calendarId);
+    if (match) {
+      creds = match.credentials;
+      mailAccountId = match.mailAccountId;
+    }
+  }
+
   if (!creds?.access_token && !creds?.refresh_token) {
     throw new HttpError(403, "Google Calendar is not connected");
   }
 
-  const auth = createOAuth2Client();
-  auth.setCredentials(creds);
-  const cal = google.calendar({ version: "v3", auth });
+  const cal = await googleCalendarForCredentials(creds, userId, mailAccountId);
 
   const requestBody = allDay
     ? {
@@ -302,7 +399,16 @@ cortexCalendarRouter.patch("/events", requireAuth, async (req, res) => {
       if (!calendarId) {
         throw new HttpError(400, "calendarId is required for Google events");
       }
-      await patchGoogleEvent(userId, calendarId, providerEventId, start, end, isAllDay, tz);
+      await patchGoogleEvent(
+        userId,
+        calendarId,
+        providerEventId,
+        start,
+        end,
+        isAllDay,
+        tz,
+        accountEmail
+      );
     } else {
       await patchMicrosoftEvent(userId, accountEmail, providerEventId, start, end, isAllDay, tz);
     }
@@ -311,6 +417,113 @@ cortexCalendarRouter.patch("/events", requireAuth, async (req, res) => {
     if (e instanceof HttpError) throw e;
     throw new HttpError(502, `Calendar update failed: ${e instanceof Error ? e.message : e}`);
   }
+});
+
+// GET /calendar/status — connection health for Google / Microsoft calendars
+cortexCalendarRouter.get("/status", requireAuth, async (req, res) => {
+  const userId = req.auth!.userId;
+  const googleSources = await listGoogleCalendarSources(userId);
+  const googleAccounts: Array<{
+    email: string;
+    isPrimary: boolean;
+    hasCalendarScope: boolean;
+    needsReconnect: boolean;
+    calendarCount: number | null;
+    error?: string;
+  }> = [];
+
+  const mailAccounts = await prisma.mailAccount.findMany({
+    where: { userId, provider: "gmail" },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+  });
+
+  for (const acc of mailAccounts) {
+    if (!acc.tokens) {
+      googleAccounts.push({
+        email: acc.email,
+        isPrimary: acc.isPrimary,
+        hasCalendarScope: false,
+        needsReconnect: true,
+        calendarCount: null,
+        error: "No tokens stored",
+      });
+      continue;
+    }
+
+    const credentials = JSON.parse(acc.tokens) as import("google-auth-library").Credentials;
+    const hasCalendarScope = hasGoogleCalendarScope(credentials);
+    let needsReconnect = !hasCalendarScope;
+    let calendarCount: number | null = null;
+    let error: string | undefined;
+
+    if (hasCalendarScope) {
+      try {
+        const cal = await googleCalendarForCredentials(credentials, userId, acc.id);
+        const listRes = await cal.calendarList.list({ minAccessRole: "reader" });
+        calendarCount = listRes.data.items?.length ?? 0;
+      } catch (err) {
+        needsReconnect = true;
+        error = err instanceof Error ? err.message : String(err);
+      }
+    } else {
+      error = "Calendar permission not granted";
+    }
+
+    googleAccounts.push({
+      email: acc.email,
+      isPrimary: acc.isPrimary,
+      hasCalendarScope,
+      needsReconnect,
+      calendarCount,
+      error,
+    });
+  }
+
+  if (!googleAccounts.length && googleSources.length) {
+    const legacy = googleSources[0];
+    const hasCalendarScope = hasGoogleCalendarScope(legacy.credentials);
+    let calendarCount: number | null = null;
+    let needsReconnect = !hasCalendarScope;
+    let error: string | undefined;
+    if (hasCalendarScope) {
+      try {
+        const cal = await googleCalendarForCredentials(legacy.credentials, userId);
+        const listRes = await cal.calendarList.list({ minAccessRole: "reader" });
+        calendarCount = listRes.data.items?.length ?? 0;
+      } catch (err) {
+        needsReconnect = true;
+        error = err instanceof Error ? err.message : String(err);
+      }
+    }
+    googleAccounts.push({
+      email: "Google account",
+      isPrimary: true,
+      hasCalendarScope,
+      needsReconnect,
+      calendarCount,
+      error,
+    });
+  }
+
+  const microsoftAccounts = await prisma.mailAccount.findMany({
+    where: { userId, provider: "microsoft" },
+    select: { email: true, isPrimary: true },
+  });
+
+  sendSuccess(
+    res,
+    {
+      google: googleAccounts,
+      microsoft: microsoftAccounts.map((a) => ({
+        email: a.email,
+        isPrimary: a.isPrimary,
+      })),
+      hasGoogle: googleAccounts.length > 0,
+      hasMicrosoft: microsoftAccounts.length > 0,
+      needsGoogleReconnect: googleAccounts.some((a) => a.needsReconnect),
+    },
+    "live"
+  );
 });
 
 // GET /calendar/events?start=ISO&end=ISO

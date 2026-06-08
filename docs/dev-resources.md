@@ -61,6 +61,12 @@ Opening Cortex (especially **Tasks & Calendar** or the home canvas) in **Cursor�
 - Repo `.vscode/settings.json` sets port **5173** to **notify** only (no auto-preview).
 - If Cursor still opens a preview tab, close it and use Chrome; you can set `CORTEX_OPEN_BROWSER=0` and open the URL manually.
 
+## Linux desktop (cortex host)
+
+- **Monthly updates:** `npm run linux:maintenance` from a normal terminal (Ctrl+Alt+T) — see [linux-desktop-setup.md](./linux-desktop-setup.md).
+- **Snap apps** (Discord, Firefox) often fail from **Cursor’s terminal**; use the app menu or Chrome instead.
+- **Chrome** (`.deb`) works from Cursor and is what `npm run open` uses.
+
 ## Environment toggles
 
 | Variable | Effect |

@@ -1,5 +1,5 @@
 import { Calendar, CheckSquare, LayoutDashboard, Server } from "lucide-react";
-import type { Tab } from "../../../App";
+import type { Tab } from "../../../tab";
 import type { HomeBoardTask } from "../../home/HomeDashboardTop";
 import type { WidgetRenderStyle } from "../widgetRenderStyle";
 import { useDashboardDataContextOptional } from "../../../productivity-dashboard/hooks/useDashboardDataContext";
@@ -46,9 +46,9 @@ export function AtAGlanceWidget({
   const eventsLoading = dash?.eventsLoading ?? false;
   const eventLimit = compact ? 2 : 3;
 
-  const mediaPreview = MEDIA_PREVIEW_IDS.map((id) => homelab?.mediaServices.find((s) => s.id === id)).filter(
-    (s): s is NonNullable<typeof s> => Boolean(s),
-  );
+  const mediaPreview = MEDIA_PREVIEW_IDS.map((id) =>
+    homelab?.mediaServices?.find((s) => s.id === id),
+  ).filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   const dateStr = now.toLocaleDateString(undefined, {
     weekday: compact ? "short" : "long",
@@ -57,7 +57,7 @@ export function AtAGlanceWidget({
   });
 
   return (
-    <div className="widget widget--at-a-glance" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="widget widget--at-a-glance">
       <header className="at-glance__header">
         <div>
           <p className="at-glance__eyebrow">{dateStr}</p>
@@ -73,7 +73,7 @@ export function AtAGlanceWidget({
           {homelab && !homelabLoading ? (
             <span>
               <strong>
-                {homelab.mediaOk}/{homelab.mediaTotal}
+                {homelab.mediaOk ?? 0}/{homelab.mediaTotal ?? 0}
               </strong>{" "}
               media
             </span>
@@ -95,10 +95,10 @@ export function AtAGlanceWidget({
           <p className="at-glance__muted">Nothing open — add a task in Tasks.</p>
         ) : (
           <ul className="at-glance__list">
-            {previewTasks.map((t) => (
-              <li key={t.id} className="at-glance__row">
+            {previewTasks.map((t, idx) => (
+              <li key={t.id ?? `task-${idx}`} className="at-glance__row">
                 <span className={`at-glance__dot ${t.status === "IN_PROGRESS" ? "at-glance__dot--warn" : "at-glance__dot--unknown"}`} />
-                <span className="at-glance__row-title">{t.title}</span>
+                <span className="at-glance__row-title">{t.title ?? "Untitled task"}</span>
               </li>
             ))}
           </ul>
@@ -120,15 +120,17 @@ export function AtAGlanceWidget({
             <p className="at-glance__muted">No events today.</p>
           ) : (
             <ul className="at-glance__list">
-              {events.slice(0, eventLimit).map((ev) => {
+              {events.slice(0, eventLimit).map((ev, idx) => {
+                if (!ev?.start) return null;
                 const start = new Date(ev.start);
+                if (Number.isNaN(start.getTime())) return null;
                 const time = ev.allDay
                   ? "All day"
                   : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
                 return (
-                  <li key={ev.id} className="at-glance__row at-glance__row--calendar">
+                  <li key={ev.id ?? `ev-${idx}`} className="at-glance__row at-glance__row--calendar">
                     <span className="at-glance__time">{time}</span>
-                    <span className="at-glance__row-title">{ev.title}</span>
+                    <span className="at-glance__row-title">{ev.title ?? "Event"}</span>
                   </li>
                 );
               })}
@@ -158,7 +160,7 @@ export function AtAGlanceWidget({
               ))}
             </div>
             <p className="at-glance__foot">
-              {homelab.servicesOk}/{homelab.servicesTotal} services up
+              {homelab.servicesOk ?? 0}/{homelab.servicesTotal ?? 0} services up
               {homelab.downloadHeadroomHuman ? ` · ${homelab.downloadHeadroomHuman} free` : ""}
             </p>
           </>

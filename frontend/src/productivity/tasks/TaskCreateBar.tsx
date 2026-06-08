@@ -8,14 +8,17 @@ export const TASK_CREATE_TITLE_ID = "pd-create-bar-title";
 interface Props {
   busy?: boolean;
   focusToken?: number;
+  /** Lock to task or goal only (hides the kind switcher). */
+  lockedKind?: CreateKind;
   onCreateTask: (fields: { title: string; dueDate?: string | null; notes?: string }) => Promise<string | null>;
   onCreateGoal: (fields: { title: string; targetDate?: string | null; estimateHours?: number }) => void;
 }
 
-export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal }: Props) {
+export function TaskCreateBar({ busy, focusToken = 0, lockedKind, onCreateTask, onCreateGoal }: Props) {
   const formId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
-  const [kind, setKind] = useState<CreateKind>("task");
+  const [kind, setKind] = useState<CreateKind>(lockedKind ?? "task");
+  const effectiveKind = lockedKind ?? kind;
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [targetDate, setTargetDate] = useState("");
@@ -27,6 +30,10 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
   const canSubmit = Boolean(trimmed) && !saving && !busy;
 
   useEffect(() => {
+    if (lockedKind) setKind(lockedKind);
+  }, [lockedKind]);
+
+  useEffect(() => {
     if (focusToken > 0) titleRef.current?.focus();
   }, [focusToken]);
 
@@ -34,7 +41,7 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
     e.preventDefault();
     if (!canSubmit) return;
     setSaving(true);
-    if (kind === "goal") {
+    if (effectiveKind === "goal") {
       onCreateGoal({
         title: trimmed,
         targetDate: targetDate || null,
@@ -64,28 +71,30 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
         Draft below, then confirm — nothing is added until you click the button.
       </p>
       <form className="pd-create-bar__form" onSubmit={(e) => void submit(e)} noValidate>
-        <div className="pd-create-bar__kind" role="tablist" aria-label="Create type">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === "task"}
-            className={`pd-create-bar__kind-btn${kind === "task" ? " pd-create-bar__kind-btn--active" : ""}`}
-            onClick={() => setKind("task")}
-          >
-            <ListTodo size={15} aria-hidden />
-            Task
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === "goal"}
-            className={`pd-create-bar__kind-btn${kind === "goal" ? " pd-create-bar__kind-btn--active" : ""}`}
-            onClick={() => setKind("goal")}
-          >
-            <Flag size={15} aria-hidden />
-            Goal
-          </button>
-        </div>
+        {!lockedKind ? (
+          <div className="pd-create-bar__kind" role="tablist" aria-label="Create type">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveKind === "task"}
+              className={`pd-create-bar__kind-btn${effectiveKind === "task" ? " pd-create-bar__kind-btn--active" : ""}`}
+              onClick={() => setKind("task")}
+            >
+              <ListTodo size={15} aria-hidden />
+              Task
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveKind === "goal"}
+              className={`pd-create-bar__kind-btn${effectiveKind === "goal" ? " pd-create-bar__kind-btn--active" : ""}`}
+              onClick={() => setKind("goal")}
+            >
+              <Flag size={15} aria-hidden />
+              Goal
+            </button>
+          </div>
+        ) : null}
         <div className="pd-create-bar__row">
           <input
             ref={titleRef}
@@ -93,12 +102,12 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
             className="pd-create-bar__title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={kind === "goal" ? "Long-term goal…" : "What needs doing?…"}
+            placeholder={effectiveKind === "goal" ? "Long-term goal…" : "What needs doing?…"}
             disabled={busy || saving}
-            aria-label={kind === "goal" ? "Goal title" : "Task title"}
+            aria-label={effectiveKind === "goal" ? "Goal title" : "Task title"}
             autoComplete="off"
           />
-          {kind === "task" ? (
+          {effectiveKind === "task" ? (
             <label className="pd-create-bar__date">
               <span className="pd-create-bar__date-label">Due</span>
               <input
@@ -136,7 +145,7 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
             </>
           )}
         </div>
-        {kind === "task" ? (
+        {effectiveKind === "task" ? (
           <input
             className="pd-create-bar__notes"
             value={notes}
@@ -153,8 +162,8 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
           <div className="pd-create-bar__preview" role="status">
             <span className="pd-create-bar__preview-label">Ready to add</span>
             <strong>{trimmed}</strong>
-            {kind === "task" && dueDate ? <span> · due {dueDate}</span> : null}
-            {kind === "goal" && targetDate ? <span> · target {targetDate}</span> : null}
+            {effectiveKind === "task" && dueDate ? <span> · due {dueDate}</span> : null}
+            {effectiveKind === "goal" && targetDate ? <span> · target {targetDate}</span> : null}
           </div>
         ) : null}
         <div className="pd-create-bar__actions">
@@ -164,7 +173,7 @@ export function TaskCreateBar({ busy, focusToken = 0, onCreateTask, onCreateGoal
             disabled={!canSubmit}
             aria-busy={saving}
           >
-            {saving ? "Adding…" : kind === "goal" ? "Confirm & add goal" : "Confirm & add task"}
+            {saving ? "Adding…" : effectiveKind === "goal" ? "Confirm & add goal" : "Confirm & add task"}
           </button>
           {trimmed ? (
             <button

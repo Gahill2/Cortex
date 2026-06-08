@@ -10,6 +10,7 @@ import { listMailAccounts } from "../../features/mail/mail-account-store.js";
 import { signMicrosoftState, verifyMicrosoftState } from "../../features/microsoft/microsoft-state.js";
 import {
   isMicrosoftConfigured,
+  isMicrosoftConfiguredAsync,
   buildMicrosoftAuthUrl,
   exchangeMicrosoftCode,
   saveMicrosoftTokens,
@@ -27,9 +28,9 @@ cortexMicrosoftRouter.get("/setup", requireAuth, routeRateLimit(30, 60_000), (_r
 });
 
 // ── Connect (get OAuth URL) ───────────────────────────────────────────────────
-cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isMicrosoftConfigured()) {
-    throw new HttpError(503, "Microsoft OAuth not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.");
+cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isMicrosoftConfiguredAsync())) {
+    throw new HttpError(503, "Microsoft is not enabled yet. Add OAuth credentials in Settings → Integrations.");
   }
   const body = z
     .object({
@@ -41,7 +42,7 @@ cortexMicrosoftRouter.post("/connect", requireAuth, routeRateLimit(10, 60_000), 
     desktop: body.desktop === true,
     returnOrigin: body.returnOrigin
   });
-  const url = buildMicrosoftAuthUrl(state, body.returnOrigin);
+  const url = await buildMicrosoftAuthUrl(state, body.returnOrigin);
   sendSuccess(res, { url });
 });
 

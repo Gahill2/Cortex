@@ -58,7 +58,7 @@ cortexSettingsRouter.get("/", routeRateLimit(30, 60_000), async (req, res) => {
 });
 
 /** PATCH /api/settings — update user preferences (partial) */
-cortexSettingsRouter.patch("/", routeRateLimit(30, 60_000), async (req, res) => {
+cortexSettingsRouter.patch("/", routeRateLimit(120, 60_000), async (req, res) => {
   const { userId } = req.auth!;
   const input = patchSettingsSchema.parse(req.body);
 

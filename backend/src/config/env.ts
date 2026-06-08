@@ -82,6 +82,9 @@ const envSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string().optional().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().optional().default(""),
   SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),
+  LINKEDIN_CLIENT_ID: z.string().optional().default(""),
+  LINKEDIN_CLIENT_SECRET: z.string().optional().default(""),
+  LINKEDIN_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/linkedin/oauth/callback"),
   OLLAMA_BASE_URL: z.string().optional().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().optional().default("llama3.2"),
   /** UI label for remote Ollama host (e.g. gaming PC on Tailscale). */

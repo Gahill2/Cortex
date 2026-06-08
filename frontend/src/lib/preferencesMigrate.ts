@@ -72,7 +72,8 @@ export function isServerSettingsEmpty(settings: ServerSettings): boolean {
     ui.density !== DEFAULT_UI_CUSTOMIZATION.density ||
     ui.surfaceTone !== DEFAULT_UI_CUSTOMIZATION.surfaceTone ||
     ui.accent !== DEFAULT_UI_CUSTOMIZATION.accent ||
-    ui.homeFontScale !== DEFAULT_UI_CUSTOMIZATION.homeFontScale;
+    ui.textSizePx !== DEFAULT_UI_CUSTOMIZATION.textSizePx ||
+    ui.textScale !== DEFAULT_UI_CUSTOMIZATION.textScale;
 
   return (
     settings.appearance === "system" &&
@@ -216,13 +217,12 @@ export function hydrateLocalFromServerSettings(settings: ServerSettings): void {
       localStorage.setItem(
         "cortex-canvas-state",
         JSON.stringify({
+          version: 2,
           nodes: layout.nodes,
           pan: layout.pan ?? { x: 0, y: 0 },
           zoom: layout.zoom ?? 1,
         }),
       );
-    } else {
-      localStorage.removeItem("cortex-canvas-state");
     }
 
     if (layout?.background && typeof layout.background === "object") {
@@ -245,6 +245,9 @@ export function mergeSettings(base: ServerSettings, partial: Partial<ServerSetti
   }
   if (partial.canvasLayout !== undefined) {
     next.canvasLayout = partial.canvasLayout;
+  }
+  if (partial.homeGoals !== undefined) {
+    next.homeGoals = partial.homeGoals;
   }
   return next;
 }

@@ -10,6 +10,8 @@ import { TasksCalendarKanban } from "../components/tasks-calendar/TasksCalendarK
 import { TasksCalendarQuickAdd } from "../components/tasks-calendar/TasksCalendarQuickAdd";
 import { TasksCalendarTaskList } from "../components/tasks-calendar/TasksCalendarTaskList";
 import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
+import { CalendarConnectBanner } from "../components/calendar/CalendarConnectBanner";
+import { connectGoogleCalendar } from "../lib/googleCalendarConnect";
 import type { CalendarRangeView, CategoryFilter, PlannerTask } from "../components/tasks-calendar/types";
 
 type TaskViewMode = "list" | "board";
@@ -40,6 +42,7 @@ export function TasksCalendarPage({ activeTab: _activeTab, onNavigate }: Props) 
     eventsError,
     calendarWarnings,
     hasCalendarAccount,
+    calendarStatus,
     refresh,
     toggleTask,
     createTask,
@@ -94,13 +97,14 @@ export function TasksCalendarPage({ activeTab: _activeTab, onNavigate }: Props) 
   const pushToast = useToastStore((s) => s.push);
 
   const onNewEvent = () => {
-    onNavigate("settings");
-    pushToast({
-      title: "Calendar connection required",
-      message:
-        "Google Calendar uses the same sign-in as Gmail. Open Mail → Connect Gmail (or reconnect to grant calendar access), then refresh Tasks & Calendar.",
-      tone: "neutral",
-      dismissMs: 6000,
+    void connectGoogleCalendar().catch(() => {
+      pushToast({
+        title: "Calendar connection required",
+        message:
+          "Google Calendar uses the same sign-in as Gmail. Reconnect Gmail to grant calendar access, then refresh.",
+        tone: "neutral",
+        dismissMs: 6000,
+      });
     });
   };
 
@@ -138,15 +142,11 @@ export function TasksCalendarPage({ activeTab: _activeTab, onNavigate }: Props) 
               {statusMessage}
             </p>
           ) : null}
-          {calendarWarnings.length > 0 ? (
-            <div className="tcc-warnings" role="status">
-              {calendarWarnings.map((w) => (
-                <p key={w} className="tcc-warning-line">
-                  {w}
-                </p>
-              ))}
-            </div>
-          ) : null}
+          <CalendarConnectBanner
+            status={calendarStatus}
+            warnings={calendarWarnings}
+            onNavigateMail={() => onNavigate("mail")}
+          />
           {loading && !calendarSaving ? (
             <div className="tcc-loading-hint">
               <span className="tcc-spinner" aria-hidden="true" />

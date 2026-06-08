@@ -26,6 +26,12 @@ export interface WidgetInstanceConfig {
   title?: string;
   accentColor?: string;
   compact?: boolean;
+  /** Per-widget base text size in px. Only when typographyCustom is true. */
+  textSizePx?: number;
+  /** Per-widget scale (1 = 100%). Only when typographyCustom is true. */
+  textScale?: number;
+  /** Set when user overrides board typography for this widget. */
+  typographyCustom?: boolean;
   [key: string]: unknown;
 }
 

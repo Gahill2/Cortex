@@ -2,31 +2,16 @@ import { useUiCustomization } from "../../hooks/useUiCustomization";
 import {
   ACCENT_OPTIONS,
   DENSITY_OPTIONS,
-  HOME_FONT_OPTIONS,
   SURFACE_OPTIONS,
 } from "../../lib/uiCustomization";
 
-/** Inline dashboard theme controls (edit mode toolbar). */
+/** Density, surface, accent — edit mode toolbar (typography lives in DashboardTypographyToolbar). */
 export function DashboardCustomizeStrip() {
   const { ui, patchUi } = useUiCustomization();
 
   return (
     <div className="dashboard-customize-strip" aria-label="Dashboard appearance">
       <span className="dashboard-customize-strip__label">Theme</span>
-      <div className="dashboard-customize-strip__group" role="group" aria-label="Font">
-        {HOME_FONT_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`dashboard-customize-strip__chip${ui.homeFont === opt.id ? " is-active" : ""}`}
-            title={`Font: ${opt.label}`}
-            onClick={() => patchUi({ homeFont: opt.id })}
-          >
-            {opt.label.slice(0, 1)}
-          </button>
-        ))}
-      </div>
-      <span className="dashboard-customize-strip__sep" aria-hidden />
       <div className="dashboard-customize-strip__group" role="group" aria-label="Density">
         {DENSITY_OPTIONS.map((opt) => (
           <button
@@ -67,18 +52,6 @@ export function DashboardCustomizeStrip() {
           />
         ))}
       </div>
-      <label className="dashboard-customize-strip__scale">
-        <span className="sr-only">Text size</span>
-        <input
-          type="range"
-          min={82}
-          max={128}
-          step={2}
-          value={Math.round(ui.homeFontScale * 100)}
-          onChange={(e) => patchUi({ homeFontScale: Number(e.target.value) / 100 })}
-          title={`Text size ${Math.round(ui.homeFontScale * 100)}%`}
-        />
-      </label>
     </div>
   );
 }

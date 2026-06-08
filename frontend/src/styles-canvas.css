@@ -135,11 +135,27 @@
   will-change: transform;
 }
 
+.canvas-viewport--interacting .canvas-layer {
+  will-change: transform;
+}
+
 /* Alignment guides (Figma-style red/blue snap lines) */
+.canvas-guides-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 998;
+}
+
 .canvas-guide {
   position: absolute;
   pointer-events: none;
-  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.06s ease-out;
+}
+
+.canvas-guide--visible {
+  opacity: 1;
 }
 
 .canvas-guide--h {
@@ -162,6 +178,7 @@
   border-radius: 2px;
   pointer-events: none;
   z-index: 999;
+  will-change: left, top, width, height;
 }
 
 /* ── Canvas Items ────────────────────────────────────────────────────────── */
@@ -176,11 +193,15 @@
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.25),
     0 0 0 0 rgba(91, 141, 255, 0);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
-  animation: canvas-item-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: canvas-item-pop-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   contain: layout style paint;
   backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 @keyframes canvas-item-pop-in {
@@ -196,7 +217,8 @@
 
 .canvas-viewport--panning .canvas-item,
 .canvas-viewport--dragging .canvas-item,
-.canvas-viewport--resizing .canvas-item {
+.canvas-viewport--resizing .canvas-item,
+.canvas-item--lifted {
   transition: none;
   animation: none;
 }
@@ -298,6 +320,15 @@
   pointer-events: auto;
 }
 
+.canvas-item--edit-mode.canvas-item--dashboard-widget.canvas-item--selected .canvas-item__header {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.canvas-item--view-mode.canvas-item--dashboard-widget {
+  cursor: pointer;
+}
+
 .canvas-item--locked .canvas-item__body {
   cursor: not-allowed;
 }
@@ -331,13 +362,8 @@
 }
 
 .canvas-item--widget.canvas-item--dashboard-widget.canvas-item--selected .canvas-item__resize {
-  bottom: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: rgba(12, 12, 14, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  bottom: 4px;
+  right: 4px;
   opacity: 1;
 }
 
@@ -414,8 +440,8 @@
 .canvas-widget-shell.widget--size-small .habit-widget,
 .canvas-widget-shell.widget--size-small .mail-widget,
 .canvas-widget-shell.widget--size-small .spotify-widget {
-  padding: 11px 13px;
-  gap: 6px;
+  padding: calc(13px * var(--widget-pad-scale, 1)) calc(15px * var(--widget-pad-scale, 1));
+  gap: calc(8px * var(--widget-pad-scale, 1));
 }
 
 .canvas-widget-shell.widget--size-medium .widget,
@@ -424,8 +450,8 @@
 .canvas-widget-shell.widget--size-medium .habit-widget,
 .canvas-widget-shell.widget--size-medium .mail-widget,
 .canvas-widget-shell.widget--size-medium .spotify-widget {
-  padding: 14px 16px;
-  gap: 8px;
+  padding: calc(18px * var(--widget-pad-scale, 1)) calc(20px * var(--widget-pad-scale, 1));
+  gap: calc(10px * var(--widget-pad-scale, 1));
 }
 
 .canvas-widget-shell.widget--layout-compact .widget,
@@ -434,8 +460,8 @@
 .canvas-widget-shell.widget--layout-compact .habit-widget,
 .canvas-widget-shell.widget--layout-compact .mail-widget,
 .canvas-widget-shell.widget--layout-compact .spotify-widget {
-  padding: 10px 12px;
-  gap: 4px;
+  padding: calc(12px * var(--widget-pad-scale, 1)) calc(14px * var(--widget-pad-scale, 1));
+  gap: calc(6px * var(--widget-pad-scale, 1));
 }
 
 .canvas-item__widget--fill .canvas-widget-shell .widget {
@@ -518,13 +544,32 @@
   cursor: grabbing;
 }
 
-/* Lift effect while dragging — will-change: transform set from JS */
-.canvas-item[style*="will-change: transform"] {
+/* Lift effect while dragging — compositor-only transform from JS */
+.canvas-item--lifted {
+  contain: none;
   box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.38),
-    0 0 0 2.5px rgba(10, 132, 255, 0.35);
+    0 20px 52px rgba(0, 0, 0, 0.42),
+    0 0 0 2.5px rgba(10, 132, 255, 0.38);
   z-index: 9999 !important;
-  opacity: 0.97;
+  opacity: 0.98;
+  transition: none;
+  cursor: grabbing;
+}
+
+.canvas-item--drop-settle {
+  animation: canvas-item-drop-settle 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes canvas-item-drop-settle {
+  0% {
+    transform: scale(1.012);
+  }
+  55% {
+    transform: scale(0.996);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .canvas-item--selected .canvas-item__close {
@@ -742,25 +787,66 @@
   color: var(--text-3);
 }
 
+.canvas-widget-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 1rem;
+  text-align: center;
+}
+
+.canvas-widget-error__title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.canvas-widget-error__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
 /* Resize handle */
 .canvas-item__resize {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 20px;
-  height: 20px;
+  bottom: 2px;
+  right: 2px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: nwse-resize;
-  color: var(--text-3);
+  color: var(--text-2);
   opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 10;
+  transition: opacity 0.15s, background 0.12s;
+  z-index: 20;
+  border-radius: 8px 0 10px 0;
+  background: color-mix(in srgb, var(--bg-2, #1a1a1e) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  touch-action: none;
 }
 
-.canvas-item--hovered .canvas-item__resize {
+.canvas-item__resize::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.canvas-item--hovered .canvas-item__resize,
+.canvas-item--selected .canvas-item__resize {
   opacity: 1;
+}
+
+.canvas-item__resize:hover {
+  color: var(--text-1);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2, #1a1a1e));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* Note specific styling */
@@ -955,37 +1041,53 @@
   color: var(--accent);
 }
 
-/* ── Fixed top chrome (viewport, below burger app bar) ───────────────────── */
+/* ── Fixed top chrome (pinned to top of canvas dashboard) ─────────────────── */
 
 :root {
   --cortex-burger-appbar-h: 60px;
-  --canvas-chrome-dock-h: 48px;
+  --cortex-app-topnav-h: 64px;
+  --canvas-chrome-dock-h: 52px;
 }
 
 .canvas-dashboard--fixed-chrome .canvas-viewport {
-  padding-top: var(--canvas-chrome-dock-h, 48px);
+  padding-top: var(--canvas-chrome-dock-h, 52px);
 }
 
-/* Nav + toolbar under the app bar */
-.canvas-chrome-stack {
-  position: fixed;
-  top: var(--cortex-burger-appbar-h, 60px);
+/* Toolbar + glance bar — top of the home canvas (not viewport-floating) */
+.canvas-dashboard--fixed-chrome .canvas-chrome-stack {
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   z-index: 250;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px 8px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.canvas-chrome-stack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
   pointer-events: none;
   box-sizing: border-box;
 }
 
 .canvas-unified-toolbar__row--nav {
   flex-shrink: 0;
-  min-height: 40px;
-  padding: 2px 6px;
+  min-height: 44px;
+  padding: 6px 16px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
@@ -997,36 +1099,29 @@
 .canvas-chrome-dock {
   position: static;
   display: flex;
-  justify-content: center;
+  justify-content: stretch;
   width: 100%;
-  max-width: min(98vw, 1440px);
+  max-width: none;
   pointer-events: none;
   box-sizing: border-box;
   padding: 0;
 }
 
-/* Unified toolbar card */
+/* Unified toolbar — full-width bar flush to canvas top */
 .canvas-unified-toolbar {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: min(98vw, 1440px);
-  min-height: 44px;
+  max-width: none;
+  min-height: 48px;
   pointer-events: auto;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface-1, #242428) 94%, transparent);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 0;
+  background: var(--bg, var(--surface-1, #242428));
+  box-shadow: none;
   overflow: visible;
-}
-
-@supports (backdrop-filter: blur(8px)) {
-  .canvas-unified-toolbar {
-    backdrop-filter: blur(16px) saturate(1.4);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    background: color-mix(in srgb, var(--surface-1, #242428) 88%, transparent);
-  }
 }
 
 .canvas-unified-toolbar__row {
@@ -1034,8 +1129,8 @@
   align-items: center;
   flex-wrap: nowrap;
   gap: 0;
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 48px;
+  padding: 0 16px;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -1045,9 +1140,9 @@
 .canvas-unified-toolbar__row--secondary {
   flex-wrap: nowrap;
   align-content: center;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
-  padding: 6px 12px;
+  padding: 10px 16px;
   border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   overflow-x: auto;
   overflow-y: hidden;
@@ -1081,8 +1176,8 @@
 }
 
 .canvas-unified-toolbar__row--main .canvas-toolbar-stack {
-  flex: 1 1 100%;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   min-width: 0;
 }
 
@@ -1139,8 +1234,285 @@
 }
 
 .canvas-unified-toolbar__row--toolbar {
+  flex-wrap: nowrap;
+  align-content: center;
+}
+
+.canvas-unified-toolbar__row--toolbar .canvas-toolbar-stack {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.canvas-unified-toolbar__row--toolbar .canvas-toolbar--embedded {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.canvas-unified-toolbar__row--toolbar .dashboard-typography-toolbar {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.canvas-unified-toolbar__row--toolbar .canvas-widget-inspector {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.canvas-unified-toolbar__row--toolbar:has(.canvas-widget-inspector) .canvas-toolbar-stack {
+  flex: 0 1 auto;
+  max-width: 42%;
+}
+
+/* Inline widget inspector — single toolbar row (Google Docs style) */
+.canvas-widget-inspector {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-height: 36px;
+  max-height: 40px;
+  padding: 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.canvas-widget-inspector__title {
+  flex-shrink: 0;
+  max-width: 7rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-widget-inspector__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.canvas-widget-inspector__field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.canvas-widget-inspector__select {
+  height: 28px;
+  padding: 0 1.35rem 0 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.3rem center;
+}
+
+.canvas-widget-inspector__select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.canvas-widget-inspector__menu-anchor {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.canvas-widget-inspector__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.canvas-widget-inspector__menu-btn.is-open,
+.canvas-widget-inspector__menu-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-1);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.canvas-widget-inspector__menu-btn.is-custom {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+
+.canvas-widget-inspector__chevron {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.7;
+}
+
+.canvas-widget-inspector__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1400;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  background: var(--surface, var(--bg-2));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-widget-inspector__menu--more {
+  min-width: 260px;
+}
+
+.canvas-widget-inspector__menu-section + .canvas-widget-inspector__menu-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.canvas-widget-inspector__menu-heading {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.canvas-widget-inspector__slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.canvas-widget-inspector__slider input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 80px;
+}
+
+.canvas-widget-inspector__swatches {
+  display: flex;
   flex-wrap: wrap;
-  align-content: flex-start;
+  gap: 6px;
+}
+
+.canvas-widget-inspector__swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.canvas-widget-inspector__swatch.is-active {
+  border-color: var(--accent);
+}
+
+.canvas-widget-inspector__color-input input {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.canvas-widget-inspector__layer-row {
+  display: flex;
+  gap: 4px;
+}
+
+.canvas-widget-inspector__dims {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.canvas-widget-inspector__dims-muted {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.canvas-widget-inspector__spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.canvas-widget-inspector__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.canvas-widget-inspector__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.canvas-widget-inspector__icon-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-1);
+}
+
+.canvas-widget-inspector__icon-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+}
+
+.canvas-widget-inspector__icon-btn.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: #fca5a5;
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
+}
+
+.canvas-widget-inspector__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .canvas-unified-toolbar__divider {

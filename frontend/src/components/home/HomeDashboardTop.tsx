@@ -98,7 +98,7 @@ export function HomeDashboardTop({ onNavigate, tasks, projectsCount, loading }: 
     e.preventDefault();
     const text = goalDraft.trim();
     if (!text) return;
-    setGoals((prev) => [...prev, { id: crypto.randomUUID(), text, done: false }]);
+    setGoals((prev) => [...prev, { id: `goal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, text, done: false }]);
     setGoalDraft("");
   };
 

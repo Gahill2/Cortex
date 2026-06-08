@@ -31,17 +31,32 @@ export const persistGoogleCredentials = async (
 };
 
 export const getGoogleCredentials = async (userId: string): Promise<Credentials | null> => {
+  const mailRow = await prisma.mailAccount.findFirst({
+    where: { userId, provider: "gmail" },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+  });
+  if (mailRow?.tokens) return JSON.parse(mailRow.tokens) as Credentials;
+
   const row = await prisma.oAuthToken.findUnique({
     where: { userId_provider: { userId, provider: "google" } },
   });
   if (row) return JSON.parse(row.tokens) as Credentials;
 
+  return null;
+};
+
+export const getGoogleCredentialsForEmail = async (
+  userId: string,
+  email: string
+): Promise<{ credentials: Credentials; mailAccountId: string } | null> => {
   const mailRow = await prisma.mailAccount.findFirst({
-    where: { userId, provider: "gmail" },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
+    where: { userId, provider: "gmail", email },
   });
   if (!mailRow?.tokens) return null;
-  return JSON.parse(mailRow.tokens) as Credentials;
+  return {
+    credentials: JSON.parse(mailRow.tokens) as Credentials,
+    mailAccountId: mailRow.id,
+  };
 };
 
 export const clearGoogleCredentials = async (userId: string): Promise<void> => {

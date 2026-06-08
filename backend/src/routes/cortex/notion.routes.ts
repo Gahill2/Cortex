@@ -14,6 +14,7 @@ import {
   isNotionConfigured,
   isNotionConnected,
   isNotionOAuthConfigured,
+  isNotionOAuthConfiguredAsync,
   hasNotionInternalToken,
   notionAppendMarkdown,
   notionContext,
@@ -58,15 +59,15 @@ notionRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), async (req,
   });
 });
 
-notionRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
-  if (!isNotionOAuthConfigured()) {
+notionRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), async (req, res) => {
+  if (!(await isNotionOAuthConfiguredAsync())) {
     throw new HttpError(
       503,
-      "Notion OAuth not configured. Set NOTION_CLIENT_ID, NOTION_CLIENT_SECRET, and NOTION_REDIRECT_URI (see developers.notion.com)."
+      "Notion is not enabled yet. Add OAuth credentials in Settings → Integrations."
     );
   }
   const state = signNotionOAuthState(req.auth!.userId);
-  const url = buildNotionAuthUrl(state);
+  const url = await buildNotionAuthUrl(state);
   sendSuccess(res, { url });
 });
 

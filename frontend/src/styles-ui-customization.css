@@ -19,18 +19,18 @@ html[data-surface-tone="cool"] {
 }
 
 html[data-ui-density="compact"] .cortex-route-bootstrap {
-  --route-pad-y: var(--space-2);
-  --route-pad-x: var(--space-3);
-}
-
-html[data-ui-density="comfortable"] .cortex-route-bootstrap {
   --route-pad-y: var(--space-3);
   --route-pad-x: var(--space-4);
 }
 
-html[data-ui-density="spacious"] .cortex-route-bootstrap {
+html[data-ui-density="comfortable"] .cortex-route-bootstrap {
   --route-pad-y: var(--space-4);
   --route-pad-x: var(--space-5);
+}
+
+html[data-ui-density="spacious"] .cortex-route-bootstrap {
+  --route-pad-y: var(--space-5);
+  --route-pad-x: var(--space-6);
 }
 
 .cortex-route-bootstrap--padded {
@@ -38,20 +38,210 @@ html[data-ui-density="spacious"] .cortex-route-bootstrap {
   padding-bottom: max(var(--route-pad-y, var(--space-3)), env(safe-area-inset-bottom, 0px));
 }
 
-.home-page,
-.home-page .canvas-dashboard,
-.home-page .widget-glass,
-.canvas-dashboard .canvas-widget-shell {
+html.cortex-notion {
   font-family: var(--home-font-body, var(--font-brand));
-  font-size: calc(13px * var(--home-font-scale, 1) * var(--ui-density-scale, 1));
+}
+
+/* Canvas chrome — fixed UI size (never follows board text Size/Scale) */
+.canvas-chrome-stack,
+.canvas-unified-toolbar,
+.canvas-toolbar,
+.dashboard-typography-toolbar,
+.canvas-selection-toolbar,
+.canvas-widget-inspector,
+.home-glance--compact {
+  font-size: 13px;
+}
+
+/* Widget shells only — board typography applies here */
+.canvas-dashboard .canvas-widget-shell,
+.home-page .widget-glass {
+  font-family: var(--home-font-body, var(--font-brand));
+  /* effective px from JS; divide by canvas zoom so text stays readable when zoomed out */
+  font-size: calc(
+    var(--widget-text-size-px, var(--home-text-size-px, 14px)) *
+      var(--widget-density-scale, 1) / var(--canvas-zoom, 1)
+  );
 }
 
 .canvas-dashboard[data-ui-density="compact"] .canvas-widget-shell {
-  --widget-density-scale: 0.92;
+  --widget-density-scale: 0.96;
 }
 
 .canvas-dashboard[data-ui-density="spacious"] .canvas-widget-shell {
-  --widget-density-scale: 1.08;
+  --widget-density-scale: 1.12;
+}
+
+/* Widget copy scales with shell base (14px design → em ratios) */
+.canvas-dashboard .canvas-widget-shell .widget-label {
+  font-size: 0.929em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-empty,
+.canvas-dashboard .canvas-widget-shell .widget-open-hint,
+.canvas-dashboard .canvas-widget-shell .widget-cta-text {
+  font-size: 0.929em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-cta-link,
+.canvas-dashboard .canvas-widget-shell .widget-cta-btn,
+.canvas-dashboard .canvas-widget-shell .widget-task-title {
+  font-size: 0.857em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-task-num {
+  font-size: 1.571em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-task-lbl,
+.canvas-dashboard .canvas-widget-shell .widget-task-dot,
+.canvas-dashboard .canvas-widget-shell .widget-task-proj,
+.canvas-dashboard .canvas-widget-shell .widget-status-text,
+.canvas-dashboard .canvas-widget-shell .spotify-widget-device {
+  font-size: 0.714em;
+}
+
+.canvas-dashboard .canvas-widget-shell .spotify-widget-track {
+  font-size: 1.143em;
+}
+
+.canvas-dashboard .canvas-widget-shell .spotify-widget-artist,
+.canvas-dashboard .canvas-widget-shell .widget-ai-reply {
+  font-size: 0.929em;
+}
+
+.canvas-dashboard .canvas-widget-shell .clock-time {
+  font-size: 3em;
+}
+
+.canvas-dashboard .canvas-widget-shell .clock-sec {
+  font-size: 1.857em;
+}
+
+.canvas-dashboard .canvas-widget-shell .clock-ampm {
+  font-size: 1.143em;
+}
+
+.canvas-dashboard .canvas-widget-shell .clock-date {
+  font-size: 0.857em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-goals-row__title {
+  font-size: 0.929em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget-goals-row__pct {
+  font-size: 0.786em;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget {
+  line-height: 1.35;
+}
+
+.canvas-dashboard .canvas-widget-shell .widget,
+.canvas-dashboard .canvas-widget-shell .pomodoro-widget,
+.canvas-dashboard .canvas-widget-shell .quote-widget,
+.canvas-dashboard .canvas-widget-shell .habit-widget,
+.canvas-dashboard .canvas-widget-shell .mail-widget,
+.canvas-dashboard .canvas-widget-shell .spotify-widget {
+  padding: calc(16px * var(--widget-pad-scale, 1)) calc(18px * var(--widget-pad-scale, 1));
+  gap: calc(10px * var(--widget-pad-scale, 1));
+}
+
+/* Canvas widget copy — em under shell (overrides px/rem in widget stylesheets) */
+.canvas-dashboard .canvas-widget-shell .pomodoro-time { font-size: 1.714em; }
+.canvas-dashboard .canvas-widget-shell .pomodoro-phase,
+.canvas-dashboard .canvas-widget-shell .pomodoro-preset-btn,
+.canvas-dashboard .canvas-widget-shell .pomodoro-sound-select,
+.canvas-dashboard .canvas-widget-shell .pomodoro-sessions { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-label { font-size: 0.929em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-date { font-size: 0.714em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-time { font-size: 1.071em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-remove { font-size: 1em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-input { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .habit-title { font-size: 1em; }
+.canvas-dashboard .canvas-widget-shell .habit-add-btn { font-size: 1.143em; }
+.canvas-dashboard .canvas-widget-shell .habit-input,
+.canvas-dashboard .canvas-widget-shell .habit-empty,
+.canvas-dashboard .canvas-widget-shell .habit-remove-btn { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .habit-grid-name,
+.canvas-dashboard .canvas-widget-shell .habit-grid-streak { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .habit-grid-day { font-size: 0.714em; }
+.canvas-dashboard .canvas-widget-shell .quote-text { font-size: 1.071em; }
+.canvas-dashboard .canvas-widget-shell .quote-author,
+.canvas-dashboard .canvas-widget-shell .quote-refresh { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .spotify-track-name { font-size: 1.143em; }
+.canvas-dashboard .canvas-widget-shell .spotify-artist-name { font-size: 0.929em; }
+.canvas-dashboard .canvas-widget-shell .spotify-ctrl-btn { font-size: 1.286em; }
+.canvas-dashboard .canvas-widget-shell .spotify-ctrl-btn--pp { font-size: 1.429em; }
+.canvas-dashboard .canvas-widget-shell .spotify-cta-icon { font-size: 2em; }
+.canvas-dashboard .canvas-widget-shell .mail-avatar,
+.canvas-dashboard .canvas-widget-shell .gmail-row-from,
+.canvas-dashboard .canvas-widget-shell .gmail-row-subject,
+.canvas-dashboard .canvas-widget-shell .widget-ai-open-link { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .mail-unread-badge { font-size: 0.643em; }
+.canvas-dashboard .canvas-widget-shell .widget-ai-pill input,
+.canvas-dashboard .canvas-widget-shell .widget-ai-bubble,
+.canvas-dashboard .canvas-widget-shell .widget-ai-idle { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .widget-ai-pill-btn,
+.canvas-dashboard .canvas-widget-shell .widget-ai-bubble-close { font-size: 1em; }
+.canvas-dashboard .canvas-widget-shell .task-count-footer,
+.canvas-dashboard .canvas-widget-shell .tasks-empty-state { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .tasks-empty-icon { font-size: 1.714em; }
+.canvas-dashboard .canvas-widget-shell .weather-temp-hero { font-size: 2.857em; }
+.canvas-dashboard .canvas-widget-shell .weather-icon-hero { font-size: 3.429em; }
+.canvas-dashboard .canvas-widget-shell .weather-pill,
+.canvas-dashboard .canvas-widget-shell .weather-day-stacked .weather-day-name,
+.canvas-dashboard .canvas-widget-shell .weather-day-stacked .weather-day-temps { font-size: 0.714em; }
+.canvas-dashboard .canvas-widget-shell .weather-day-stacked .weather-day-icon { font-size: 1.286em; }
+.canvas-dashboard .canvas-widget-shell .widget-skin--cortex .widget-label,
+.canvas-dashboard .canvas-widget-shell .widget-skin--dash .widget-label,
+.canvas-dashboard .canvas-widget-shell .widget-skin--notion .widget-label { font-size: 0.929em; }
+
+/* Dashboard canvas widgets (rem → em) */
+.canvas-dashboard .canvas-widget-shell .widget--today__eyebrow,
+.canvas-dashboard .canvas-widget-shell .at-glance__eyebrow,
+.canvas-dashboard .canvas-widget-shell .at-glance__stats,
+.canvas-dashboard .canvas-widget-shell .at-glance__link,
+.canvas-dashboard .canvas-widget-shell .at-glance__time,
+.canvas-dashboard .canvas-widget-shell .at-glance__muted,
+.canvas-dashboard .canvas-widget-shell .at-glance__foot,
+.canvas-dashboard .canvas-widget-shell .at-glance__pill,
+.canvas-dashboard .canvas-widget-shell .widget--calendar__foot,
+.canvas-dashboard .canvas-widget-shell .widget--system__foot,
+.canvas-dashboard .canvas-widget-shell .widget--automations__detail,
+.canvas-dashboard .canvas-widget-shell .widget--automations__badge,
+.canvas-dashboard .canvas-widget-shell .at-glance__chip,
+.canvas-dashboard .canvas-widget-shell .media-status__health,
+.canvas-dashboard .canvas-widget-shell .media-status__summary,
+.canvas-dashboard .canvas-widget-shell .widget--today__chip { font-size: 0.714em; }
+.canvas-dashboard .canvas-widget-shell .widget--today__title { font-size: 1.35em; }
+.canvas-dashboard .canvas-widget-shell .at-glance__title { font-size: 1.2em; }
+.canvas-dashboard .canvas-widget-shell .widget--today__summary,
+.canvas-dashboard .canvas-widget-shell .widget--calendar__head,
+.canvas-dashboard .canvas-widget-shell .widget--notes__head,
+.canvas-dashboard .canvas-widget-shell .widget--automations__head,
+.canvas-dashboard .canvas-widget-shell .widget--system__head,
+.canvas-dashboard .canvas-widget-shell .widget--notes__area,
+.canvas-dashboard .canvas-widget-shell .media-status__head { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .widget--calendar__row,
+.canvas-dashboard .canvas-widget-shell .widget--automations__label,
+.canvas-dashboard .canvas-widget-shell .widget--system__row,
+.canvas-dashboard .canvas-widget-shell .at-glance__row,
+.canvas-dashboard .canvas-widget-shell .media-status__item { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .widget--automations__link,
+.canvas-dashboard .canvas-widget-shell .at-glance__section-head,
+.canvas-dashboard .canvas-widget-shell .media-status__muted { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .widget--homelab__head { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .widget--homelab__stats,
+.canvas-dashboard .canvas-widget-shell .widget--homelab__muted { font-size: 0.786em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-digital-hero__time { font-size: 2.25em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-digital-hero__date { font-size: 0.857em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-zone-card__time { font-size: 1.071em; }
+.canvas-dashboard .canvas-widget-shell .worldclock-zone-card__label { font-size: 0.786em; }
+
+.widget-composer__preview-frame .canvas-widget-shell {
+  font-size: var(--widget-text-size-px, var(--home-text-size-px, 14px));
 }
 
 .dashboard-customize-strip {
@@ -125,6 +315,242 @@ html[data-ui-density="spacious"] .cortex-route-bootstrap {
 .dashboard-customize-strip__scale input {
   width: 72px;
   accent-color: var(--accent);
+}
+
+/* ── Typography toolbar (always visible on Home) ─────────────────────────── */
+
+.canvas-unified-toolbar__row--toolbar {
+  flex-wrap: nowrap;
+  gap: 8px 12px;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 40px;
+  max-height: 44px;
+  overflow: hidden;
+}
+
+.canvas-chrome-dock .canvas-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dashboard-typography-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 0 0 8px;
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  min-height: 28px;
+  overflow: visible;
+}
+
+.dashboard-typography-toolbar__fonts {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.dashboard-typography-toolbar__font {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dashboard-typography-toolbar__font.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-1);
+}
+
+.dashboard-typography-toolbar__sep {
+  width: 1px;
+  height: 22px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  flex-shrink: 0;
+}
+
+.dashboard-typography-toolbar__size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-typography-toolbar__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-typography-toolbar__step:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-1);
+}
+
+.dashboard-typography-toolbar__step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dashboard-typography-toolbar__size-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  min-width: 2.25rem;
+}
+
+.text-size-control {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.text-size-control--compact {
+  flex-shrink: 0;
+}
+
+.text-size-control__inherit {
+  height: 1.875rem;
+  padding: 0 0.55rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.text-size-control__inherit:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-1);
+}
+
+.text-size-control__inherit.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text-1);
+}
+
+.text-size-control__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.text-size-control__field-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.text-size-control__dropdown {
+  height: 28px;
+  padding: 0 1.35rem 0 0.4rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--text-1) 4%, transparent);
+  color: var(--text-1);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.35rem center;
+}
+
+.text-size-control__dropdown--size {
+  min-width: 4.5rem;
+  max-width: 5.25rem;
+}
+
+.text-size-control__dropdown--scale {
+  min-width: 4.25rem;
+  max-width: 5rem;
+}
+
+.text-size-control__dropdown:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.text-size-control__dropdown:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.text-size-control__hint {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.canvas-selection-toolbar__text-presets {
+  max-width: none;
+}
+
+.canvas-selection-toolbar__widget-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvas-selection-toolbar__widget-text-px {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 2.5rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard-typography-toolbar {
+    flex: 1 1 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    padding-top: 8px;
+    overflow-x: auto;
+  }
+
+  .dashboard-typography-toolbar__fonts {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: thin;
+  }
 }
 
 .canvas-widget-config {

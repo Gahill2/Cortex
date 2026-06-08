@@ -12,6 +12,10 @@ import {
   type ApiTask,
 } from "./plannerMappers";
 import type { TaskPriority } from "./types";
+import {
+  fetchCalendarStatus,
+  type CalendarConnectionStatus,
+} from "../../lib/googleCalendarConnect";
 
 interface Project {
   id: string;
@@ -36,6 +40,7 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [calendarWarnings, setCalendarWarnings] = useState<string[]>([]);
   const [hasCalendarAccount, setHasCalendarAccount] = useState<boolean | null>(null);
+  const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [calendarSaving, setCalendarSaving] = useState(false);
 
@@ -93,8 +98,12 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
     void loadEvents();
   }, [loadEvents]);
 
-  useEffect(() => {
-    void (async () => {
+  const loadCalendarStatus = useCallback(async () => {
+    const status = await fetchCalendarStatus();
+    setCalendarStatus(status);
+    if (status) {
+      setHasCalendarAccount(status.hasGoogle || status.hasMicrosoft);
+    } else {
       try {
         const r = await api.get<{ data?: { accounts: { provider: string }[] } }>("/mail/accounts");
         const accounts = r.data?.data?.accounts ?? [];
@@ -104,12 +113,16 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
       } catch {
         setHasCalendarAccount(null);
       }
-    })();
+    }
   }, []);
 
+  useEffect(() => {
+    void loadCalendarStatus();
+  }, [loadCalendarStatus]);
+
   const refresh = useCallback(async () => {
-    await Promise.all([loadTasks(), loadEvents()]);
-  }, [loadTasks, loadEvents]);
+    await Promise.all([loadTasks(), loadEvents(), loadCalendarStatus()]);
+  }, [loadTasks, loadEvents, loadCalendarStatus]);
 
   const toggleTask = useCallback(
     async (id: string) => {
@@ -405,6 +418,7 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
     eventsError,
     calendarWarnings,
     hasCalendarAccount,
+    calendarStatus,
     refresh,
     toggleTask,
     createTask,

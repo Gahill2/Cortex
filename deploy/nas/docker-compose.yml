@@ -25,6 +25,9 @@ services:
   nextcloud-db:
     image: mariadb:11
     restart: unless-stopped
+    # Avoid AppArmor flock denials on bind-mounted DB after snap→apt Docker migration
+    security_opt:
+      - apparmor:unconfined
     command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
     environment:
       MYSQL_ROOT_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:?Set NEXTCLOUD_DB_PASSWORD}

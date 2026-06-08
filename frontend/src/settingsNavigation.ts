@@ -55,7 +55,7 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
         id: "integrations",
         label: "Integrations",
         icon: Plug,
-        description: "Spotify, Notion, Canva, and vault",
+        description: "Google, Microsoft, Spotify, Notion, and more",
       },
       {
         id: "security",

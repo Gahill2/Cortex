@@ -10,6 +10,7 @@ import { CalendarGrid } from "../productivity/calendar/CalendarGrid";
 import { CalendarLeftRail } from "../productivity/calendar/CalendarLeftRail";
 import { EventInspectorPanel } from "../productivity/calendar/EventInspectorPanel";
 import { EmptyState } from "../productivity/shared/EmptyState";
+import { CalendarConnectBanner } from "../components/calendar/CalendarConnectBanner";
 import type { CalendarViewMode } from "../productivity/types";
 import { toPlannerCalView } from "../productivity/tasks/taskListUtils";
 
@@ -35,6 +36,7 @@ export function CalendarPage({ onNavigate }: Props) {
     eventsError,
     calendarWarnings,
     hasCalendarAccount,
+    calendarStatus,
     createTask,
     rescheduleEvent,
   } = useTasksCalendarData(viewDate, calView);
@@ -103,13 +105,11 @@ export function CalendarPage({ onNavigate }: Props) {
                 {statusMessage}
               </p>
             ) : null}
-            {calendarWarnings.length > 0 ? (
-              <div className="pd-route__banner" role="status">
-                {calendarWarnings.map((w) => (
-                  <p key={w}>{w}</p>
-                ))}
-              </div>
-            ) : null}
+            <CalendarConnectBanner
+              status={calendarStatus}
+              warnings={calendarWarnings}
+              onNavigateMail={() => onNavigate("mail")}
+            />
             {loading && !calendarSaving ? (
               <p className="pd-route__loading" aria-busy="true">
                 Loading calendar…

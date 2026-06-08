@@ -12,8 +12,10 @@ import {
   Sun,
 } from "lucide-react";
 import type { TaskSortKey } from "../types";
+import type { TasksPageTab } from "./TasksPageTabs";
 
 interface Props {
+  pageTab: TasksPageTab;
   title: string;
   count: number;
   search: string;
@@ -33,6 +35,7 @@ interface Props {
 }
 
 export function TasksTopBar({
+  pageTab,
   title,
   count,
   search,
@@ -66,7 +69,9 @@ export function TasksTopBar({
         <Sun size={18} className="pd-tasks-topbar__icon" aria-hidden />
         <div>
           <h1 className="pd-tasks-topbar__title">{title}</h1>
-          <p className="pd-tasks-topbar__count">{count} tasks</p>
+          <p className="pd-tasks-topbar__count">
+            {count} {pageTab === "goals" ? (count === 1 ? "goal" : "goals") : count === 1 ? "task" : "tasks"}
+          </p>
         </div>
       </div>
       <div className="pd-tasks-topbar__center">
@@ -74,13 +79,13 @@ export function TasksTopBar({
           <Search size={15} aria-hidden />
           <input
             type="search"
-            placeholder="Search tasks…"
+            placeholder={pageTab === "goals" ? "Search goals…" : "Search tasks…"}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            aria-label="Search tasks"
+            aria-label={pageTab === "goals" ? "Search goals" : "Search tasks"}
           />
         </label>
-        <TaskFilters sort={sort} onSortChange={onSortChange} />
+        {pageTab === "tasks" ? <TaskFilters sort={sort} onSortChange={onSortChange} /> : null}
       </div>
       <div className="pd-tasks-topbar__end">
         {showInspectorButton && onOpenInspector ? (
@@ -109,27 +114,29 @@ export function TasksTopBar({
             {loading ? "Loading…" : "Refresh"}
           </button>
         ) : null}
-        <div className="pd-view-switcher pd-view-switcher--sm" role="group" aria-label="Task layout">
-          <button
-            type="button"
-            className={`pd-view-switcher__btn${!boardMode ? " pd-view-switcher__btn--active" : ""}`}
-            onClick={() => onBoardModeChange(false)}
-            aria-pressed={!boardMode}
-          >
-            <List size={14} />
-          </button>
-          <button
-            type="button"
-            className={`pd-view-switcher__btn${boardMode ? " pd-view-switcher__btn--active" : ""}`}
-            onClick={() => onBoardModeChange(true)}
-            aria-pressed={boardMode}
-          >
-            <LayoutGrid size={14} />
-          </button>
-        </div>
+        {pageTab === "tasks" ? (
+          <div className="pd-view-switcher pd-view-switcher--sm" role="group" aria-label="Task layout">
+            <button
+              type="button"
+              className={`pd-view-switcher__btn${!boardMode ? " pd-view-switcher__btn--active" : ""}`}
+              onClick={() => onBoardModeChange(false)}
+              aria-pressed={!boardMode}
+            >
+              <List size={14} />
+            </button>
+            <button
+              type="button"
+              className={`pd-view-switcher__btn${boardMode ? " pd-view-switcher__btn--active" : ""}`}
+              onClick={() => onBoardModeChange(true)}
+              aria-pressed={boardMode}
+            >
+              <LayoutGrid size={14} />
+            </button>
+          </div>
+        ) : null}
         <button type="button" className="pd-btn pd-btn--primary pd-btn--sm" onClick={onQuickAdd} disabled={busy}>
           <Plus size={16} />
-          New…
+          {pageTab === "goals" ? "Add goal" : "Add task"}
         </button>
       </div>
     </header>
@@ -149,9 +156,16 @@ function TaskFilters({ sort, onSortChange }: { sort: TaskSortKey; onSortChange: 
   );
 }
 
-export function getListTitle(listKey: string): string {
+export function getListTitle(listKey: string, pageTab: "tasks" | "goals" = "tasks"): string {
+  if (pageTab === "goals") {
+    const goalTitles: Record<string, string> = {
+      all: "Goals",
+      completed: "Completed goals",
+    };
+    return goalTitles[listKey] ?? "Goals";
+  }
   const titles: Record<string, string> = {
-    all: "Tasks & goals",
+    all: "Tasks",
     inbox: "Inbox",
     today: "Today",
     upcoming: "Upcoming",

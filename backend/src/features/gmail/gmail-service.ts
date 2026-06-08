@@ -1,6 +1,11 @@
 import type { Credentials } from "google-auth-library";
 import { google } from "googleapis";
 import { env } from "../../config/env.js";
+import {
+  hasEnvIntegrationOAuth,
+  isIntegrationOAuthReady,
+  resolveIntegrationOAuth,
+} from "../integrations/oauth-config.js";
 import { resolveGmailOAuthRedirectUri } from "../oauth/oauth-frontend-redirect.js";
 import { getGoogleCredentials, persistGoogleCredentials } from "./google-token-store.js";
 
@@ -13,17 +18,9 @@ const GMAIL_SCOPES = [
 
 const getRedirectUri = (returnOrigin?: string) => resolveGmailOAuthRedirectUri(returnOrigin);
 
-export const isGmailConfigured = (): boolean => {
-  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = env;
-  const redirectUri = getRedirectUri();
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !redirectUri) return false;
-  try {
-    void new URL(redirectUri);
-    return true;
-  } catch {
-    return false;
-  }
-};
+export const isGmailConfigured = (): boolean => hasEnvIntegrationOAuth("google");
+
+export const isGmailConfiguredAsync = async (): Promise<boolean> => isIntegrationOAuthReady("google");
 
 export const createOAuth2Client = (returnOrigin?: string) =>
   new google.auth.OAuth2(
@@ -32,8 +29,16 @@ export const createOAuth2Client = (returnOrigin?: string) =>
     getRedirectUri(returnOrigin) || undefined
   );
 
-export const buildGmailAuthUrl = (state: string, returnOrigin?: string): string => {
-  const client = createOAuth2Client(returnOrigin);
+export async function createOAuth2ClientAsync(returnOrigin?: string) {
+  const oauth = await resolveIntegrationOAuth("google", returnOrigin);
+  if (oauth) {
+    return new google.auth.OAuth2(oauth.clientId, oauth.clientSecret, oauth.redirectUri);
+  }
+  return createOAuth2Client(returnOrigin);
+}
+
+export const buildGmailAuthUrl = async (state: string, returnOrigin?: string): Promise<string> => {
+  const client = await createOAuth2ClientAsync(returnOrigin);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -44,7 +49,7 @@ export const buildGmailAuthUrl = (state: string, returnOrigin?: string): string 
 };
 
 export const exchangeAuthorizationCode = async (code: string, returnOrigin?: string) => {
-  const client = createOAuth2Client(returnOrigin);
+  const client = await createOAuth2ClientAsync(returnOrigin);
   const { tokens } = await client.getToken(code);
   return tokens;
 };

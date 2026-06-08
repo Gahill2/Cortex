@@ -31,6 +31,9 @@ type PreferencesContextValue = {
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
+const CANVAS_PATCH_DEBOUNCE_MS = 2_000;
+const DEFAULT_PATCH_DEBOUNCE_MS = 500;
+
 let cachedSettings: ServerSettings | null = null;
 
 export function clearPreferencesCache(): void {
@@ -41,14 +44,25 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ServerSettings>(cachedSettings ?? EMPTY_SETTINGS);
   const [ready, setReady] = useState(Boolean(cachedSettings));
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const inflightSaveRef = useRef<Promise<void>>(Promise.resolve());
   const pendingPatchRef = useRef<Partial<ServerSettings>>({});
   const lastServerUpdatedAtRef = useRef<string | null>(cachedSettings?.updatedAt ?? null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  const flushPatch = useCallback(() => {
+  const applySavedSettings = useCallback((loaded: ServerSettings) => {
+    lastServerUpdatedAtRef.current = loaded.updatedAt ?? null;
+    setSettings((prev) => {
+      const next = mergeSettings(prev, loaded);
+      cachedSettings = next;
+      return next;
+    });
+    hydrateLocalFromServerSettings(loaded);
+  }, []);
+
+  const flushPatch = useCallback((): Promise<void> => {
     const body = pendingPatchRef.current;
-    if (Object.keys(body).length === 0) return;
+    if (Object.keys(body).length === 0) return Promise.resolve();
     pendingPatchRef.current = {};
 
     const toSend = { ...body };
@@ -56,20 +70,51 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       toSend.extraJson = settingsRef.current.extraJson;
     }
 
-    void api.patch("/settings", toSend).then((r) => {
-      const updatedAt = r.data?.data?.updatedAt;
-      if (typeof updatedAt === "string") {
-        lastServerUpdatedAtRef.current = updatedAt;
-        setSettings((prev) => {
-          const next = { ...prev, updatedAt };
-          cachedSettings = next;
-          return next;
-        });
+    const req = api
+      .patch("/settings", toSend)
+      .then((r) => {
+        applySavedSettings(normalizeLoadedSettings(r.data?.data));
+      })
+      .catch((err) => {
+        pendingPatchRef.current = { ...pendingPatchRef.current, ...body };
+        console.warn("[preferences] save failed:", err);
+      });
+    inflightSaveRef.current = req;
+    return req;
+  }, [applySavedSettings]);
+
+  const flushGoals = useCallback(
+    (homeGoals: ServerSettings["homeGoals"]): Promise<void> => {
+      try {
+        if (homeGoals?.length) {
+          localStorage.setItem("cortex_home_goals", JSON.stringify(homeGoals));
+        } else {
+          localStorage.removeItem("cortex_home_goals");
+        }
+      } catch {
+        /* quota */
       }
-    }).catch((err) => {
-      console.warn("[preferences] save failed:", err);
-    });
-  }, []);
+
+      const pending = pendingPatchRef.current;
+      if (pending.homeGoals !== undefined) {
+        const { homeGoals: _drop, ...rest } = pending;
+        pendingPatchRef.current = rest;
+      }
+
+      const req = api
+        .patch("/settings", { homeGoals })
+        .then((r) => {
+          applySavedSettings(normalizeLoadedSettings(r.data?.data));
+        })
+        .catch((err) => {
+          pendingPatchRef.current = { ...pendingPatchRef.current, homeGoals };
+          console.warn("[preferences] goals save failed:", err);
+        });
+      inflightSaveRef.current = req;
+      return req;
+    },
+    [applySavedSettings],
+  );
 
   const patch = useCallback(
     (partial: Partial<ServerSettings>) => {
@@ -88,33 +133,63 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
             ? { ...(prev.extraJson ?? {}), ...(partial.extraJson ?? {}) }
             : prev.extraJson,
         canvasLayout: partial.canvasLayout !== undefined ? partial.canvasLayout : prev.canvasLayout,
+        homeGoals: partial.homeGoals !== undefined ? partial.homeGoals : prev.homeGoals,
       };
 
+      if (partial.homeGoals !== undefined) {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = undefined;
+        void flushGoals(partial.homeGoals);
+        return;
+      }
+
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(flushPatch, 500);
+      const delay =
+        partial.canvasLayout !== undefined ? CANVAS_PATCH_DEBOUNCE_MS : DEFAULT_PATCH_DEBOUNCE_MS;
+      debounceRef.current = setTimeout(flushPatch, delay);
     },
-    [flushPatch],
+    [flushPatch, flushGoals],
   );
 
   const applyLoadedSettings = useCallback((loaded: ServerSettings, opts?: { fromRemote?: boolean }) => {
     const prev = settingsRef.current;
+    const pending = pendingPatchRef.current;
+    const hasPending = Object.keys(pending).length > 0;
+
+    let effective = loaded;
+    if (hasPending) {
+      effective = mergeSettings(loaded, prev);
+      if (pending.canvasLayout !== undefined) effective.canvasLayout = prev.canvasLayout;
+      if (pending.homeGoals !== undefined) effective.homeGoals = prev.homeGoals;
+      if (pending.extraJson !== undefined) {
+        effective.extraJson = { ...(loaded.extraJson ?? {}), ...(prev.extraJson ?? {}) };
+      }
+      for (const key of Object.keys(pending)) {
+        if (key === "extraJson" || key === "canvasLayout" || key === "homeGoals") continue;
+        const k = key as keyof ServerSettings;
+        if (pending[k] !== undefined) {
+          (effective as unknown as Record<string, unknown>)[k] = prev[k];
+        }
+      }
+    }
+
     const remoteNewer =
       opts?.fromRemote &&
-      loaded.updatedAt &&
+      effective.updatedAt &&
       lastServerUpdatedAtRef.current &&
-      loaded.updatedAt !== lastServerUpdatedAtRef.current;
+      effective.updatedAt !== lastServerUpdatedAtRef.current;
 
-    hydrateLocalFromServerSettings(loaded);
-    cachedSettings = loaded;
-    lastServerUpdatedAtRef.current = loaded.updatedAt ?? null;
-    setSettings(loaded);
+    hydrateLocalFromServerSettings(effective);
+    cachedSettings = effective;
+    lastServerUpdatedAtRef.current = effective.updatedAt ?? null;
+    setSettings(effective);
     setReady(true);
 
-    if (remoteNewer && canvasLayoutChanged(prev, loaded)) {
+    if (remoteNewer && canvasLayoutChanged(prev, effective)) {
       window.dispatchEvent(
         new CustomEvent<SettingsSyncDetail>(CORTEX_SETTINGS_SYNC_EVENT, {
           detail: {
-            updatedAt: loaded.updatedAt ?? null,
+            updatedAt: effective.updatedAt ?? null,
             canvasLayoutChanged: true,
           },
         }),
@@ -169,9 +244,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     const refreshFromServer = () => {
       if (document.visibilityState !== "visible") return;
-      void loadFromServer({ fromRemote: true }).catch((err) =>
-        console.warn("[preferences] refresh failed:", err),
-      );
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = undefined;
+      }
+      void inflightSaveRef.current
+        .then(() => flushPatch())
+        .then(() => loadFromServer({ fromRemote: true }))
+        .catch((err) => console.warn("[preferences] refresh failed:", err));
     };
     window.addEventListener("focus", refreshFromServer);
     document.addEventListener("visibilitychange", refreshFromServer);
@@ -182,7 +262,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", refreshFromServer);
       document.removeEventListener("visibilitychange", refreshFromServer);
     };
-  }, [loadFromServer]);
+  }, [loadFromServer, flushPatch]);
 
   useEffect(() => {
     const onLogout = () => {

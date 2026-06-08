@@ -2,6 +2,9 @@
 # List / restart homelab Docker containers (called by homelab-deploy-listener).
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MANAGE="$ROOT/scripts/docker-manage.sh"
+
 ACTION="${1:-}"
 TARGET="${2:-}"
 
@@ -77,8 +80,8 @@ case "$ACTION" in
       echo "{\"ok\":false,\"error\":\"not found: $TARGET\"}" >&2
       exit 1
     fi
-    out=$(docker restart "$TARGET" 2>&1) || {
-      echo "{\"ok\":false,\"error\":$(python3 -c "import json; print(json.dumps('$out'))")}"
+    out=$(bash "$MANAGE" restart "$TARGET" 2>&1) || {
+      echo "{\"ok\":false,\"error\":$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$out")}"
       exit 1
     }
     python3 -c "import json; print(json.dumps({'ok':True,'id':'$TARGET','output':''}))"
@@ -115,8 +118,8 @@ case "$ACTION" in
       echo "{\"ok\":false,\"error\":\"not found: $TARGET\"}" >&2
       exit 1
     fi
-    out=$(docker stop -t 30 "$TARGET" 2>&1) || {
-      echo "{\"ok\":false,\"error\":$(python3 -c "import json; print(json.dumps('$out'))")}"
+    out=$(bash "$MANAGE" stop "$TARGET" 2>&1) || {
+      echo "{\"ok\":false,\"error\":$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$out")}"
       exit 1
     }
     python3 -c "import json; print(json.dumps({'ok':True,'id':'$TARGET','action':'stop'}))"

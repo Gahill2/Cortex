@@ -304,6 +304,8 @@ export default function App() {
           await api.post("/notion/oauth/exchange", { code: params.code, state: params.state });
         } else if (provider === "google") {
           await api.post("/gmail/oauth/exchange", { code: params.code, state: params.state });
+        } else if (provider === "linkedin") {
+          await api.post("/linkedin/oauth/exchange", { code: params.code, state: params.state });
         }
         window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider } }));
         if (provider === "mail" || provider === "microsoft") {
@@ -353,9 +355,15 @@ export default function App() {
       window.history.replaceState({}, "", window.location.pathname);
       window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "notion" } }));
       setTab("notes");
+    } else if (params.has("linkedin_connected")) {
+      window.history.replaceState({}, "", window.location.pathname);
+      window.dispatchEvent(new CustomEvent("oauth-connected", { detail: { provider: "linkedin" } }));
+      sessionStorage.setItem("cortex_settings_section", "integrations");
+      setTab("settings");
     } else if (
       params.has("spotify_error") ||
       params.has("gmail_error") ||
+      params.has("linkedin_error") ||
       params.has("mail_error") ||
       params.has("microsoft_error")
     ) {
@@ -363,6 +371,8 @@ export default function App() {
         ? "spotify_error"
         : params.has("gmail_error")
           ? "gmail_error"
+          : params.has("linkedin_error")
+            ? "linkedin_error"
           : params.has("microsoft_error")
             ? "microsoft_error"
             : "mail_error";
@@ -552,6 +562,7 @@ export default function App() {
                       setTab("home");
                     }}
                     onLockSession={lockSession}
+                    onOpenTab={goTab}
                   />
                 )}
                 {tab === "mail" && <MailPage />}

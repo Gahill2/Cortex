@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Tab } from "../../App";
 import type { ReactNode } from "react";
 import { usePreferences } from "../../context/PreferencesContext";
 import type { CanvasLayoutPref } from "../../lib/preferencesTypes";
 import { CanvasToolbar } from "./CanvasToolbar";
-import { CanvasSelectionToolbar } from "./CanvasSelectionToolbar";
+import { CanvasWidgetInspectorInline } from "./CanvasWidgetInspectorInline";
 import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
 import {
@@ -20,7 +20,7 @@ import {
 } from "./widgetVariants";
 import { buildWidgetRenderStyle, type WidgetRenderStyle } from "./widgetRenderStyle";
 import type { WidgetSkin } from "./widgetSkins";
-import { prepareCanvasPointerGesture } from "./canvasPointer";
+import { isBackgroundCanvasTarget, prepareCanvasPointerGesture } from "./canvasPointer";
 import { clearNativeSelection } from "./canvasSelection";
 import { DEFAULT_BACKDROP_COLOR } from "./backdropColors";
 import {
@@ -36,12 +36,25 @@ import {
 import { WidgetLibrary } from "../../dashboard/WidgetLibrary";
 import { DashboardEmptyState } from "../../dashboard/DashboardEmptyState";
 import type { WidgetRegistryEntry } from "../../dashboard/types";
+import {
+  WidgetComposerDialog,
+  type ImageInsertPayload,
+  type WidgetComposerState,
+  type WidgetInsertPayload,
+} from "./WidgetComposerDialog";
 import { useCanvasViewPrefs } from "./canvasViewPrefs";
 import { computeFitView } from "./canvasFit";
 import { CanvasViewControls } from "./CanvasViewControls";
 import { HomeGlanceBar } from "../home/HomeGlanceBar";
 import { DashboardCustomizeStrip } from "./DashboardCustomizeStrip";
+import { DashboardTypographyToolbar } from "./DashboardTypographyToolbar";
 import { useUiCustomization } from "../../hooks/useUiCustomization";
+import { stripBakedWidgetTypography } from "../../lib/uiCustomization";
+import { runRafAnimation, springOut } from "./canvasMotion";
+
+const MAX_GUIDES = 8;
+const DRAG_LIFT_SCALE = 1.012;
+const PAN_ACTIVATE_PX = 8;
 
 export type CanvasItemType = "widget" | "image" | "text" | "note" | "custom" | "embed" | "backdrop";
 
@@ -105,11 +118,23 @@ interface Props {
 }
 
 const STORAGE_KEY = "cortex-canvas-state";
+const CANVAS_STATE_VERSION = 2;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const ZOOM_SENSITIVITY = 0.0015;
 const SNAP_THRESHOLD = 8;
 const GUIDE_THRESHOLD = 6;
+
+const MemoCanvasItem = memo(
+  CanvasItem,
+  (prev, next) =>
+    prev.node === next.node &&
+    prev.isSelected === next.isSelected &&
+    prev.editMode === next.editMode &&
+    prev.widgets === next.widgets &&
+    prev.renderWidget === next.renderWidget &&
+    prev.onSelect === next.onSelect,
+);
 
 function generateId() {
   return `n_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -139,6 +164,7 @@ function normalizeNodes(nodes: CanvasNode[]): CanvasNode[] {
     if (n.type !== "widget" || !n.widgetKey) return n;
     const style = buildWidgetRenderStyle(n.widgetKey, n.widgetVariant, n.widgetSkin, n.widgetDisplay);
     const preset = getVariantPreset(n.widgetKey, style.variant);
+    const widgetConfig = stripBakedWidgetTypography(n.widgetConfig);
     return {
       ...n,
       widgetVariant: style.variant,
@@ -146,6 +172,7 @@ function normalizeNodes(nodes: CanvasNode[]): CanvasNode[] {
       widgetDisplay: style.display,
       w: n.w || preset.w,
       h: n.h || preset.h,
+      widgetConfig,
     };
   });
 }
@@ -159,7 +186,15 @@ function loadState(): { nodes: CanvasNode[]; pan: { x: number; y: number }; zoom
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as { nodes: CanvasNode[]; pan: { x: number; y: number }; zoom: number };
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        nodes: CanvasNode[];
+        pan: { x: number; y: number };
+        zoom: number;
+      };
+      if (parsed.version !== CANVAS_STATE_VERSION) {
+        return null;
+      }
       if (parsed.nodes) parsed.nodes = normalizeNodes(parsed.nodes);
       return parsed;
     }
@@ -199,13 +234,7 @@ export function CanvasDashboard({
   );
   const [pan, setPan] = useState(saved?.pan ?? { x: 0, y: 0 });
   const [zoom, setZoom] = useState(saved?.zoom ?? 1);
-  const [isPanning, setIsPanning] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [pendingDragId, setPendingDragId] = useState<string | null>(null);
-  const [resizeId, setResizeId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [selBox, setSelBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
-  const [guides, setGuides] = useState<{ type: "h" | "v"; pos: number }[]>([]);
   const [editModeLocal, setEditModeLocal] = useState(false);
   const editModeControlled = onEditModeChange !== undefined;
   const editMode = editModeControlled ? Boolean(editModeProp) : editModeLocal;
@@ -222,6 +251,7 @@ export function CanvasDashboard({
     if (libraryControlled) onLibraryOpenChange(value);
     else setLibraryOpenLocal(value);
   };
+  const [composerState, setComposerState] = useState<WidgetComposerState | null>(null);
   const [maxZ, setMaxZ] = useState(() =>
     Math.max(...(saved?.nodes ?? initialCanvasNodes()).map((n) => n.zIndex), 0),
   );
@@ -237,7 +267,7 @@ export function CanvasDashboard({
   const dragStart = useRef({ x: 0, y: 0, nodeX: 0, nodeY: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const selStart = useRef({ x: 0, y: 0 });
-  const zoomAnimRef = useRef<number>(0);
+  const zoomAnimRef = useRef<{ cancel: () => void } | null>(null);
   const dragElRef = useRef<HTMLElement | null>(null);
   const dragMovedRef = useRef(false);
   const pendingDragRef = useRef<{
@@ -248,11 +278,28 @@ export function CanvasDashboard({
     nodeX: number;
     nodeY: number;
   } | null>(null);
-  const dragPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const dragRafRef = useRef(0);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const isPanningRef = useRef(false);
+  const dragIdRef = useRef<string | null>(null);
+  const resizeIdRef = useRef<string | null>(null);
+  const pointerRef = useRef({ clientX: 0, clientY: 0 });
+  const interactionRafRef = useRef(0);
+  const panMomentumRafRef = useRef(0);
+  const panVelocityRef = useRef({ vx: 0, vy: 0 });
+  const lastPanSampleRef = useRef({ x: 0, y: 0, t: 0 });
   const DRAG_ACTIVATE_PX = 5;
   const resizeElRef = useRef<HTMLElement | null>(null);
-  const guidesRef = useRef<{ type: "h" | "v"; pos: number }[]>([]);
+  const guidesDataRef = useRef<{ type: "h" | "v"; pos: number }[]>([]);
+  const guideElsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const selBoxElRef = useRef<HTMLDivElement | null>(null);
+  const selBoxActiveRef = useRef(false);
+  const selBoxDataRef = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const pendingPanRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
   const applyViewportGrid = useCallback((p: { x: number; y: number }, z: number) => {
     const viewport = viewportRef.current;
@@ -275,6 +322,7 @@ export function CanvasDashboard({
     const layer = layerRef.current;
     if (layer) {
       layer.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) scale(${z})`;
+      layer.style.setProperty("--canvas-zoom", String(Math.max(0.15, z)));
     }
     applyViewportGrid(p, z);
   }, [applyViewportGrid]);
@@ -308,8 +356,107 @@ export function CanvasDashboard({
   useEffect(() => {
     return () => {
       if (chromeSyncRafRef.current) cancelAnimationFrame(chromeSyncRafRef.current);
-      if (zoomAnimRef.current) cancelAnimationFrame(zoomAnimRef.current);
+      zoomAnimRef.current?.cancel();
+      if (interactionRafRef.current) cancelAnimationFrame(interactionRafRef.current);
+      if (panMomentumRafRef.current) cancelAnimationFrame(panMomentumRafRef.current);
     };
+  }, []);
+
+  const syncViewportInteractionClasses = useCallback(() => {
+    const vp = viewportRef.current;
+    const layer = layerRef.current;
+    const interacting =
+      isPanningRef.current ||
+      !!dragIdRef.current ||
+      !!pendingDragRef.current ||
+      !!resizeIdRef.current ||
+      selBoxActiveRef.current;
+    if (vp) {
+      vp.classList.toggle("canvas-viewport--panning", isPanningRef.current);
+      vp.classList.toggle(
+        "canvas-viewport--dragging",
+        !!(dragIdRef.current || pendingDragRef.current),
+      );
+      vp.classList.toggle("canvas-viewport--resizing", !!resizeIdRef.current);
+      vp.classList.toggle("canvas-viewport--selecting", selBoxActiveRef.current);
+      vp.classList.toggle("canvas-viewport--interacting", interacting);
+    }
+    if (layer) {
+      layer.classList.toggle(
+        "canvas-layer--active",
+        !!(isPanningRef.current || dragIdRef.current || resizeIdRef.current),
+      );
+    }
+  }, []);
+
+  const paintGuides = useCallback((activeGuides: { type: "h" | "v"; pos: number }[]) => {
+    const p = panRef.current;
+    const z = zoomRef.current;
+    guidesDataRef.current = activeGuides;
+    for (let i = 0; i < MAX_GUIDES; i++) {
+      const el = guideElsRef.current[i];
+      if (!el) continue;
+      const g = activeGuides[i];
+      if (!g) {
+        el.style.display = "none";
+        continue;
+      }
+      el.style.display = "block";
+      el.className = `canvas-guide canvas-guide--${g.type} canvas-guide--visible`;
+      if (g.type === "h") {
+        el.style.top = `${g.pos * z + p.y}px`;
+        el.style.left = "0";
+        el.style.right = "0";
+        el.style.bottom = "auto";
+        el.style.width = "";
+      } else {
+        el.style.left = `${g.pos * z + p.x}px`;
+        el.style.top = "0";
+        el.style.bottom = "0";
+        el.style.right = "auto";
+        el.style.height = "";
+      }
+    }
+  }, []);
+
+  const clearGuides = useCallback(() => {
+    guidesDataRef.current = [];
+    for (const el of guideElsRef.current) {
+      if (el) el.style.display = "none";
+    }
+  }, []);
+
+  const paintSelBox = useCallback((box: { x1: number; y1: number; x2: number; y2: number }) => {
+    const el = selBoxElRef.current;
+    if (!el) return;
+    const z = zoomRef.current;
+    const p = panRef.current;
+    el.style.display = "block";
+    el.style.left = `${Math.min(box.x1, box.x2) * z + p.x}px`;
+    el.style.top = `${Math.min(box.y1, box.y2) * z + p.y}px`;
+    el.style.width = `${Math.abs(box.x2 - box.x1) * z}px`;
+    el.style.height = `${Math.abs(box.y2 - box.y1) * z}px`;
+  }, []);
+
+  const hideSelBox = useCallback(() => {
+    const el = selBoxElRef.current;
+    if (el) el.style.display = "none";
+    selBoxActiveRef.current = false;
+    selBoxDataRef.current = null;
+    syncViewportInteractionClasses();
+  }, [syncViewportInteractionClasses]);
+
+  const playDropSettle = useCallback((el: HTMLElement) => {
+    el.classList.remove("canvas-item--lifted");
+    el.style.transform = "";
+    el.style.willChange = "";
+    el.classList.add("canvas-item--drop-settle");
+    const cleanup = () => {
+      el.classList.remove("canvas-item--drop-settle");
+      el.removeEventListener("animationend", cleanup);
+    };
+    el.addEventListener("animationend", cleanup);
+    window.setTimeout(cleanup, 420);
   }, []);
 
   // Hydrate from server when preferences load or another device saves layout
@@ -322,11 +469,26 @@ export function CanvasDashboard({
 
     void (async () => {
       const local = loadCanvasFromLocalStorage();
+      let versionStale = false;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { version?: number };
+          versionStale = parsed.version !== CANVAS_STATE_VERSION;
+        } else {
+          versionStale = true;
+        }
+      } catch {
+        versionStale = true;
+      }
+
       let nextNodes = layout?.nodes?.length
         ? normalizeNodes(layout.nodes)
-        : local?.nodes?.length
+        : !versionStale && local?.nodes?.length
           ? normalizeNodes(local.nodes)
-          : normalizeNodes(saved?.nodes ?? createDefaultDashboardNodes());
+          : !versionStale && saved?.nodes?.length
+            ? normalizeNodes(saved.nodes)
+            : normalizeNodes(initialCanvasNodes());
 
       nextNodes = mergeCanvasImageUrlsFromLocal(nextNodes, local?.nodes);
       try {
@@ -360,7 +522,10 @@ export function CanvasDashboard({
       };
       patch({ canvasLayout: payload });
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, pan, zoom }));
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ version: CANVAS_STATE_VERSION, nodes, pan, zoom }),
+        );
         saveCanvasBackground(background);
       } catch {
         /* ignore quota */
@@ -384,6 +549,40 @@ export function CanvasDashboard({
   const onBackgroundChange = useCallback((bg: CanvasBackground) => {
     setBackground(bg);
   }, []);
+
+  const enterCustomizeMode = useCallback(() => {
+    setEditMode(true);
+    setLibraryOpen(true);
+  }, [setEditMode, setLibraryOpen]);
+
+  const exitCustomizeMode = useCallback(() => {
+    setEditMode(false);
+    setLibraryOpen(false);
+    setComposerState(null);
+    setSelected(new Set());
+  }, [setEditMode, setLibraryOpen]);
+
+  const libraryOpenRef = useRef(libraryOpen);
+  libraryOpenRef.current = libraryOpen;
+
+  const handleBackgroundTap = useCallback(() => {
+    if (selected.size > 0) {
+      setSelected(new Set());
+      return;
+    }
+    if (editModeRef.current || libraryOpenRef.current) {
+      exitCustomizeMode();
+    }
+  }, [exitCustomizeMode, selected.size]);
+
+  const selectCanvasItem = useCallback(
+    (id: string) => {
+      setSelected(new Set([id]));
+      setEditMode(true);
+      setLibraryOpen(false);
+    },
+    [setEditMode, setLibraryOpen],
+  );
 
   // Prevent browser zoom on Ctrl+scroll at the DOM level
   useEffect(() => {
@@ -425,44 +624,9 @@ export function CanvasDashboard({
     }
   }, [applyLayerTransform, scheduleChromeSync]);
 
-  // ── Pan ───────────────────────────────────────────────────────────────────
-  const onCanvasPointerDown = useCallback((e: React.PointerEvent) => {
-    const isCanvas = e.currentTarget === e.target;
-    const curPan = panRef.current;
-    const curZoom = zoomRef.current;
-    if (e.button === 1 || (e.button === 0 && isCanvas && !e.shiftKey)) {
-      prepareCanvasPointerGesture(e);
-      setIsPanning(true);
-      panStart.current = { x: e.clientX, y: e.clientY, panX: curPan.x, panY: curPan.y };
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } else if (e.button === 0 && isCanvas && e.shiftKey) {
-      prepareCanvasPointerGesture(e);
-      const rect = viewportRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const wx = (e.clientX - rect.left - curPan.x) / curZoom;
-      const wy = (e.clientY - rect.top - curPan.y) / curZoom;
-      selStart.current = { x: wx, y: wy };
-      setSelBox({ x1: wx, y1: wy, x2: wx, y2: wy });
-      if (!e.ctrlKey && !e.metaKey) setSelected(new Set());
-    }
-  }, []);
-
-  const setGuidesIfChanged = useCallback((next: { type: "h" | "v"; pos: number }[]) => {
-    const prev = guidesRef.current;
-    if (
-      prev.length === next.length &&
-      prev.every((g, i) => g.type === next[i]?.type && g.pos === next[i]?.pos)
-    ) {
-      return;
-    }
-    guidesRef.current = next;
-    setGuides(next);
-  }, []);
-
-  const applyDragTransform = useCallback((clientX: number, clientY: number) => {
-    const el = dragElRef.current;
-    const id = dragId;
-    if (!el || !id) return;
+  const computeDragSnap = useCallback((clientX: number, clientY: number) => {
+    const id = dragIdRef.current;
+    if (!id) return null;
     const curZoom = zoomRef.current;
     const px = clientX - dragStart.current.x;
     const py = clientY - dragStart.current.y;
@@ -479,10 +643,11 @@ export function CanvasDashboard({
       newY = snap(newY);
     }
 
-    const dragNode = nodes.find((n) => n.id === id);
+    const nodesList = nodesRef.current;
+    const dragNode = nodesList.find((n) => n.id === id);
     const activeGuides: { type: "h" | "v"; pos: number }[] = [];
     if (dragNode) {
-      const others = nodes.filter((n) => n.id !== id);
+      const others = nodesList.filter((n) => n.id !== id);
       const cx = newX + dragNode.w / 2;
       const cy = newY + dragNode.h / 2;
       for (const o of others) {
@@ -510,97 +675,253 @@ export function CanvasDashboard({
         }
       }
     }
-    setGuidesIfChanged(activeGuides);
-    const offsetX = newX - dragStart.current.nodeX;
-    const offsetY = newY - dragStart.current.nodeY;
-    el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
-  }, [dragId, nodes, setGuidesIfChanged]);
+    return {
+      newX,
+      newY,
+      offsetX: newX - dragStart.current.nodeX,
+      offsetY: newY - dragStart.current.nodeY,
+      activeGuides,
+    };
+  }, []);
 
-  const onCanvasPointerMove = useCallback((e: React.PointerEvent) => {
+  const applyDragTransform = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = dragElRef.current;
+      if (!el || !dragIdRef.current) return;
+      const snap = computeDragSnap(clientX, clientY);
+      if (!snap) return;
+      const prev = guidesDataRef.current;
+      const next = snap.activeGuides;
+      if (
+        prev.length !== next.length ||
+        !prev.every((g, i) => g.type === next[i]?.type && g.pos === next[i]?.pos)
+      ) {
+        paintGuides(next);
+      }
+      el.style.transform = `translate3d(${snap.offsetX}px, ${snap.offsetY}px, 0) scale(${DRAG_LIFT_SCALE})`;
+    },
+    [computeDragSnap, paintGuides],
+  );
+
+  const applyResizeTransform = useCallback((clientX: number, clientY: number) => {
+    const el = resizeElRef.current;
+    const id = resizeIdRef.current;
+    if (!el || !id) return;
     const curZoom = zoomRef.current;
+    const dx = (clientX - resizeStart.current.x) / curZoom;
+    const dy = (clientY - resizeStart.current.y) / curZoom;
+    const resizing = nodesRef.current.find((n) => n.id === id);
+    const minW = resizing?.type === "backdrop" ? 48 : 120;
+    const minH = resizing?.type === "backdrop" ? 48 : 80;
+    el.style.width = `${Math.max(minW, resizeStart.current.w + dx)}px`;
+    el.style.height = `${Math.max(minH, resizeStart.current.h + dy)}px`;
+  }, []);
+
+  const stopInteractionLoop = useCallback(() => {
+    if (interactionRafRef.current) {
+      cancelAnimationFrame(interactionRafRef.current);
+      interactionRafRef.current = 0;
+    }
+  }, []);
+
+  const startInteractionLoop = useCallback(() => {
+    if (interactionRafRef.current) return;
+    const tick = () => {
+      const ptr = pointerRef.current;
+      if (isPanningRef.current) {
+        const dx = ptr.clientX - panStart.current.x;
+        const dy = ptr.clientY - panStart.current.y;
+        applyLayerTransform(
+          { x: panStart.current.panX + dx, y: panStart.current.panY + dy },
+          zoomRef.current,
+        );
+        const now = performance.now();
+        const dt = Math.max(now - lastPanSampleRef.current.t, 1);
+        panVelocityRef.current = {
+          vx: ((ptr.clientX - lastPanSampleRef.current.x) / dt) * 16,
+          vy: ((ptr.clientY - lastPanSampleRef.current.y) / dt) * 16,
+        };
+        lastPanSampleRef.current = { x: ptr.clientX, y: ptr.clientY, t: now };
+      }
+      if (dragIdRef.current && dragElRef.current) {
+        applyDragTransform(ptr.clientX, ptr.clientY);
+      }
+      if (resizeIdRef.current && resizeElRef.current) {
+        applyResizeTransform(ptr.clientX, ptr.clientY);
+      }
+      if (selBoxActiveRef.current) {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (rect) {
+          const z = zoomRef.current;
+          const p = panRef.current;
+          const wx = (ptr.clientX - rect.left - p.x) / z;
+          const wy = (ptr.clientY - rect.top - p.y) / z;
+          const box = {
+            x1: selStart.current.x,
+            y1: selStart.current.y,
+            x2: wx,
+            y2: wy,
+          };
+          selBoxDataRef.current = box;
+          paintSelBox(box);
+        }
+      }
+      const active =
+        isPanningRef.current ||
+        !!dragIdRef.current ||
+        !!resizeIdRef.current ||
+        selBoxActiveRef.current;
+      if (active) {
+        interactionRafRef.current = requestAnimationFrame(tick);
+      } else {
+        interactionRafRef.current = 0;
+      }
+    };
+    interactionRafRef.current = requestAnimationFrame(tick);
+  }, [applyLayerTransform, applyDragTransform, applyResizeTransform, paintSelBox]);
+
+  const runPanMomentum = useCallback(() => {
+    cancelAnimationFrame(panMomentumRafRef.current);
+    let vx = panVelocityRef.current.vx;
+    let vy = panVelocityRef.current.vy;
+    if (Math.hypot(vx, vy) < 0.45) {
+      commitChromeSync();
+      return;
+    }
+    const decay = 0.9;
+    const step = () => {
+      vx *= decay;
+      vy *= decay;
+      if (Math.hypot(vx, vy) < 0.25) {
+        panMomentumRafRef.current = 0;
+        commitChromeSync();
+        return;
+      }
+      const p = panRef.current;
+      applyLayerTransform({ x: p.x + vx, y: p.y + vy }, zoomRef.current);
+      panMomentumRafRef.current = requestAnimationFrame(step);
+    };
+    panMomentumRafRef.current = requestAnimationFrame(step);
+  }, [applyLayerTransform, commitChromeSync]);
+
+  // ── Pan / marquee pointer handlers ────────────────────────────────────────
+  const beginPan = useCallback(
+    (clientX: number, clientY: number) => {
+      const curPan = panRef.current;
+      cancelAnimationFrame(panMomentumRafRef.current);
+      panMomentumRafRef.current = 0;
+      isPanningRef.current = true;
+      panStart.current = { x: clientX, y: clientY, panX: curPan.x, panY: curPan.y };
+      lastPanSampleRef.current = { x: clientX, y: clientY, t: performance.now() };
+      panVelocityRef.current = { vx: 0, vy: 0 };
+      syncViewportInteractionClasses();
+      startInteractionLoop();
+    },
+    [startInteractionLoop, syncViewportInteractionClasses],
+  );
+
+  const onCanvasPointerDown = useCallback((e: React.PointerEvent) => {
+    const onBackground = isBackgroundCanvasTarget(e.target);
     const curPan = panRef.current;
-    if (isPanning) {
-      const dx = e.clientX - panStart.current.x;
-      const dy = e.clientY - panStart.current.y;
-      applyLayerTransform(
-        { x: panStart.current.panX + dx, y: panStart.current.panY + dy },
-        curZoom,
-      );
-    }
-    if (pendingDragRef.current && !dragId) {
-      const dist = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
-      if (dist >= DRAG_ACTIVATE_PX) {
-        const pending = pendingDragRef.current;
-        clearNativeSelection();
-        if (dragElRef.current) dragElRef.current.style.willChange = "transform";
-        setDragId(pending.id);
-        setPendingDragId(null);
-        pendingDragRef.current = null;
+    const curZoom = zoomRef.current;
+    if (e.button === 1) {
+      prepareCanvasPointerGesture(e);
+      pointerRef.current = { clientX: e.clientX, clientY: e.clientY };
+      beginPan(e.clientX, e.clientY);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } else if (e.button === 0 && onBackground && !e.shiftKey) {
+      prepareCanvasPointerGesture(e);
+      pendingPanRef.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+      pointerRef.current = { clientX: e.clientX, clientY: e.clientY };
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* ok */
       }
-    }
-    if (dragId && dragElRef.current) {
-      dragPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
-      if (!dragRafRef.current) {
-        dragRafRef.current = requestAnimationFrame(() => {
-          dragRafRef.current = 0;
-          const pt = dragPointerRef.current;
-          if (pt && dragId) applyDragTransform(pt.clientX, pt.clientY);
-        });
-      }
-    }
-    if (resizeId && resizeElRef.current) {
-      const dx = (e.clientX - resizeStart.current.x) / curZoom;
-      const dy = (e.clientY - resizeStart.current.y) / curZoom;
-      const resizing = nodes.find((n) => n.id === resizeId);
-      const minW = resizing?.type === "backdrop" ? 48 : 120;
-      const minH = resizing?.type === "backdrop" ? 48 : 80;
-      const newW = Math.max(minW, resizeStart.current.w + dx);
-      const newH = Math.max(minH, resizeStart.current.h + dy);
-      resizeElRef.current.style.width = `${newW}px`;
-      resizeElRef.current.style.height = `${newH}px`;
-    }
-    if (selBox) {
+    } else if (e.button === 0 && onBackground && e.shiftKey) {
+      prepareCanvasPointerGesture(e);
       const rect = viewportRef.current?.getBoundingClientRect();
       if (!rect) return;
       const wx = (e.clientX - rect.left - curPan.x) / curZoom;
       const wy = (e.clientY - rect.top - curPan.y) / curZoom;
-      setSelBox({ x1: selStart.current.x, y1: selStart.current.y, x2: wx, y2: wy });
+      selStart.current = { x: wx, y: wy };
+      selBoxActiveRef.current = true;
+      selBoxDataRef.current = { x1: wx, y1: wy, x2: wx, y2: wy };
+      paintSelBox(selBoxDataRef.current);
+      syncViewportInteractionClasses();
+      pointerRef.current = { clientX: e.clientX, clientY: e.clientY };
+      startInteractionLoop();
+      if (!e.ctrlKey && !e.metaKey) setSelected(new Set());
     }
-  }, [isPanning, dragId, resizeId, selBox, applyLayerTransform, setGuidesIfChanged, applyDragTransform]);
+  }, [paintSelBox, startInteractionLoop, syncViewportInteractionClasses, beginPan]);
+
+  const onCanvasPointerMove = useCallback((e: React.PointerEvent) => {
+    pointerRef.current = { clientX: e.clientX, clientY: e.clientY };
+    const pendingPan = pendingPanRef.current;
+    if (pendingPan && !isPanningRef.current) {
+      const dist = Math.hypot(e.clientX - pendingPan.x, e.clientY - pendingPan.y);
+      if (dist >= PAN_ACTIVATE_PX) {
+        pendingPanRef.current = null;
+        beginPan(pendingPan.x, pendingPan.y);
+      }
+    }
+    if (pendingDragRef.current && !dragIdRef.current) {
+      const dist = Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y);
+      if (dist >= DRAG_ACTIVATE_PX) {
+        const pending = pendingDragRef.current;
+        clearNativeSelection();
+        dragIdRef.current = pending.id;
+        pendingDragRef.current = null;
+        if (dragElRef.current) {
+          dragElRef.current.style.willChange = "transform";
+          dragElRef.current.classList.add("canvas-item--lifted");
+        }
+        syncViewportInteractionClasses();
+        startInteractionLoop();
+      }
+    }
+    if (
+      isPanningRef.current ||
+      dragIdRef.current ||
+      resizeIdRef.current ||
+      selBoxActiveRef.current
+    ) {
+      startInteractionLoop();
+    }
+  }, [beginPan, startInteractionLoop, syncViewportInteractionClasses]);
 
   const onCanvasPointerUp = useCallback((e: React.PointerEvent) => {
-    if (isPanning) {
-      setIsPanning(false);
-      commitChromeSync();
+    const pendingPan = pendingPanRef.current;
+    if (pendingPan && !isPanningRef.current) {
+      pendingPanRef.current = null;
+      handleBackgroundTap();
       try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
-    if (pendingDragRef.current && !dragId) {
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      syncViewportInteractionClasses();
+      runPanMomentum();
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ok */ }
+    }
+    if (pendingDragRef.current && !dragIdRef.current) {
       pendingDragRef.current = null;
-      setPendingDragId(null);
       dragElRef.current = null;
+      syncViewportInteractionClasses();
       try { viewportRef.current?.releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
-    if (dragRafRef.current) {
-      cancelAnimationFrame(dragRafRef.current);
-      dragRafRef.current = 0;
-    }
-    if (dragId && dragElRef.current) {
-      const dx = (e.clientX - dragStart.current.x) / zoomRef.current;
-      const dy = (e.clientY - dragStart.current.y) / zoomRef.current;
-      let finalX = dragStart.current.nodeX + dx;
-      let finalY = dragStart.current.nodeY + dy;
-      if (viewPrefsRef.current.snapToGrid) {
-        const g = viewPrefsRef.current.gridSize;
-        const snap = (v: number) => Math.round(v / g) * g;
-        finalX = snap(finalX);
-        finalY = snap(finalY);
-      }
-      dragElRef.current.style.transform = "";
-      dragElRef.current.style.willChange = "";
+    const releasedDragId = dragIdRef.current;
+    const releasedDragEl = dragElRef.current;
+    if (releasedDragId && releasedDragEl) {
+      const snap = computeDragSnap(e.clientX, e.clientY);
+      const finalX = snap?.newX ?? dragStart.current.nodeX;
+      const finalY = snap?.newY ?? dragStart.current.nodeY;
+      dragIdRef.current = null;
       dragElRef.current = null;
+      clearGuides();
       setNodes((prev) =>
-        prev.map((n) => (n.id === dragId ? { ...n, x: finalX, y: finalY } : n))
+        prev.map((n) => (n.id === releasedDragId ? { ...n, x: finalX, y: finalY } : n)),
       );
+      playDropSettle(releasedDragEl);
       if (dragMovedRef.current) {
         const suppressClick = (ev: MouseEvent) => {
           ev.preventDefault();
@@ -610,41 +931,45 @@ export function CanvasDashboard({
         window.setTimeout(() => document.removeEventListener("click", suppressClick, true), 0);
       }
       dragMovedRef.current = false;
-      setDragId(null);
-      setPendingDragId(null);
-      guidesRef.current = [];
-      setGuides([]);
+      syncViewportInteractionClasses();
       try { viewportRef.current?.releasePointerCapture(e.pointerId); } catch { /* ok */ }
-    } else if (dragId) {
-      setDragId(null);
-      setPendingDragId(null);
-      guidesRef.current = [];
-      setGuides([]);
+    } else if (releasedDragId) {
+      dragIdRef.current = null;
+      clearGuides();
+      syncViewportInteractionClasses();
       try { viewportRef.current?.releasePointerCapture(e.pointerId); } catch { /* ok */ }
     }
-    if (resizeId && resizeElRef.current) {
+    const releasedResizeId = resizeIdRef.current;
+    if (releasedResizeId && resizeElRef.current) {
       const dx = (e.clientX - resizeStart.current.x) / zoomRef.current;
       const dy = (e.clientY - resizeStart.current.y) / zoomRef.current;
-      const resizing = nodes.find((n) => n.id === resizeId);
+      const resizing = nodesRef.current.find((n) => n.id === releasedResizeId);
       const minW = resizing?.type === "backdrop" ? 48 : 120;
       const minH = resizing?.type === "backdrop" ? 48 : 80;
       const finalW = Math.max(minW, resizeStart.current.w + dx);
       const finalH = Math.max(minH, resizeStart.current.h + dy);
-      resizeElRef.current.style.willChange = "";
+      const resizeEl = resizeElRef.current;
+      resizeEl.style.width = "";
+      resizeEl.style.height = "";
+      resizeEl.style.willChange = "";
       resizeElRef.current = null;
+      resizeIdRef.current = null;
       setNodes((prev) =>
-        prev.map((n) => (n.id === resizeId ? { ...n, w: finalW, h: finalH } : n))
+        prev.map((n) => (n.id === releasedResizeId ? { ...n, w: finalW, h: finalH } : n)),
       );
-      setResizeId(null);
-    } else if (resizeId) {
-      setResizeId(null);
+      playDropSettle(resizeEl);
+      syncViewportInteractionClasses();
+    } else if (releasedResizeId) {
+      resizeIdRef.current = null;
+      syncViewportInteractionClasses();
     }
-    if (selBox) {
+    const selBox = selBoxDataRef.current;
+    if (selBoxActiveRef.current && selBox) {
       const bx1 = Math.min(selBox.x1, selBox.x2);
       const by1 = Math.min(selBox.y1, selBox.y2);
       const bx2 = Math.max(selBox.x1, selBox.x2);
       const by2 = Math.max(selBox.y1, selBox.y2);
-      const hits = nodes
+      const hits = nodesRef.current
         .filter((n) => n.x + n.w > bx1 && n.x < bx2 && n.y + n.h > by1 && n.y < by2)
         .map((n) => n.id);
       setSelected((prev) => {
@@ -652,9 +977,19 @@ export function CanvasDashboard({
         for (const id of hits) next.add(id);
         return next;
       });
-      setSelBox(null);
+      hideSelBox();
     }
-  }, [isPanning, dragId, resizeId, selBox, nodes, commitChromeSync]);
+    stopInteractionLoop();
+  }, [
+    computeDragSnap,
+    clearGuides,
+    playDropSettle,
+    runPanMomentum,
+    hideSelBox,
+    stopInteractionLoop,
+    syncViewportInteractionClasses,
+    handleBackgroundTap,
+  ]);
 
   const bringToFront = useCallback((id: string) => {
     const newZ = maxZ + 1;
@@ -758,7 +1093,7 @@ export function CanvasDashboard({
       nodeX: node.x,
       nodeY: node.y,
     };
-    setPendingDragId(id);
+    syncViewportInteractionClasses();
     if (!e.shiftKey) setSelected(new Set([id]));
     else setSelected((prev) => { const next = new Set(prev); next.add(id); return next; });
     try {
@@ -766,7 +1101,7 @@ export function CanvasDashboard({
     } catch {
       /* ok */
     }
-  }, [nodes, bringToFront]);
+  }, [nodes, bringToFront, syncViewportInteractionClasses]);
 
   const startResize = useCallback((id: string, e: React.PointerEvent) => {
     e.stopPropagation();
@@ -774,12 +1109,18 @@ export function CanvasDashboard({
     const node = nodes.find((n) => n.id === id);
     if (!node || node.locked) return;
     if (node.type !== "backdrop") bringToFront(id);
-    setResizeId(id);
+    resizeIdRef.current = id;
     resizeStart.current = { x: e.clientX, y: e.clientY, w: node.w, h: node.h };
+    pointerRef.current = { clientX: e.clientX, clientY: e.clientY };
     const handle = e.currentTarget as HTMLElement;
     resizeElRef.current = handle.closest(".canvas-item") as HTMLElement | null;
-    if (resizeElRef.current) resizeElRef.current.style.willChange = "width, height";
-  }, [nodes, bringToFront]);
+    if (resizeElRef.current) {
+      resizeElRef.current.style.willChange = "width, height";
+      resizeElRef.current.classList.add("canvas-item--lifted");
+    }
+    syncViewportInteractionClasses();
+    startInteractionLoop();
+  }, [nodes, bringToFront, syncViewportInteractionClasses, startInteractionLoop]);
 
   const duplicateNode = useCallback(
     (id: string) => {
@@ -815,16 +1156,34 @@ export function CanvasDashboard({
   }, [pan, zoom]);
 
   const addWidget = useCallback(
-    (widgetKey: string, variant: WidgetSizeVariant = "medium", skin?: WidgetSkin, display?: string) => {
+    (
+      widgetKey: string,
+      variant: WidgetSizeVariant = "medium",
+      skin?: WidgetSkin,
+      display?: string,
+      opts?: {
+        title?: string;
+        textSizePx?: number;
+        textScale?: number;
+        widgetConfig?: Record<string, unknown>;
+      },
+    ) => {
       const newZ = maxZ + 1;
       setMaxZ(newZ);
       const c = viewCenter();
       const style = buildWidgetRenderStyle(widgetKey, variant, skin, display);
       const preset = getVariantPreset(widgetKey, style.variant);
+      const widgetConfig: Record<string, unknown> = { ...(opts?.widgetConfig ?? {}) };
+      if (opts?.textSizePx != null || opts?.textScale != null) {
+        if (opts.textSizePx != null) widgetConfig.textSizePx = opts.textSizePx;
+        if (opts.textScale != null) widgetConfig.textScale = opts.textScale;
+        widgetConfig.typographyCustom = true;
+      }
+      const newId = generateId();
       setNodes((prev) => [
         ...prev,
         {
-          id: generateId(),
+          id: newId,
           type: "widget",
           x: c.x - preset.w / 2,
           y: c.y - preset.h / 2,
@@ -834,30 +1193,75 @@ export function CanvasDashboard({
           widgetVariant: style.variant,
           widgetSkin: style.skin,
           widgetDisplay: style.display,
+          title: opts?.title,
+          widgetConfig: Object.keys(widgetConfig).length ? widgetConfig : undefined,
           zIndex: newZ,
         },
       ]);
+      setSelected(new Set([newId]));
+      setEditMode(true);
+      setLibraryOpen(false);
+    },
+    [maxZ, viewCenter, setEditMode, setLibraryOpen],
+  );
+
+  const addImageNode = useCallback(
+    (payload: ImageInsertPayload) => {
+      const newZ = maxZ + 1;
+      setMaxZ(newZ);
+      const c = viewCenter();
+      setNodes((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          type: "image",
+          x: c.x - payload.w / 2,
+          y: c.y - payload.h / 2,
+          w: payload.w,
+          h: payload.h,
+          imageUrl: payload.imageUrl,
+          zIndex: newZ,
+        },
+      ]);
+      setEditMode(true);
     },
     [maxZ, viewCenter],
   );
 
-  const addWidgetFromRegistry = useCallback(
-    (entry: WidgetRegistryEntry, variant?: import("../../dashboard/types").WidgetSizeVariant) => {
-      addWidget(
-        entry.key,
-        variant ?? entry.defaultVariant,
-        entry.defaultSkin,
-        entry.defaultDisplay,
-      );
+  const openWidgetComposer = useCallback((entry: WidgetRegistryEntry) => {
+    setLibraryOpen(false);
+    setComposerState({ kind: "widget", entry });
+  }, []);
+
+  const openImageComposer = useCallback(() => {
+    setLibraryOpen(false);
+    setComposerState({ kind: "image" });
+  }, []);
+
+  const insertFromComposer = useCallback(
+    (payload: WidgetInsertPayload) => {
+      addWidget(payload.widgetKey, payload.variant, payload.skin, payload.display, {
+        title: payload.title,
+        textSizePx: payload.textSizePx,
+        textScale: payload.textScale,
+      });
+      setComposerState(null);
     },
     [addWidget],
   );
 
+  const insertImageFromComposer = useCallback(
+    (payload: ImageInsertPayload) => {
+      addImageNode(payload);
+      setComposerState(null);
+    },
+    [addImageNode],
+  );
+
   const resetDashboardLayout = useCallback(() => {
     const fresh = createDefaultDashboardNodes();
-    const topZ = fresh.reduce((m, n) => Math.max(m, n.zIndex), 0);
     setNodes(fresh);
-    setMaxZ(topZ);
+    setMaxZ(0);
     setSelected(new Set());
     setEditMode(true);
   }, []);
@@ -996,7 +1400,7 @@ export function CanvasDashboard({
 
   // Animated zoom for toolbar buttons
   const animateZoom = useCallback((targetZoom: number) => {
-    cancelAnimationFrame(zoomAnimRef.current);
+    zoomAnimRef.current?.cancel();
     const rect = viewportRef.current?.getBoundingClientRect();
     const clampedTarget = clampZoom(targetZoom);
     if (!rect) {
@@ -1009,25 +1413,19 @@ export function CanvasDashboard({
     const cy = rect.height / 2;
     const startZoom = zoomRef.current;
     const startPan = { ...panRef.current };
-    const start = performance.now();
-    const duration = 120;
-
-    const step = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-      const z = startZoom + (clampedTarget - startZoom) * ease;
-      const ratio = z / startZoom;
-      applyLayerTransform(
-        { x: cx - ratio * (cx - startPan.x), y: cy - ratio * (cy - startPan.y) },
-        z,
-      );
-      if (t < 1) {
-        zoomAnimRef.current = requestAnimationFrame(step);
-      } else {
-        commitChromeSync();
-      }
-    };
-    zoomAnimRef.current = requestAnimationFrame(step);
+    zoomAnimRef.current = runRafAnimation(
+      220,
+      springOut,
+      (t) => {
+        const z = startZoom + (clampedTarget - startZoom) * t;
+        const ratio = z / startZoom;
+        applyLayerTransform(
+          { x: cx - ratio * (cx - startPan.x), y: cy - ratio * (cy - startPan.y) },
+          z,
+        );
+      },
+      commitChromeSync,
+    );
   }, [applyLayerTransform, commitChromeSync]);
 
   const zoomIn = () => animateZoom(clampZoom(zoomRef.current * 1.25));
@@ -1046,30 +1444,36 @@ export function CanvasDashboard({
     window.setTimeout(() => {
       applyLayerTransform(fitPan, fitZoom);
       commitChromeSync();
-    }, 130);
+    }, 240);
   }, [nodes, animateZoom, applyLayerTransform, commitChromeSync]);
 
-  // Delete selected with keyboard
+  // Keyboard: delete selection; Esc clears customize (Figma-style)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const inField =
+        active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "TEXTAREA" ||
+          (active as HTMLElement).isContentEditable);
+      if (e.key === "Escape") {
+        if (inField) return;
+        if (composerState) {
+          setComposerState(null);
+          return;
+        }
+        handleBackgroundTap();
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
-        const active = document.activeElement;
-        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        if (inField) return;
         setNodes((prev) => prev.filter((n) => !selected.has(n.id)));
         setSelected(new Set());
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
-
-  // Selection box in screen coords
-  const selRect = selBox ? {
-    left: Math.min(selBox.x1, selBox.x2) * zoom + pan.x,
-    top: Math.min(selBox.y1, selBox.y2) * zoom + pan.y,
-    width: Math.abs(selBox.x2 - selBox.x1) * zoom,
-    height: Math.abs(selBox.y2 - selBox.y1) * zoom,
-  } : null;
+  }, [selected, composerState, handleBackgroundTap]);
 
   const selectedId = selected.size === 1 ? [...selected][0]! : null;
   const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) : undefined;
@@ -1091,7 +1495,7 @@ export function CanvasDashboard({
 
   return (
     <div
-      className={`canvas-dashboard canvas-dashboard--fixed-chrome${editMode ? " canvas-dashboard--edit-mode" : ""}`}
+      className={`canvas-dashboard canvas-dashboard--fixed-chrome${editMode ? " canvas-dashboard--edit-mode" : ""}${editMode && libraryOpen ? " canvas-dashboard--library-open" : ""}`}
       data-ui-density={ui.density}
       data-surface-tone={ui.surfaceTone}
       ref={containerRef}
@@ -1099,14 +1503,27 @@ export function CanvasDashboard({
       <WidgetLibrary
         open={libraryOpen}
         onOpenChange={setLibraryOpen}
-        onAdd={addWidgetFromRegistry}
+        docked={editMode}
+        onPick={openWidgetComposer}
+        onPickImage={openImageComposer}
       />
+      {renderWidget ? (
+        <WidgetComposerDialog
+          open={composerState !== null}
+          onOpenChange={(open) => !open && setComposerState(null)}
+          state={composerState}
+          boardTypography={{ textSizePx: ui.textSizePx, textScale: ui.textScale }}
+          renderPreview={renderWidget}
+          onInsertWidget={insertFromComposer}
+          onInsertImage={insertImageFromComposer}
+        />
+      ) : null}
       <div
         className={`canvas-chrome-stack${editMode ? " canvas-chrome-stack--edit-mode" : ""}${selectedNode ? " canvas-chrome-stack--has-selection" : ""}`}
         ref={chromeDockRef}
       >
         <div className={`canvas-chrome-dock${selectedNode ? " canvas-chrome-dock--has-selection" : ""}`}>
-        <div className={`canvas-unified-toolbar${editMode || selectedNode ? " canvas-unified-toolbar--expanded" : ""}`}>
+        <div className={`canvas-unified-toolbar${editMode ? " canvas-unified-toolbar--expanded" : ""}`}>
           {renderWidget ? (
             <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--nav">
               <HomeGlanceBar compact onNavigate={onNavigate} onCommand={onCommand} />
@@ -1120,15 +1537,13 @@ export function CanvasDashboard({
               onZoomOut={zoomOut}
               onZoomReset={() => zoomTo(1)}
               editMode={editMode}
-              onToggleEditMode={() => setEditMode((v) => !v)}
-              onOpenWidgetLibrary={() => {
-                setLibraryOpen(true);
-                setEditMode(true);
-              }}
+              onOpenWidgetLibrary={enterCustomizeMode}
               onResetLayout={resetDashboardLayout}
               widgetCount={widgetNodeCount}
               onAddWidget={addWidget}
               onAddImage={addImage}
+              onStageImage={(url) => setComposerState({ kind: "image", imageUrl: url })}
+              onOpenImageComposer={openImageComposer}
               onAddNote={addNote}
               onAddCustom={addCustom}
               onAddEmbed={addEmbed}
@@ -1136,18 +1551,12 @@ export function CanvasDashboard({
               background={background}
               onBackgroundChange={onBackgroundChange}
             />
-          </div>
-          {editMode ? (
-            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--secondary">
-              <DashboardCustomizeStrip />
-            </div>
-          ) : null}
-          {selectedNode ? (
-            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--selection">
-              <CanvasSelectionToolbar
-                embedded
-                preferExpanded={false}
-                node={selectedNode}
+            {selectedNode ? (
+              <>
+                <span className="canvas-unified-toolbar__divider" aria-hidden />
+                <CanvasWidgetInspectorInline
+                  node={selectedNode}
+                  boardTypography={{ textSizePx: ui.textSizePx, textScale: ui.textScale }}
                   onGeometryChange={(patch) => updateNodeGeometry(selectedNode.id, patch)}
                   onAppearanceChange={
                     selectedNode.type !== "backdrop"
@@ -1178,6 +1587,13 @@ export function CanvasDashboard({
                   onRemove={() => removeNode(selectedNode.id)}
                   onClearSelection={() => setSelected(new Set())}
                 />
+              </>
+            ) : null}
+            {renderWidget ? <DashboardTypographyToolbar /> : null}
+          </div>
+          {editMode ? (
+            <div className="canvas-unified-toolbar__row canvas-unified-toolbar__row--secondary">
+              <DashboardCustomizeStrip />
             </div>
           ) : null}
         </div>
@@ -1186,7 +1602,7 @@ export function CanvasDashboard({
 
       <div
         ref={viewportRef}
-        className={`canvas-viewport${isPanning ? " canvas-viewport--panning" : ""}${dragId || pendingDragId ? " canvas-viewport--dragging" : ""}${resizeId ? " canvas-viewport--resizing" : ""}${selBox ? " canvas-viewport--selecting" : ""}${isPanning || dragId || pendingDragId || resizeId || selBox ? " canvas-viewport--interacting" : ""}${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
+        className={`canvas-viewport${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
         onWheel={onWheel}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPointerMove}
@@ -1195,27 +1611,21 @@ export function CanvasDashboard({
       >
         {showEmptyOnboarding && (
           <DashboardEmptyState
-            onCustomize={() => setEditMode(true)}
-            onAddWidget={() => {
-              setEditMode(true);
-              setLibraryOpen(true);
-            }}
+            onAddWidget={enterCustomizeMode}
           />
         )}
-        <div
-          ref={layerRef}
-          className={`canvas-layer${isPanning || dragId || resizeId ? " canvas-layer--active" : ""}`}
-        >
+        <div ref={layerRef} className="canvas-layer">
           {[...nodes]
             .sort((a, b) => a.zIndex - b.zIndex)
             .map((node) => (
-            <CanvasItem
+            <MemoCanvasItem
               key={node.id}
               node={node}
               widgets={widgets}
               renderWidget={renderWidget}
               editMode={editMode}
               isSelected={selected.has(node.id)}
+              onSelect={() => selectCanvasItem(node.id)}
               onDragStart={(e) => startDrag(node.id, e)}
               onResizeStart={(e) => startResize(node.id, e)}
               onRemove={() => removeNode(node.id)}
@@ -1236,23 +1646,20 @@ export function CanvasDashboard({
           ))}
         </div>
 
-        {/* Alignment guides */}
-        {guides.map((g, i) => (
-          <div
-            key={`guide-${i}`}
-            className={`canvas-guide canvas-guide--${g.type}`}
-            style={
-              g.type === "h"
-                ? { top: g.pos * zoom + pan.y, left: 0, right: 0 }
-                : { left: g.pos * zoom + pan.x, top: 0, bottom: 0 }
-            }
-          />
-        ))}
+        <div className="canvas-guides-layer" aria-hidden>
+          {Array.from({ length: MAX_GUIDES }).map((_, i) => (
+            <div
+              key={`guide-${i}`}
+              ref={(el) => {
+                guideElsRef.current[i] = el;
+              }}
+              className="canvas-guide"
+              style={{ display: "none" }}
+            />
+          ))}
+        </div>
 
-        {/* Selection box */}
-        {selRect && (
-          <div className="canvas-sel-box" style={selRect} />
-        )}
+        <div ref={selBoxElRef} className="canvas-sel-box" style={{ display: "none" }} />
       </div>
 
       <CanvasMinimap
@@ -1275,8 +1682,8 @@ export function CanvasDashboard({
 
       <div className="canvas-hints">
         {editMode
-          ? "Customize on — drag widgets by the handle or empty area · Lock color panels in the selection bar · Done when finished"
-          : "Click Customize to move widgets · Scroll to pan · Ctrl/Alt+scroll to zoom · Shift+drag to select"}
+          ? "Widget controls in toolbar · Empty canvas to deselect · Esc to finish"
+          : "Click a widget · customize in toolbar · + Add to insert · Ctrl/Alt+scroll to zoom"}
       </div>
     </div>
   );

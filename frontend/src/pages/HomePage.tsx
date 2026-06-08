@@ -6,6 +6,7 @@ import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
 import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";
 import { DashboardDataProvider } from "../productivity-dashboard/hooks/useDashboardDataContext";
 import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";
+import { useUiCustomization } from "../hooks/useUiCustomization";
 
 interface Props {
   onNavigate: (tab: Tab) => void;
@@ -19,6 +20,7 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
 
   const editMode = useDashboardLayoutStore((s) => s.editMode);
   const setEditMode = useDashboardLayoutStore((s) => s.setEditMode);
+  const { ui } = useUiCustomization();
 
   useEffect(() => {
     let cancelled = false;
@@ -46,8 +48,12 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
   }, []);
 
   const renderWidget = useMemo(
-    () => createCanvasWidgetRenderer(onNavigate, boardTasks, boardDataLoading),
-    [onNavigate, boardTasks, boardDataLoading],
+    () =>
+      createCanvasWidgetRenderer(onNavigate, boardTasks, boardDataLoading, {
+        textSizePx: ui.textSizePx,
+        textScale: ui.textScale,
+      }),
+    [onNavigate, boardTasks, boardDataLoading, ui.textSizePx, ui.textScale],
   );
 
   return (

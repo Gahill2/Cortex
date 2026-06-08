@@ -5,6 +5,8 @@
 # Detected: /dev/sdc2 ~1.8T (NTFS). For Jellyfin/Radarr, ext4 is recommended on a fresh disk.
 set -euo pipefail
 
+# UUID is stable when the bay reshuffles /dev/sdX letters (e.g. sdc2 → sdd2).
+MEDIA_UUID="${CORTEX_2TB_UUID:-68C4368CC4365D0E}"
 DISK="${CORTEX_2TB_DISK:-/dev/sdc}"
 PART="${CORTEX_2TB_PART:-/dev/sdc2}"
 MOUNT="${CORTEX_2TB_MOUNT:-/mnt/cortex/hdd2tb}"
@@ -28,9 +30,15 @@ mount_via_nsenter() {
 }
 
 if [[ ! -b "$PART" ]]; then
-  echo "Partition $PART not found. Disks:" >&2
-  lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,MODEL
-  exit 1
+  log "Partition $PART not found — trying UUID=$MEDIA_UUID (drive letter may have changed in the bay)"
+  PART="$(blkid -U "$MEDIA_UUID" 2>/dev/null || true)"
+  if [[ -n "${PART:-}" && -b "$PART" ]]; then
+    log "Resolved media partition: $PART"
+  else
+    echo "Media partition not found (tried $PART and UUID $MEDIA_UUID). Disks:" >&2
+    lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,MODEL,UUID
+    exit 1
+  fi
 fi
 
 log "Disk layout:"

@@ -8,6 +8,12 @@ import { getRegistryEntry } from "../../dashboard/widgetRegistry";
 import { getWidgetTypeDef, type WidgetSizeVariant } from "./widgetVariants";
 import { WidgetVariantPicker } from "./WidgetVariantPicker";
 import { CanvasWidgetConfigSection } from "./CanvasWidgetConfigSection";
+import {
+  type BoardTypography,
+  resolveWidgetTypography,
+  widgetHasOwnTypography,
+} from "../../lib/uiCustomization";
+import { TextSizePresetPicker } from "./TextSizePresetPicker";
 
 export type WidgetStylePatch = {
   variant?: WidgetSizeVariant;
@@ -41,6 +47,8 @@ interface Props {
   onToggleLock?: () => void;
   onRemove: () => void;
   onClearSelection?: () => void;
+  /** Board default typography (for widget “Board” preset). */
+  boardTypography?: BoardTypography;
   /** Inline segment inside unified toolbar */
   embedded?: boolean;
   /** In edit mode, show size/design/options without extra clicks */
@@ -122,6 +130,36 @@ function NumField({
   );
 }
 
+function WidgetTypographyControl({
+  widgetConfig,
+  board,
+  onChange,
+  onClearOverride,
+}: {
+  widgetConfig: Record<string, unknown> | undefined;
+  board: BoardTypography;
+  onChange: (patch: Record<string, unknown>) => void;
+  onClearOverride: () => void;
+}) {
+  const typo = resolveWidgetTypography(widgetConfig, board);
+  const hasOwn = widgetHasOwnTypography(widgetConfig);
+  return (
+    <div className="canvas-selection-toolbar__widget-text">
+      <TextSizePresetPicker
+        className="canvas-selection-toolbar__text-presets"
+        compact={false}
+        textSizePx={typo.textSizePx}
+        textScale={typo.textScale}
+        inheritLabel="Board"
+        inheritActive={!hasOwn}
+        onInherit={onClearOverride}
+        onTextSizePxChange={(px) => onChange({ textSizePx: px, typographyCustom: true })}
+        onTextScaleChange={(scale) => onChange({ textScale: scale, typographyCustom: true })}
+      />
+    </div>
+  );
+}
+
 export function CanvasSelectionToolbar({
   node,
   onGeometryChange,
@@ -137,6 +175,7 @@ export function CanvasSelectionToolbar({
   onToggleLock,
   onRemove,
   onClearSelection,
+  boardTypography = { textSizePx: 24, textScale: 1 },
   embedded = false,
   preferExpanded = false,
 }: Props) {
@@ -289,6 +328,30 @@ export function CanvasSelectionToolbar({
       </div>
     </div>
   ) : null;
+
+  const widgetTextScaleSection =
+    isWidget && onWidgetConfigChange ? (
+      <div className="canvas-selection-toolbar__section canvas-selection-toolbar__section--text-scale">
+        <ToolbarLabel>This widget</ToolbarLabel>
+        <WidgetTypographyControl
+          widgetConfig={node.widgetConfig}
+          board={boardTypography}
+          onChange={(patch) =>
+            onWidgetConfigChange({
+              ...(node.widgetConfig ?? {}),
+              ...patch,
+            })
+          }
+          onClearOverride={() => {
+            const next = { ...(node.widgetConfig ?? {}) };
+            delete next.textScale;
+            delete next.textSizePx;
+            delete next.typographyCustom;
+            onWidgetConfigChange(next);
+          }}
+        />
+      </div>
+    ) : null;
 
   const widgetConfigSection =
     isWidget && onWidgetConfigChange && hasConfigFields ? (
@@ -485,6 +548,9 @@ export function CanvasSelectionToolbar({
             {titleBlock}
             {actionsBlock}
           </div>
+          {widgetTextScaleSection ? (
+            <div className="canvas-selection-toolbar__stack-row">{widgetTextScaleSection}</div>
+          ) : null}
           {widgetSizeSection ? (
             <div className="canvas-selection-toolbar__stack-row">{widgetSizeSection}</div>
           ) : null}
@@ -507,6 +573,8 @@ export function CanvasSelectionToolbar({
           {titleBlock}
           {isWidget ? (
             <>
+              <ToolbarDivider />
+              {widgetTextScaleSection}
               <ToolbarDivider />
               {widgetSizeSection}
               <ToolbarDivider />

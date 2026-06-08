@@ -85,7 +85,7 @@ export function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) 
               <p className="spotify-track-name">{np.track?.name}</p>
               <p className="spotify-artist-name">{np.track?.artists?.join(", ")}</p>
               {np.device && (
-                <p className="spotify-widget-device" style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <p className="spotify-widget-device" style={{ color: "var(--text-3)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                   <Speaker size={11} strokeWidth={2} aria-hidden />
                   <span>{np.device.name}</span>
                 </p>
@@ -106,7 +106,7 @@ export function SpotifyWidget({ onNavigate }: { onNavigate: (t: Tab) => void }) 
             <button type="button" className="spotify-ctrl-btn" onClick={() => void ctrl("next")}>
               ⏭
             </button>
-            <button type="button" className="spotify-ctrl-btn" style={{ fontSize: 14 }} onClick={() => void load()}>
+            <button type="button" className="spotify-ctrl-btn" onClick={() => void load()}>
               ↻
             </button>
           </div>

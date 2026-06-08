@@ -18,12 +18,14 @@ interface Props {
   onZoomReset: () => void;
   /** Dashboard edit mode (Home canvas) */
   editMode?: boolean;
-  onToggleEditMode?: () => void;
   onOpenWidgetLibrary?: () => void;
   onResetLayout?: () => void;
   widgetCount?: number;
   onAddWidget: (key: string, variant: WidgetSizeVariant, skin: WidgetSkin, display: string) => void;
   onAddImage: (url: string) => void;
+  /** Opens image composer (configure size before insert). */
+  onStageImage?: (url: string) => void;
+  onOpenImageComposer?: () => void;
   onAddNote: () => void;
   onAddCustom: (title: string, content: string, color: string) => void;
   onAddEmbed: (url: string, title?: string) => void;
@@ -42,12 +44,13 @@ export function CanvasToolbar({
   onZoomOut,
   onZoomReset,
   editMode = false,
-  onToggleEditMode,
   onOpenWidgetLibrary,
   onResetLayout,
   widgetCount = 0,
   onAddWidget,
   onAddImage,
+  onStageImage,
+  onOpenImageComposer,
   onAddNote,
   onAddCustom,
   onAddEmbed,
@@ -69,13 +72,18 @@ export function CanvasToolbar({
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const bgBtnRef = useRef<HTMLButtonElement>(null);
 
+  const placeImage = (url: string) => {
+    if (onStageImage) onStageImage(url);
+    else onAddImage(url);
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === "string") {
-        onAddImage(reader.result);
+        placeImage(reader.result);
       }
     };
     reader.readAsDataURL(file);
@@ -86,7 +94,7 @@ export function CanvasToolbar({
   const handleImageUrl = () => {
     const url = prompt("Paste image URL:");
     if (url?.trim()) {
-      onAddImage(url.trim());
+      placeImage(url.trim());
     }
     setShowAddMenu(false);
   };
@@ -121,7 +129,7 @@ export function CanvasToolbar({
     setShowBgMenu(false);
   };
 
-  const showDashboardChrome = Boolean(onToggleEditMode || onOpenWidgetLibrary);
+  const showDashboardChrome = Boolean(onOpenWidgetLibrary);
 
   const menuOpen = showAddMenu || showBgMenu;
   const addMenuWidth = pickingWidgetKey ? 520 : 260;
@@ -401,41 +409,21 @@ export function CanvasToolbar({
         />
       </div>
 
-      {showDashboardChrome && onToggleEditMode && (
+      {showDashboardChrome && editMode && onResetLayout ? (
         <>
           <div className="canvas-toolbar__divider" />
           <div className="canvas-toolbar__group canvas-toolbar__group--dashboard">
-            {onOpenWidgetLibrary && (
-              <button
-                type="button"
-                className="canvas-toolbar__btn"
-                onClick={onOpenWidgetLibrary}
-                title="Browse widget library"
-              >
-                <span className="canvas-toolbar__label">Widgets</span>
-              </button>
-            )}
-            {editMode && onResetLayout && (
-              <button
-                type="button"
-                className="canvas-toolbar__btn"
-                onClick={onResetLayout}
-                title="Restore starter layout"
-              >
-                <span className="canvas-toolbar__label">Reset</span>
-              </button>
-            )}
             <button
               type="button"
-              className={`canvas-toolbar__btn canvas-toolbar__btn--edit${editMode ? " is-active" : ""}`}
-              onClick={onToggleEditMode}
-              title={editMode ? "Exit customize mode" : "Customize dashboard"}
+              className="canvas-toolbar__btn"
+              onClick={onResetLayout}
+              title="Clear all widgets from the board"
             >
-              <span className="canvas-toolbar__label">{editMode ? "Done" : "Customize"}</span>
+              <span className="canvas-toolbar__label">Clear</span>
             </button>
           </div>
         </>
-      )}
+      ) : null}
 
       {showCustomModal && (
         <CanvasModalPortal open={showCustomModal} onClose={() => setShowCustomModal(false)}>

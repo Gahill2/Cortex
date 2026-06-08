@@ -1353,6 +1353,10 @@
   margin: 0;
 }
 
+.tcc-page .calendar-connect-banner {
+  margin: 0 0 1rem;
+}
+
 .tcc-warnings {
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
@@ -2352,4 +2356,201 @@
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* ── Google Calendar grid (Calendar + Tasks productivity routes) ───────── */
+.pd-route {
+  --pd-g-blue: #1a73e8;
+  --pd-g-bg: #f1f3f4;
+  --pd-g-border: #dadce0;
+  --pd-g-text: #202124;
+  --pd-g-text-secondary: #5f6368;
+  --pd-g-text-tertiary: #80868b;
+  --pd-g-surface: #ffffff;
+  --pd-g-now: #ea4335;
+}
+
+.pd-route .pd-cal-grid .tcc-card,
+.pd-route .pd-cal-grid .tcc-cal-card--schedule,
+.pd-route .pd-cal-grid .tcc-cal-card--agenda,
+.pd-route .pd-cal-grid .tcc-cal-card--month {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--pd-g-surface);
+}
+
+.pd-route .cal-week-gutter,
+.pd-route .cal-week-time-gutter,
+.pd-route .cal-schedule-gutter,
+.pd-route .cal-schedule-times {
+  width: 48px !important;
+  flex-shrink: 0;
+}
+
+.pd-route .cal-week-time-label,
+.pd-route .cal-schedule-time,
+.pd-route .cal-schedule-allday-label,
+.pd-route .cal-week-allday-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pd-g-text-tertiary);
+  text-align: right;
+  padding-right: 8px;
+  border-bottom-color: var(--pd-g-border);
+}
+
+.pd-route .cal-week-schedule-head,
+.pd-route .cal-schedule-header,
+.pd-route .tcc-cal-card--schedule .cal-week-schedule-head,
+.pd-route .tcc-cal-card--schedule .cal-week-allday-row {
+  background: var(--pd-g-surface);
+  border-color: var(--pd-g-border);
+}
+
+.pd-route .cal-week-day-name,
+.pd-route .cal-schedule-dayname {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--pd-g-text-secondary);
+}
+
+.pd-route .cal-week-day-num,
+.pd-route .cal-schedule-daynum {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pd-g-text);
+  width: 28px;
+  height: 28px;
+}
+
+.pd-route .cal-day-num--today,
+.pd-route .cal-week-schedule-dayhead--today .cal-week-day-num,
+.pd-route .cal-schedule-dayhead--today .cal-schedule-daynum,
+.pd-route .cal-day--today .cal-day-num {
+  background: var(--pd-g-blue);
+  color: #fff;
+}
+
+.pd-route .cal-week-allday-row,
+.pd-route .cal-schedule-allday {
+  background: var(--pd-g-bg);
+  border-color: var(--pd-g-border);
+  min-height: 32px;
+}
+
+.pd-route .cal-week-hour-line,
+.pd-route .cal-schedule-slot,
+.pd-route .cal-week-time-label,
+.pd-route .cal-week-day-col,
+.pd-route .cal-schedule-col,
+.pd-route .cal-schedule-dayhead,
+.pd-route .cal-week-schedule-dayhead {
+  border-color: var(--pd-g-border);
+}
+
+.pd-route .cal-week-now-line {
+  background: var(--pd-g-now);
+  height: 2px;
+}
+
+.pd-route .cal-week-now-dot {
+  background: var(--pd-g-now);
+  box-shadow: none;
+  width: 10px;
+  height: 10px;
+  left: -5px;
+}
+
+.pd-route .cal-week-event,
+.pd-route .cal-schedule-event,
+.pd-route .cal-week-allday-chip,
+.pd-route .cal-event-bar,
+.pd-route .cal-event-chip {
+  border-radius: 4px !important;
+  border-left-width: 4px !important;
+  border-left-style: solid;
+  box-shadow: none !important;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 6px;
+  gap: 2px;
+}
+
+.pd-route .cal-week-event,
+.pd-route .cal-schedule-event {
+  background: color-mix(in srgb, var(--cal-event-color, var(--pd-g-blue)) 10%, var(--pd-g-surface)) !important;
+  border-left-color: var(--cal-event-color, var(--pd-g-blue)) !important;
+  color: color-mix(in srgb, var(--cal-event-color, var(--pd-g-blue)) 85%, #000) !important;
+}
+
+.pd-route .cal-week-event:hover,
+.pd-route .cal-schedule-event:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--cal-event-color, var(--pd-g-blue)) 16%, var(--pd-g-surface)) !important;
+}
+
+.pd-route .cal-week-ev-title,
+.pd-route .cal-schedule-event-title {
+  color: inherit;
+  font-weight: 500;
+}
+
+.pd-route .cal-week-ev-time,
+.pd-route .cal-schedule-event-time {
+  color: var(--pd-g-text-secondary);
+  font-size: 11px;
+}
+
+.pd-route .cal-week-event--google,
+.pd-route .cal-week-allday-chip--google,
+.pd-route .cal-event-bar--google {
+  --cal-event-color: #1a73e8;
+}
+
+.pd-route .cal-week-event--microsoft,
+.pd-route .cal-week-allday-chip--microsoft,
+.pd-route .cal-event-bar--microsoft {
+  --cal-event-color: #0078d4;
+}
+
+.pd-route .cal-agenda,
+.pd-route .cal-schedule {
+  border: 1px solid var(--pd-g-border);
+  border-radius: 8px;
+  background: var(--pd-g-surface);
+}
+
+.pd-route .cal-agenda-row:hover {
+  background: var(--pd-g-bg);
+}
+
+.pd-route .cal-agenda-date {
+  background: var(--pd-g-bg);
+  color: var(--pd-g-text);
+  font-weight: 500;
+  font-size: 12px;
+  border-color: var(--pd-g-border);
+}
+
+.pd-route .cal-agenda-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--pd-g-text);
+}
+
+.pd-route .cal-agenda-time {
+  color: var(--pd-g-text-secondary);
+  font-weight: 400;
+}
+
+.pd-route .tcc-month-grid .cal-cell-num.cal-day-num--today {
+  background: var(--pd-g-blue);
+  color: #fff;
+}
+
+.pd-route .pd-route__body {
+  background: var(--pd-g-surface);
 }
