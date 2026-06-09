@@ -1136,6 +1136,64 @@
   padding: 0;
 }
 
+.canvas-dashboard-upgrade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  padding: 10px 16px;
+  margin: 0;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.canvas-dashboard-upgrade__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.canvas-dashboard-upgrade__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-dashboard-upgrade__apply,
+.canvas-dashboard-upgrade__dismiss {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.canvas-dashboard-upgrade__apply {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-weight: 600;
+}
+
+.canvas-dashboard-upgrade__apply:hover {
+  filter: brightness(1.06);
+}
+
+.canvas-dashboard-upgrade__dismiss {
+  background: transparent;
+  color: var(--text-muted, var(--text));
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.canvas-dashboard-upgrade__dismiss:hover {
+  background: color-mix(in srgb, var(--surface) 70%, var(--border));
+}
+
 /* Unified toolbar — full-width bar flush to canvas top */
 .canvas-unified-toolbar {
   position: relative;

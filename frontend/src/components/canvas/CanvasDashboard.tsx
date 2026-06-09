@@ -121,6 +121,12 @@ interface Props {
 
 const STORAGE_KEY = "cortex-canvas-state";
 const CANVAS_STATE_VERSION = 2;
+/** Server layout schema — prompts existing users to opt into the SaaS dashboard refresh. */
+export const SAAS_DASHBOARD_LAYOUT_VERSION = 3;
+
+function saasAmbientBackground(): CanvasBackground {
+  return { kind: "ambient", value: "", presetId: "horizon" };
+}
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const ZOOM_SENSITIVITY = 0.0015;
@@ -278,6 +284,7 @@ export function CanvasDashboard({
 
   // Staggered widget entrance on board load (flag lifted once settled).
   const [entranceChoreo, setEntranceChoreo] = useState(true);
+  const [showDashboardUpgrade, setShowDashboardUpgrade] = useState(false);
   useEffect(() => {
     const t = window.setTimeout(() => setEntranceChoreo(false), 2000);
     return () => window.clearTimeout(t);
@@ -532,9 +539,15 @@ export function CanvasDashboard({
       setZoom(clampZoom(layout?.zoom ?? local?.zoom ?? saved?.zoom ?? 1));
       setMaxZ(Math.max(...nextNodes.map((n) => n.zIndex), 0));
       if (layout?.background) setBackground(layout.background);
-      else if (local) {
+      else if (!layout && nextNodes.length > 0) {
+        setBackground(saasAmbientBackground());
+      } else if (local) {
         const bg = loadCanvasBackground();
         if (bg.kind !== "default") setBackground(bg);
+      }
+      const layoutVersion = (layout as CanvasLayoutPref | null)?.layoutVersion ?? 0;
+      if (layout && layoutVersion < SAAS_DASHBOARD_LAYOUT_VERSION) {
+        setShowDashboardUpgrade(true);
       }
       canvasHydratedRef.current = true;
     })();
@@ -549,6 +562,7 @@ export function CanvasDashboard({
         pan,
         zoom,
         background: background.kind !== "default" ? background : undefined,
+        layoutVersion: SAAS_DASHBOARD_LAYOUT_VERSION,
       };
       patch({ canvasLayout: payload });
       try {
@@ -1309,6 +1323,14 @@ export function CanvasDashboard({
     setZoom(1);
   }, []);
 
+  const applyDashboardUpgrade = useCallback(() => {
+    applyStarterLayout();
+    setBackground(saasAmbientBackground());
+    setShowDashboardUpgrade(false);
+    setEntranceChoreo(true);
+    window.setTimeout(() => setEntranceChoreo(false), 2000);
+  }, [applyStarterLayout]);
+
   const widgetNodeCount = nodes.filter((n) => n.type === "widget").length;
   const showEmptyOnboarding = widgetNodeCount === 0;
 
@@ -1651,6 +1673,29 @@ export function CanvasDashboard({
           ) : null}
         </div>
         </div>
+        {showDashboardUpgrade ? (
+          <div className="canvas-dashboard-upgrade" role="status">
+            <p className="canvas-dashboard-upgrade__text">
+              A refreshed dashboard layout and living background are available.
+            </p>
+            <div className="canvas-dashboard-upgrade__actions">
+              <button
+                type="button"
+                className="canvas-dashboard-upgrade__apply"
+                onClick={applyDashboardUpgrade}
+              >
+                Apply refresh
+              </button>
+              <button
+                type="button"
+                className="canvas-dashboard-upgrade__dismiss"
+                onClick={() => setShowDashboardUpgrade(false)}
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div

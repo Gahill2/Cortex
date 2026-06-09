@@ -17,6 +17,8 @@ export interface CanvasLayoutPref {
   pan: { x: number; y: number };
   zoom: number;
   background?: CanvasBackground;
+  /** Bump when the default board experience changes (starter layout, ambient bg, etc.). */
+  layoutVersion?: number;
 }
 
 export interface HabitPref {
