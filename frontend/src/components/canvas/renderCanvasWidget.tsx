@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Tab } from "../../App";
-import type { HomeBoardTask } from "../home/HomeDashboardTop";
+import type { HomeBoardTask } from "../home/types";
 import {
   AIWidget,
   MailWidget,

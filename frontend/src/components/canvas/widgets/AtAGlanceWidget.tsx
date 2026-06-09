@@ -1,6 +1,6 @@
 import { Calendar, CheckSquare, LayoutDashboard, Server } from "lucide-react";
 import type { Tab } from "../../../tab";
-import type { HomeBoardTask } from "../../home/HomeDashboardTop";
+import type { HomeBoardTask } from "../../home/types";
 import type { WidgetRenderStyle } from "../widgetRenderStyle";
 import { useDashboardDataContextOptional } from "../../../productivity-dashboard/hooks/useDashboardDataContext";
 import { useHomelabQuickStatus } from "../../../hooks/useHomelabQuickStatus";

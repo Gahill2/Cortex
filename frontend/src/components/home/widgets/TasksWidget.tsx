@@ -1,6 +1,6 @@
 import { ArrowRight, CheckSquare } from "lucide-react";
 import type { Tab } from "../../../App";
-import type { HomeBoardTask } from "../HomeDashboardTop";
+import type { HomeBoardTask } from "../types";
 
 export function TasksWidget({
   onNavigate,

@@ -28,7 +28,7 @@ import {
   mergeCanvasImageUrlsFromLocal,
   migrateCanvasDataUrlImages,
 } from "../../lib/canvasState";
-import { createDefaultDashboardNodes } from "../../dashboard/defaultLayout";
+import { createDefaultDashboardNodes, createStarterDashboardNodes } from "../../dashboard/defaultLayout";
 import {
   clearProductivityLayoutAfterMigration,
   tryMigrateProductivityLayoutToCanvas,
@@ -208,7 +208,7 @@ function initialCanvasNodes(): CanvasNode[] {
     clearProductivityLayoutAfterMigration();
     return migrated;
   }
-  return createDefaultDashboardNodes();
+  return createStarterDashboardNodes();
 }
 
 export function CanvasDashboard({
@@ -482,13 +482,17 @@ export function CanvasDashboard({
         versionStale = true;
       }
 
+      // First run (no server layout at all) seeds the curated starter board;
+      // an intentionally emptied board (server layout with no nodes) stays empty.
       let nextNodes = layout?.nodes?.length
         ? normalizeNodes(layout.nodes)
         : !versionStale && local?.nodes?.length
           ? normalizeNodes(local.nodes)
           : !versionStale && saved?.nodes?.length
             ? normalizeNodes(saved.nodes)
-            : normalizeNodes(initialCanvasNodes());
+            : layout
+              ? []
+              : normalizeNodes(initialCanvasNodes());
 
       nextNodes = mergeCanvasImageUrlsFromLocal(nextNodes, local?.nodes);
       try {
@@ -1266,6 +1270,19 @@ export function CanvasDashboard({
     setEditMode(true);
   }, []);
 
+  const applyStarterLayout = useCallback(() => {
+    const starter = normalizeNodes(createStarterDashboardNodes());
+    setNodes((prev) => {
+      // Keep any non-widget nodes (images, notes, backdrops) already on the board.
+      const next = [...prev.filter((n) => n.type !== "widget"), ...starter];
+      setMaxZ(Math.max(...next.map((n) => n.zIndex), 0));
+      return next;
+    });
+    setSelected(new Set());
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  }, []);
+
   const widgetNodeCount = nodes.filter((n) => n.type === "widget").length;
   const showEmptyOnboarding = widgetNodeCount === 0;
 
@@ -1612,6 +1629,7 @@ export function CanvasDashboard({
         {showEmptyOnboarding && (
           <DashboardEmptyState
             onAddWidget={enterCustomizeMode}
+            onUseStarter={applyStarterLayout}
           />
         )}
         <div ref={layerRef} className="canvas-layer">

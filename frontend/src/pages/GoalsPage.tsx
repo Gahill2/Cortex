@@ -10,7 +10,7 @@ import {
   goalEstimatedCompletion,
   goalProgress,
 } from "../lib/uiCustomization";
-import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
+import type { HomeBoardTask } from "../components/home/types";
 
 const LEGACY_GOALS_KEY = "cortex_home_goals";
 

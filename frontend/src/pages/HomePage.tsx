@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Tab } from "../tab";
 import { CanvasDashboard } from "../components/canvas/CanvasDashboard";
-import type { HomeBoardTask } from "../components/home/HomeDashboardTop";
+import type { HomeBoardTask } from "../components/home/types";
 import { createCanvasWidgetRenderer } from "../components/canvas/renderCanvasWidget";
 import { DashboardDataProvider } from "../productivity-dashboard/hooks/useDashboardDataContext";
 import { useDashboardLayoutStore } from "../productivity-dashboard/state/dashboardLayoutStore";

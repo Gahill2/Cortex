@@ -39,6 +39,7 @@ export interface ServerSettings {
     habits?: HabitPref[];
     homeHero?: Record<string, unknown>;
     canvasViewPrefs?: CanvasViewPrefs;
+    quickNote?: string;
     [key: string]: unknown;
   } | null;
   hasPinSet?: boolean;
