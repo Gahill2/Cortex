@@ -14,6 +14,7 @@ export function MailWidget({
 }) {
   const [hasAccounts, setHasAccounts] = useState(false);
   const [messages, setMessages] = useState<GmailMsg[]>([]);
+  const [indexedTotal, setIndexedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -26,7 +27,16 @@ export function MailWidget({
         if (cancelled) return;
         setHasAccounts(accounts.length > 0);
         if (accounts.length === 0) return;
-        const r = await api.get("/mail/inbox", { params: { unified: "true", maxResults: 8 } });
+        const sync = await api.get<{ data?: { indexedTotal?: number } }>("/mail/sync/status");
+        const total = sync.data?.data?.indexedTotal ?? 0;
+        if (cancelled) return;
+        setIndexedTotal(total);
+        const endpoint = total > 0 ? "/mail/index" : "/mail/inbox";
+        const params =
+          total > 0
+            ? { maxResults: 8 }
+            : { unified: "true", maxResults: 8 };
+        const r = await api.get(endpoint, { params });
         if (cancelled) return;
         setMessages(r.data?.data?.messages ?? []);
       } catch {
@@ -58,8 +68,9 @@ export function MailWidget({
     >
       <div className="widget-label widget-label--brand">
         <BrandIcon brand="gmail" size={18} title="Gmail" />
-        <span>Gmail</span>
+        <span>Mail</span>
         {unread > 0 && <span className="mail-unread-badge">{unread}</span>}
+        {indexedTotal > 0 && <span className="mail-index-badge">{indexedTotal.toLocaleString()}</span>}
       </div>
       {loading ? (
         <p className="widget-empty"><span className="inline-loading-spinner inline-loading-spinner--sm" aria-hidden="true" /> Loading…</p>

@@ -31,6 +31,14 @@ import {
 } from "../../features/mail/mail-cleanup.js";
 import { generateMailInsights } from "../../features/mail/mail-insights.js";
 import { categorizeAllMail } from "../../features/mail/mail-sync.js";
+import {
+  getMailIndexStats,
+  getMailSyncState,
+  listIndexedInbox,
+  startMailIndexSync,
+  syncMailIndex,
+} from "../../features/mail/mail-index.js";
+import { clearMailBacklog, getBacklogOverview } from "../../features/mail/mail-backlog.js";
 
 const inboxQuerySchema = z.object({
   accountId: z.string().min(1).optional(),
@@ -38,7 +46,7 @@ const inboxQuerySchema = z.object({
     .union([z.literal("true"), z.literal("false"), z.boolean()])
     .optional()
     .transform((v) => v === true || v === "true"),
-  maxResults: z.coerce.number().int().min(1).max(2000).optional().default(100),
+  maxResults: z.coerce.number().int().min(1).max(5000).optional().default(500),
   q: z.string().max(500).optional()
 });
 
@@ -54,7 +62,7 @@ const organizeBodySchema = z.object({
 
 const cleanupScanSchema = z.object({
   accountId: z.string().min(1).optional(),
-  maxMessages: z.coerce.number().int().min(10).max(2000).optional().default(500),
+  maxMessages: z.coerce.number().int().min(10).max(5000).optional().default(1000),
   query: z.string().max(500).optional().default("in:inbox")
 });
 
@@ -73,7 +81,30 @@ const cleanupApplySchema = z.object({
 
 const deepScanSchema = z.object({
   accountId: z.string().min(1).optional(),
-  maxMessages: z.coerce.number().int().min(50).max(2000).optional().default(1000)
+  maxMessages: z.coerce.number().int().min(50).max(10_000).optional().default(5000)
+});
+
+const syncSchema = z.object({
+  accountId: z.string().min(1).optional(),
+  maxPerAccount: z.coerce.number().int().min(100).max(10_000).optional().default(5000),
+  background: z.boolean().optional().default(true),
+  query: z.string().max(500).optional().default("in:inbox")
+});
+
+const indexQuerySchema = z.object({
+  accountId: z.string().min(1).optional(),
+  category: z.string().max(50).optional(),
+  maxResults: z.coerce.number().int().min(1).max(5000).optional().default(500),
+  unreadOnly: z
+    .union([z.literal("true"), z.literal("false"), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === "true")
+});
+
+const backlogClearSchema = z.object({
+  accountId: z.string().min(1).optional(),
+  maxMessages: z.coerce.number().int().min(100).max(10_000).optional().default(5000),
+  applyDeletes: z.boolean().optional().default(true)
 });
 
 export const cortexMailRouter = Router();
@@ -118,9 +149,70 @@ cortexMailRouter.get("/oauth/url", requireAuth, routeRateLimit(10, 60_000), asyn
   sendSuccess(res, { url: await buildGmailAuthUrl(state) });
 });
 
+cortexMailRouter.get("/index/stats", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  const stats = await getMailIndexStats(req.auth!.userId);
+  sendSuccess(res, stats, "live");
+});
+
+cortexMailRouter.get("/index", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
+  const input = indexQuerySchema.parse(req.query);
+  const { messages, indexed } = await listIndexedInbox(req.auth!.userId, input);
+  sendSuccess(res, { messages, indexed }, "live");
+});
+
+cortexMailRouter.get("/sync/status", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
+  const state = await getMailSyncState(req.auth!.userId);
+  sendSuccess(res, state, "live");
+});
+
+cortexMailRouter.post("/sync", requireAuth, routeRateLimit(3, 60_000), async (req, res) => {
+  const body = syncSchema.parse(req.body ?? {});
+  const userId = req.auth!.userId;
+  if (body.background) {
+    startMailIndexSync(userId, {
+      accountId: body.accountId,
+      maxPerAccount: body.maxPerAccount,
+      query: body.query,
+    });
+    const state = await getMailSyncState(userId);
+    sendSuccess(res, { started: true, ...state }, "live");
+    return;
+  }
+  const result = await syncMailIndex(userId, {
+    accountId: body.accountId,
+    maxPerAccount: body.maxPerAccount,
+    query: body.query,
+  });
+  const state = await getMailSyncState(userId);
+  sendSuccess(res, { ...result, ...state }, "live");
+});
+
+cortexMailRouter.get("/backlog/overview", requireAuth, routeRateLimit(30, 60_000), async (req, res) => {
+  const overview = await getBacklogOverview(req.auth!.userId);
+  sendSuccess(res, overview, "live");
+});
+
+cortexMailRouter.post("/backlog/clear", requireAuth, routeRateLimit(2, 300_000), async (req, res) => {
+  const body = backlogClearSchema.parse(req.body ?? {});
+  const result = await clearMailBacklog(req.auth!.userId, body);
+  sendSuccess(res, result, "live");
+});
+
 cortexMailRouter.get("/inbox", requireAuth, routeRateLimit(60, 60_000), async (req, res) => {
   const input = inboxQuerySchema.parse(req.query);
   const userId = req.auth!.userId;
+
+  const preferIndex = req.query.source === "index";
+  if (preferIndex) {
+    const { messages, indexed } = await listIndexedInbox(userId, {
+      accountId: input.accountId,
+      maxResults: input.maxResults,
+    });
+    if (indexed) {
+      sendSuccess(res, { connected: true, messages, unified: !input.accountId, indexed: true }, "live");
+      return;
+    }
+  }
 
   if (input.unified || !input.accountId) {
     const { messages } = await listUnifiedInbox(userId, input.maxResults, input.q);

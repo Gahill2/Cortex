@@ -131,6 +131,40 @@ model MailCategory {
   @@index([userId, category])
 }
 
+/// Local cache of mail metadata pulled from Gmail/Outlook (unified dashboard index).
+model MailMessageIndex {
+  id           String   @id @default(cuid())
+  userId       String
+  accountId    String
+  accountEmail String
+  messageId    String
+  threadId     String   @default("")
+  subject      String   @default("")
+  from         String   @default("")
+  snippet      String   @default("")
+  date         DateTime
+  unread       Boolean  @default(false)
+  inInbox      Boolean  @default(true)
+  syncedAt     DateTime @default(now())
+
+  @@unique([userId, accountId, messageId])
+  @@index([userId, date])
+  @@index([userId, accountId])
+  @@index([userId, unread])
+}
+
+/// Progress for background mail sync (all accounts → MailMessageIndex).
+model MailSyncState {
+  userId         String    @id
+  status         String    @default("idle") // idle | running | done | error
+  syncedCount    Int       @default(0)
+  targetCount    Int       @default(0)
+  currentAccount String?
+  lastError      String?
+  lastSyncAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
 /// Server-wide OAuth app credentials (encrypted). Alternative to api.env — configure from Settings.
 model IntegrationOAuthApp {
   provider          String   @id

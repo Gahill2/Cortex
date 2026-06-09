@@ -28,15 +28,16 @@ export function AtAGlanceWidget({
 }: {
   style: WidgetRenderStyle;
   onNavigate: (t: Tab) => void;
-  boardTasks: HomeBoardTask[];
+  boardTasks?: HomeBoardTask[];
   boardTasksLoading?: boolean;
 }) {
   const now = new Date();
   const compact = style.layout === "compact";
   const dash = useDashboardDataContextOptional();
   const { status: homelab, loading: homelabLoading } = useHomelabQuickStatus();
+  const tasks = boardTasks ?? [];
 
-  const openTasks = boardTasks.filter((t) => t.status !== "DONE");
+  const openTasks = tasks.filter((t) => t?.status !== "DONE");
   const previewTasks = [...openTasks.filter((t) => t.status === "IN_PROGRESS"), ...openTasks.filter((t) => t.status === "TODO")].slice(
     0,
     compact ? 2 : 3,
@@ -95,12 +96,15 @@ export function AtAGlanceWidget({
           <p className="at-glance__muted">Nothing open — add a task in Tasks.</p>
         ) : (
           <ul className="at-glance__list">
-            {previewTasks.map((t, idx) => (
-              <li key={t.id ?? `task-${idx}`} className="at-glance__row">
-                <span className={`at-glance__dot ${t.status === "IN_PROGRESS" ? "at-glance__dot--warn" : "at-glance__dot--unknown"}`} />
-                <span className="at-glance__row-title">{t.title ?? "Untitled task"}</span>
-              </li>
-            ))}
+            {previewTasks.map((t, idx) => {
+              if (!t) return null;
+              return (
+                <li key={t.id ?? `task-${idx}`} className="at-glance__row">
+                  <span className={`at-glance__dot ${t.status === "IN_PROGRESS" ? "at-glance__dot--warn" : "at-glance__dot--unknown"}`} />
+                  <span className="at-glance__row-title">{t.title ?? "Untitled task"}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -152,12 +156,14 @@ export function AtAGlanceWidget({
         ) : homelab ? (
           <>
             <div className="at-glance__media-pills">
-              {mediaPreview.map((s) => (
-                <span key={s.id} className="at-glance__pill" title={s.name}>
-                  <span className={`at-glance__dot ${healthDot(s.health)}`} aria-hidden />
-                  {s.name}
-                </span>
-              ))}
+              {mediaPreview.map((s) =>
+                s ? (
+                  <span key={s.id} className="at-glance__pill" title={s.name}>
+                    <span className={`at-glance__dot ${healthDot(s.health)}`} aria-hidden />
+                    {s.name}
+                  </span>
+                ) : null,
+              )}
             </div>
             <p className="at-glance__foot">
               {homelab.servicesOk ?? 0}/{homelab.servicesTotal ?? 0} services up

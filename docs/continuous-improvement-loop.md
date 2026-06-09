@@ -21,13 +21,12 @@ flowchart LR
 
 ## Start (Cursor chat — recommended)
 
-Ask the agent in chat:
-
-> Start the improvement loop in chat mode (monitored shell, 2m interval).
+In chat, say **`/loop`** (or `/loop 5m` for a slower cadence). Skill: `@cortex-loop`.
 
 Or from repo root (agent should use **monitored shell** with `notify_on_output` on `AGENT_LOOP_WAKE_cortex_improve`):
 
 ```bash
+npm run loop              # alias for dev:improve-loop
 npm run dev:improve-loop
 ```
 
@@ -90,10 +89,8 @@ The script stores the active phase in:
 
 ### Polish
 
-1. Read `DESIGN.md` and **one** of:
-   - `docs/goal-prompt-production-ready.md` (Mail, brand, spacing), or
-   - `docs/goal-greyhill-brain-knowledge-os.md` (Notes, Memory, remote Ollama).
-2. Ship **one** visible improvement (≤ ~5 files).
+1. Read `docs/goal-google-app-polish.md` and `DESIGN.md` (+ `styles-google-workspace.css` for shell).
+2. Ship **one** Google Workspace–quality improvement (≤ ~5 files).
 3. Run `npm run typecheck` if frontend touched.
 4. Do not start Firestore merge or large refactors.
 

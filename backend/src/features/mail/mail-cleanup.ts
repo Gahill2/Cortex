@@ -7,6 +7,7 @@ import {
   type HubMessage
 } from "./mail-hub.js";
 import { listMailAccounts, resolveMailAccountId } from "./mail-account-store.js";
+import { listIndexedForCleanup, patchIndexedMessage } from "./mail-index.js";
 import { prisma } from "../../db/prisma.js";
 
 function matchMessageFromAiRow(
@@ -92,14 +93,19 @@ function ruleSuggestions(messages: HubMessage[]): CleanupSuggestion[] {
   }).filter((s) => s.action !== "keep");
 }
 
-export async function scanMailCleanup(
+export async function scanIndexedMailCleanup(
   userId: string,
-  opts: { accountId?: string; maxMessages?: number; query?: string }
+  opts: { maxMessages?: number } = {},
 ): Promise<CleanupScanResult> {
-  const cap = Math.min(opts.maxMessages ?? 200, 500);
-  const query = opts.query?.trim() || "in:inbox";
-  const messages = await listInboxMessagesForAccount(userId, opts.accountId, cap, query);
+  const cap = Math.min(opts.maxMessages ?? 1000, 5000);
+  const messages = await listIndexedForCleanup(userId, cap);
+  if (messages.length === 0) {
+    return { scanned: 0, suggestions: [], mode: "rules" };
+  }
+  return runCleanupScanOnMessages(messages);
+}
 
+async function runCleanupScanOnMessages(messages: HubMessage[]): Promise<CleanupScanResult> {
   if (messages.length === 0) {
     return { scanned: 0, suggestions: [], mode: "rules" };
   }
@@ -110,11 +116,11 @@ export async function scanMailCleanup(
     return { scanned: messages.length, suggestions, mode: "rules" };
   }
 
-  const sample = messages.slice(0, 120);
+  const sample = messages.slice(0, 150);
   const emailList = sample
     .map(
       (m, i) =>
-        `${i + 1}. id="${m.id}" accountId="${m.accountId}" from="${m.from}" subject="${m.subject}" snippet="${m.snippet.slice(0, 100)}"`
+        `${i + 1}. id="${m.id}" accountId="${m.accountId}" from="${m.from}" subject="${m.subject}" snippet="${m.snippet.slice(0, 100)}"`,
     )
     .join("\n");
 
@@ -134,7 +140,7 @@ ${emailList}`;
   try {
     const result = await callAI(
       [{ role: "user", content: prompt }],
-      { tier: "simple", preferCloud: true, maxTokens: 4000, systemPrompt: "Return only valid JSON arrays." }
+      { tier: "simple", preferCloud: true, maxTokens: 4000, systemPrompt: "Return only valid JSON arrays." },
     );
     const parsed = extractJsonArray(result.text);
     if (!parsed?.length) {
@@ -152,21 +158,19 @@ ${emailList}`;
 
       const src = matchMessageFromAiRow(r, messages, sample);
       if (!src) continue;
-      const id = src.id;
-      const accountId = src.accountId;
       const confRaw = r.confidence != null ? String(r.confidence) : "medium";
       const confidence =
         confRaw === "high" || confRaw === "medium" || confRaw === "low" ? confRaw : "medium";
-      byKey.set(`${accountId}:${id}`, {
-        messageId: id,
-        accountId,
+      byKey.set(`${src.accountId}:${src.id}`, {
+        messageId: src.id,
+        accountId: src.accountId,
         from: src.from,
         subject: src.subject,
         snippet: src.snippet,
         date: src.date,
         action,
         reason: r.reason != null ? String(r.reason).slice(0, 200) : "Suggested by AI",
-        confidence
+        confidence,
       });
     }
 
@@ -178,6 +182,25 @@ ${emailList}`;
   } catch {
     return { scanned: messages.length, suggestions: ruleSuggestions(messages), mode: "rules" };
   }
+}
+
+export async function scanMailCleanup(
+  userId: string,
+  opts: { accountId?: string; maxMessages?: number; query?: string }
+): Promise<CleanupScanResult> {
+  const cap = Math.min(opts.maxMessages ?? 500, 5000);
+  const query = opts.query?.trim() || "in:inbox";
+  const indexed = await listIndexedForCleanup(userId, cap);
+  const messages =
+    indexed.length > 0
+      ? indexed
+      : await listInboxMessagesForAccount(userId, opts.accountId, cap, query);
+
+  if (messages.length === 0) {
+    return { scanned: 0, suggestions: [], mode: "rules" };
+  }
+
+  return runCleanupScanOnMessages(messages);
 }
 
 export async function applyMailboxOrganize(
@@ -261,6 +284,10 @@ export async function applyCleanupActions(
         ]);
         if (r.deleted > 0) {
           deleted++;
+          await patchIndexedMessage(userId, normalized.accountId, normalized.messageId, {
+            inInbox: false,
+            unread: false,
+          });
           results.push({ ...normalized, ok: true });
         } else {
           failed++;
@@ -273,6 +300,10 @@ export async function applyCleanupActions(
       } else {
         await patchHubMessage(userId, normalized.accountId, normalized.messageId, { archived: true });
         archived++;
+        await patchIndexedMessage(userId, normalized.accountId, normalized.messageId, {
+          inInbox: false,
+          unread: false,
+        });
         results.push({ ...normalized, ok: true });
       }
     } catch (err) {

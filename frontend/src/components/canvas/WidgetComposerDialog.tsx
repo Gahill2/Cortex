@@ -10,6 +10,7 @@ import { ImageIcon, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { BoardTypography } from "../../lib/uiCustomization";
 import { TextSizePresetPicker } from "./TextSizePresetPicker";
+import { CanvasWidgetErrorBoundary } from "./CanvasWidgetErrorBoundary";
 
 export type WidgetInsertPayload = {
   widgetKey: string;
@@ -152,7 +153,13 @@ export function WidgetComposerDialog({
           <div className="widget-composer__body-wrap">
             <div className={`widget-composer__body${isWidget ? "" : " widget-composer__body--image"}`}>
               {isWidget ? (
-                <div className="widget-composer__preview-frame">{preview}</div>
+                <div className="widget-composer__preview-frame">
+                  {widgetKey && preview ? (
+                    <CanvasWidgetErrorBoundary widgetKey={widgetKey}>{preview}</CanvasWidgetErrorBoundary>
+                  ) : (
+                    preview
+                  )}
+                </div>
               ) : (
                 <div className="widget-composer__image-stage">
                   {imageUrl ? (

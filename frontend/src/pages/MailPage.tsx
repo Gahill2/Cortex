@@ -329,8 +329,20 @@ export const MailPage = () => {
   const [cleanupSummary, setCleanupSummary] = useState<CleanupApplySummary | null>(null);
   const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
   const [inboxLimit, setInboxLimit] = useState(500);
-  const INBOX_LIMIT_MAX = 2000;
+  const INBOX_LIMIT_MAX = 5000;
   const INBOX_LIMIT_STEP = 500;
+  const [indexedTotal, setIndexedTotal] = useState(0);
+  const [syncStatus, setSyncStatus] = useState<{
+    status: string;
+    syncedCount: number;
+    targetCount: number;
+    currentAccount: string | null;
+    indexedTotal: number;
+    unreadTotal: number;
+  } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [clearingBacklog, setClearingBacklog] = useState(false);
+  const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [microsoftConfigured, setMicrosoftConfigured] = useState(true);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -379,16 +391,52 @@ export const MailPage = () => {
     }
   }, []);
 
+  const loadSyncStatus = useCallback(async () => {
+    try {
+      const r = await api.get<{
+        data?: {
+          status: string;
+          syncedCount: number;
+          targetCount: number;
+          currentAccount: string | null;
+          indexedTotal: number;
+          unreadTotal: number;
+        };
+      }>("/mail/sync/status");
+      const d = r.data?.data;
+      if (d) {
+        setSyncStatus(d);
+        setIndexedTotal(d.indexedTotal);
+      }
+      return d;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // ── Load inbox ─────────────────────────────────────────────────────────────
   const loadInbox = useCallback(
-    async (accountId: string, limit = inboxLimit): Promise<MailMessage[]> => {
+    async (accountId: string, limit = inboxLimit, preferIndex = true): Promise<MailMessage[]> => {
       setLoading(true);
       setSelectedMessage(null);
       setFullMessage(null);
       try {
-        const params: Record<string, string | number> = {
-          maxResults: Math.min(limit, INBOX_LIMIT_MAX),
-        };
+        const maxResults = Math.min(limit, INBOX_LIMIT_MAX);
+        if (preferIndex && indexedTotal > 0) {
+          const params: Record<string, string | number> = { maxResults };
+          if (accountId !== "all") params.accountId = accountId;
+          const idx = await api.get<{ data?: { messages: MailMessage[]; indexed?: boolean } }>(
+            "/mail/index",
+            { params },
+          );
+          if (idx.data?.data?.indexed) {
+            const msgs = idx.data.data.messages ?? [];
+            setAllMessages(msgs);
+            setMessages(msgs);
+            return msgs;
+          }
+        }
+        const params: Record<string, string | number> = { maxResults };
         if (accountId === "all") params.unified = "true";
         else params.accountId = accountId;
         const r = await api.get<{ data?: { messages: MailMessage[] } }>("/mail/inbox", { params });
@@ -402,7 +450,7 @@ export const MailPage = () => {
         setLoading(false);
       }
     },
-    [inboxLimit]
+    [inboxLimit, indexedTotal],
   );
 
   const loadMoreInbox = useCallback(() => {
@@ -418,10 +466,85 @@ export const MailPage = () => {
     pushToast({ title: "Mail connection failed", message: err, tone: "error" });
   }, [pushToast]);
 
+  const stopSyncPoll = useCallback(() => {
+    if (syncPollRef.current) {
+      clearInterval(syncPollRef.current);
+      syncPollRef.current = null;
+    }
+  }, []);
+
+  const startSyncPoll = useCallback(() => {
+    stopSyncPoll();
+    syncPollRef.current = setInterval(() => {
+      void loadSyncStatus().then((d) => {
+        if (d && d.status !== "running") {
+          stopSyncPoll();
+          setSyncing(false);
+          void loadInbox(selectedAccountId);
+          void loadCategories();
+        }
+      });
+    }, 2500);
+  }, [loadSyncStatus, loadInbox, loadCategories, selectedAccountId, stopSyncPoll]);
+
+  useEffect(() => () => stopSyncPoll(), [stopSyncPoll]);
+
+  const syncAllAccounts = async () => {
+    setSyncing(true);
+    try {
+      await api.post("/mail/sync", {
+        maxPerAccount: INBOX_LIMIT_MAX,
+        background: true,
+      });
+      await loadSyncStatus();
+      startSyncPoll();
+      pushToast({
+        title: "Syncing all accounts",
+        message: `Pulling up to ${INBOX_LIMIT_MAX} messages per account into Cortex.`,
+        tone: "neutral",
+      });
+    } catch (err) {
+      setSyncing(false);
+      pushToast({ title: "Sync failed", message: apiErrorMessage(err), tone: "error" });
+    }
+  };
+
+  const clearFullBacklog = async () => {
+    setClearingBacklog(true);
+    try {
+      const r = await api.post<{
+        data?: {
+          sync: { synced: number };
+          categorize: { categorized: number; fetched: number };
+          archived: { archived: number };
+          cleanup: { deleted: number; archived: number; failed: number };
+          markedRead: number;
+        };
+      }>("/mail/backlog/clear", { maxMessages: INBOX_LIMIT_MAX });
+      const d = r.data?.data;
+      await loadSyncStatus();
+      await loadCategories();
+      await loadInbox(selectedAccountId);
+      pushToast({
+        title: "Inbox organized",
+        message:
+          `Indexed ${d?.sync.synced ?? 0} · sorted ${d?.categorize.categorized ?? 0} · ` +
+          `archived ${(d?.archived.archived ?? 0) + (d?.cleanup.archived ?? 0)} · ` +
+          `removed ${d?.cleanup.deleted ?? 0} · marked read ${d?.markedRead ?? 0}`,
+        tone: "success",
+      });
+    } catch (err) {
+      pushToast({ title: "Backlog clear failed", message: apiErrorMessage(err), tone: "error" });
+    } finally {
+      setClearingBacklog(false);
+    }
+  };
+
   // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
       await loadAccounts();
+      await loadSyncStatus();
       const msgs = await loadInbox("all");
       const catTotal = await loadCategories();
 
@@ -451,7 +574,7 @@ export const MailPage = () => {
         }
       }
     })();
-  }, [loadAccounts, loadInbox, loadCategories, pushToast]);
+  }, [loadAccounts, loadInbox, loadCategories, loadSyncStatus, pushToast]);
 
   // ── OAuth events ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -584,7 +707,7 @@ export const MailPage = () => {
         data?: { suggestions: CleanupSuggestion[]; scanned: number; mode: string };
       }>("/mail/cleanup/scan", {
         accountId: selectedAccountId === "all" ? undefined : selectedAccountId,
-        maxMessages: 1000,
+        maxMessages: Math.max(inboxLimit, indexedTotal || INBOX_LIMIT_MAX),
         query: "in:inbox",
       });
       const suggestions = (r.data?.data?.suggestions ?? []).filter((s) => s.action !== "keep");
@@ -833,6 +956,24 @@ export const MailPage = () => {
         </div>
         <div className="page-actions">
           <button
+            className="btn-primary btn-sm mail-toolbar-btn"
+            onClick={() => void clearFullBacklog()}
+            disabled={clearingBacklog || syncing || accounts.length === 0}
+            title="Sync all accounts, sort into folders, archive newsletters, and clear junk"
+          >
+            <LayoutGrid size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {clearingBacklog ? "Organizing…" : "Clear backlog"}
+          </button>
+          <button
+            className="btn-ghost btn-sm mail-toolbar-btn"
+            onClick={() => void syncAllAccounts()}
+            disabled={syncing || accounts.length === 0}
+            title="Pull inbox metadata from all accounts into Cortex"
+          >
+            <RefreshCw size={16} strokeWidth={MAIL_ICON_STROKE} aria-hidden />
+            {syncing ? "Syncing…" : "Sync all"}
+          </button>
+          <button
             className="btn-ghost btn-sm mail-toolbar-btn"
             onClick={() => void loadInsights()}
             disabled={insightsLoading || accounts.length === 0}
@@ -891,6 +1032,23 @@ export const MailPage = () => {
       )}
 
       <AIProviderBanner status={aiStatus} loading={aiStatusLoading} compact />
+
+      {(syncing || (syncStatus && syncStatus.status === "running") || indexedTotal > 0) && (
+        <div className="mail-sync-banner" role="status">
+          {syncStatus?.status === "running" ? (
+            <p>
+              Syncing <strong>{syncStatus.currentAccount ?? "accounts"}</strong> —{" "}
+              {syncStatus.syncedCount} of ~{syncStatus.targetCount} messages indexed…
+            </p>
+          ) : indexedTotal > 0 ? (
+            <p>
+              <strong>{indexedTotal.toLocaleString()}</strong> messages in Cortex
+              {syncStatus?.unreadTotal != null ? ` · ${syncStatus.unreadTotal.toLocaleString()} unread` : ""}
+              {accounts.length > 1 ? ` · ${accounts.length} accounts` : ""}
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {insightsOpen && (
         <section className="mail-insights-panel" aria-label="Mail insights">

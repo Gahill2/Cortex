@@ -151,7 +151,7 @@ EOF
       ;;
     polish)
       cat <<EOF
-Cortex improvement loop — POLISH phase. Read DESIGN.md and docs/goal-prompt-production-ready.md (or docs/goal-greyhill-brain-knowledge-os.md if knowledge/Memory/Ollama is higher priority). Ship one production UI or spacing improvement (max ~5 files). Run typecheck if frontend changed. Do not commit unless user asked.
+Cortex improvement loop — POLISH phase. Read docs/goal-google-app-polish.md, DESIGN.md, and styles-google-workspace.css. Ship ONE Google Workspace–quality UI improvement (max ~5 files): canvas/widgets, Tasks/Calendar density, Settings integrations, command palette, or Mail list. Hairline borders, 8px rhythm, Lucide icons, clear empty/loading states. Run typecheck if frontend changed. npm run server:deploy if web changed. Do not commit unless user asked.
 EOF
       ;;
     observe)

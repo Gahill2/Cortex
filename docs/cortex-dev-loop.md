@@ -13,11 +13,26 @@ Each **Build** pass: first unchecked item in **Build** → implement → deploy 
 
 ## Build (agent — first unchecked wins)
 
+### Mail inbox zero
+
+- [x] Local mail index (`MailMessageIndex`) + sync all accounts + Clear backlog pipeline (2026-06-09)
+- [ ] Run `npm run db:migrate` on homelab after deploy
+- [ ] Chrome verify: Mail → Sync all → Clear backlog with 2+ accounts
+
+### P0 — Home canvas (`/loop` polish)
+
+- [x] At a glance widget: null-safe `boardTasks`, homelab quick edge cases, composer + canvas both render (`AtAGlanceWidget.tsx`, `WidgetComposerDialog.tsx` 2026-06-04)
+- [ ] Canvas layout persist: add widget → hard refresh → widget still on board
+- [ ] Canvas typography: board Size/Scale applies to widgets unless `typographyCustom`
+- [ ] Widget selection: click selects + inline inspector; resize handle usable on laptop trackpad
+
 ### UI polish
 
 - [x] Mail Lucide icons + list/detail spacing (`styles-mail.css` 2026-06-04)
 - [x] Brand transparent SVG only — grep: no `.png` logos in `frontend/src`; favicon `favicon.svg`
 - [x] AI remote PC offline dialog spacing (`styles-ai-settings.css` 2026-06-04)
+- [ ] Settings → Integrations card spacing + connect CTA hierarchy (`IntegrationsSettingsSection.tsx`)
+- [ ] Command palette focus ring + keyboard nav polish
 
 ### Homelab ops
 

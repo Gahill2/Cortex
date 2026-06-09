@@ -124,6 +124,7 @@
     "server:ollama:setup": "bash scripts/homelab-setup-ollama.sh",
     "rustdesk:tune": "bash scripts/rustdesk-tailscale-tune.sh",
     "server:dev-loop": "bash scripts/cortex-dev-loop.sh",
+    "loop": "bash scripts/cortex-improvement-loop.sh",
     "dev:improve-loop": "bash scripts/cortex-improvement-loop.sh",
     "dev:improve:once": "bash scripts/cortex-improvement-loop.sh --once",
     "dev:improve:status": "bash scripts/cortex-improvement-status.sh",

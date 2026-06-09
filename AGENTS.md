@@ -24,7 +24,7 @@ Key routing rules:
 - Terminal coding agent (OpenClaw) → `npm run openclaw:setup` then `npm run openclaw:dev`; see `docs/openclaw-cortex.md`
 - Homelab auto-deploy (Docker rebuild on git/source changes) → `npm run server:deploy:setup` (no sudo); one-time `npm run server:docker:fix-once` if containers were started with sudo; see `docs/homelab-auto-deploy.md`
 - SSH into cortex homelab + reset Docker stacks → `docs/homelab-ssh-docker.md` (`ssh greyhill@cortex.tail4f977b.ts.net`, then `npm run server:docker:fix-once` / `server:deploy`)
-- Continuous improvement loop → ask Cursor chat to start `npm run dev:improve-loop` (chat executes wakes); see `docs/continuous-improvement-loop.md`
+- Continuous improvement loop (`/loop`) → `@cortex-loop` or `npm run loop` (chat executes wakes every 2m: Build → Verify → Polish → Observe); see `docs/continuous-improvement-loop.md` and `docs/goal-google-app-polish.md`
 
 ## Task observer (meta-skill)
 

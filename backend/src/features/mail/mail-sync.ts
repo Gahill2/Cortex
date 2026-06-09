@@ -1,6 +1,7 @@
 import { callAI, getAIStatus, isAiBillingError } from "../ai/ai-provider.js";
 import { mergeMailCategories, extractJsonArray } from "./mail-classify.js";
 import { listDeepInbox, type HubMessage } from "./mail-hub.js";
+import { listIndexedForCleanup } from "./mail-index.js";
 import { prisma } from "../../db/prisma.js";
 
 const CATEGORIES = ["work", "school", "personal", "social", "media", "finance", "newsletters", "important", "other"] as const;
@@ -90,8 +91,12 @@ export async function categorizeAllMail(
   userId: string,
   opts: { accountId?: string; maxMessages?: number } = {}
 ): Promise<CategorizeAllResult> {
-  const cap = Math.min(opts.maxMessages ?? 1000, 2000);
-  const messages = await listDeepInbox(userId, opts.accountId, cap);
+  const cap = Math.min(opts.maxMessages ?? 5000, 10_000);
+  const indexed = await listIndexedForCleanup(userId, cap);
+  const messages =
+    indexed.length > 0
+      ? indexed.filter((m) => !opts.accountId || m.accountId === opts.accountId)
+      : await listDeepInbox(userId, opts.accountId, cap);
   const status = await getAIStatus();
   const rulesOnly = !(status.kimi || status.anthropic || status.openai);
 

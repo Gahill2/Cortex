@@ -79,15 +79,16 @@ EOF
 
 polish_prompt() {
   cat <<EOF
-Cortex continuous improvement — POLISH phase (design + UI).
+Cortex continuous improvement — POLISH phase (Google-app quality).
 
 $(common_rules)
 
-Read DESIGN.md and docs/goal-prompt-production-ready.md.
-Pick ONE visible improvement (max ~5 files): spacing, Lucide icons, empty states, Mail list/detail, brand SVG logos, AI banner/dialog alignment, or canvas widget polish.
+Read docs/goal-google-app-polish.md, DESIGN.md, styles-google-workspace.css.
+Pick ONE unchecked item from the polish checklist (or the roughest visible surface).
+Max ~5 files. Match Google Calendar/Tasks: hairline borders, 36px controls, inline toolbars, clear empty states.
 
-Prefer pages that still feel rough: Mail, AI, Settings → Integrations, Notes, Homelab.
-Run npm run typecheck if frontend changed.
+Priority: Home canvas + At a glance, then Settings integrations, Tasks/Calendar, Mail, AI.
+Run npm run typecheck if frontend changed. npm run server:deploy if web bundle changed.
 EOF
 }
 
