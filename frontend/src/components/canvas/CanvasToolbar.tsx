@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { CanvasMenuPortal, CanvasModalPortal } from "./CanvasMenuPortal";
 import type { CanvasBackground } from "./canvasBackground";
 import {
+  CANVAS_AMBIENT_PRESETS,
   CANVAS_GRADIENT_PRESETS,
   CANVAS_SOLID_PRESETS,
   DEFAULT_CANVAS_BACKGROUND,
@@ -136,6 +137,31 @@ export function CanvasToolbar({
 
   const bgMenuPanel = (
     <>
+      <div className="canvas-add-menu__section">
+        <p className="canvas-add-menu__heading">Ambient · animated</p>
+        <div className="canvas-bg-swatch-grid">
+          {CANVAS_AMBIENT_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={`canvas-bg-swatch${background.kind === "ambient" && background.presetId === preset.id ? " canvas-bg-swatch--active" : ""}`}
+              style={{ background: preset.preview }}
+              title={preset.adaptive ? `${preset.label} — follows time of day` : preset.label}
+              onClick={() => {
+                onBackgroundChange({ kind: "ambient", value: "", presetId: preset.id });
+                setShowBgMenu(false);
+              }}
+            >
+              {background.kind === "ambient" && background.presetId === preset.id ? (
+                <span className="canvas-bg-swatch-check">✓</span>
+              ) : (
+                <span className="canvas-bg-swatch-live" aria-hidden />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="canvas-add-menu__divider" />
       <div className="canvas-add-menu__section">
         <p className="canvas-add-menu__heading">Solid</p>
         <div className="canvas-bg-swatch-grid">

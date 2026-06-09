@@ -9,6 +9,8 @@ import { CanvasItem } from "./CanvasItem";
 import { CanvasMinimap } from "./CanvasMinimap";
 import {
   type CanvasBackground,
+  CANVAS_AMBIENT_PRESETS,
+  ambientHorizonPalette,
   canvasBackgroundCss,
   loadCanvasBackground,
   saveCanvasBackground,
@@ -256,6 +258,30 @@ export function CanvasDashboard({
     Math.max(...(saved?.nodes ?? initialCanvasNodes()).map((n) => n.zIndex), 0),
   );
   const [background, setBackground] = useState<CanvasBackground>(loadCanvasBackground);
+  // Hour bucket so adaptive ambient palettes (Horizon) follow the time of day.
+  const [ambientHour, setAmbientHour] = useState(() => new Date().getHours());
+  const ambientPreset =
+    background.kind === "ambient"
+      ? (CANVAS_AMBIENT_PRESETS.find((p) => p.id === background.presetId) ??
+        CANVAS_AMBIENT_PRESETS[0])
+      : null;
+  const ambientPalette = ambientPreset
+    ? ambientPreset.adaptive
+      ? ambientHorizonPalette(ambientHour)
+      : ambientPreset
+    : null;
+  useEffect(() => {
+    if (background.kind !== "ambient") return;
+    const t = window.setInterval(() => setAmbientHour(new Date().getHours()), 5 * 60 * 1000);
+    return () => window.clearInterval(t);
+  }, [background.kind]);
+
+  // Staggered widget entrance on board load (flag lifted once settled).
+  const [entranceChoreo, setEntranceChoreo] = useState(true);
+  useEffect(() => {
+    const t = window.setTimeout(() => setEntranceChoreo(false), 2000);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -1619,13 +1645,35 @@ export function CanvasDashboard({
 
       <div
         ref={viewportRef}
-        className={`canvas-viewport${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}`}
+        className={`canvas-viewport${viewPrefs.showGrid ? "" : " canvas-viewport--no-grid"}${viewPrefs.gridStyle === "lines" ? " canvas-viewport--grid-lines" : ""}${entranceChoreo ? " canvas-viewport--choreo" : ""}`}
         onWheel={onWheel}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPointerMove}
         onPointerUp={onCanvasPointerUp}
-        style={canvasBackgroundCss(background) as React.CSSProperties}
+        style={
+          {
+            ...canvasBackgroundCss(background),
+            ...(ambientPalette ? { "--canvas-bg-fill": ambientPalette.base } : {}),
+          } as React.CSSProperties
+        }
       >
+        {ambientPalette && (
+          <div
+            className="canvas-ambient"
+            aria-hidden
+            style={
+              {
+                "--ambient-c1": ambientPalette.c1,
+                "--ambient-c2": ambientPalette.c2,
+                "--ambient-c3": ambientPalette.c3,
+              } as React.CSSProperties
+            }
+          >
+            <span className="canvas-ambient__blob canvas-ambient__blob--1" />
+            <span className="canvas-ambient__blob canvas-ambient__blob--2" />
+            <span className="canvas-ambient__blob canvas-ambient__blob--3" />
+          </div>
+        )}
         {showEmptyOnboarding && (
           <DashboardEmptyState
             onAddWidget={enterCustomizeMode}

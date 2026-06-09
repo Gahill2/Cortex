@@ -215,6 +215,35 @@
   }
 }
 
+/* Staggered entrance choreography on board load (flag lifted after ~2s) */
+.canvas-viewport--choreo .canvas-item {
+  animation-name: canvas-item-rise-in;
+  animation-duration: 0.55s;
+}
+
+.canvas-viewport--choreo .canvas-item:nth-child(2) { animation-delay: 70ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(3) { animation-delay: 140ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(4) { animation-delay: 210ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(5) { animation-delay: 280ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(6) { animation-delay: 350ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(7) { animation-delay: 420ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(8) { animation-delay: 490ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(9) { animation-delay: 560ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(10) { animation-delay: 630ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(11) { animation-delay: 700ms; }
+.canvas-viewport--choreo .canvas-item:nth-child(n + 12) { animation-delay: 760ms; }
+
+@keyframes canvas-item-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .canvas-viewport--panning .canvas-item,
 .canvas-viewport--dragging .canvas-item,
 .canvas-viewport--resizing .canvas-item,
@@ -3181,4 +3210,130 @@
 
 .widget--layout-expanded .widget-open-hint {
   opacity: 1;
+}
+
+/* ── Ambient living backgrounds ─────────────────────────────────────────── */
+
+/* Crossfade the base fill when adaptive palettes shift (Horizon dawn→day→dusk) */
+.canvas-viewport::before {
+  transition: background 1.6s ease;
+}
+
+.canvas-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Soft vignette for depth — widgets read as floating above the scene */
+.canvas-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 95% at 50% 8%, transparent 55%, rgba(0, 0, 0, 0.38) 100%);
+}
+
+/* Pre-blurred radial layers; transform-only animation stays on the compositor */
+.canvas-ambient__blob {
+  position: absolute;
+  width: 85vmax;
+  height: 85vmax;
+  border-radius: 50%;
+  will-change: transform;
+  transform: translateZ(0);
+  transition: opacity 1.6s ease;
+}
+
+.canvas-ambient__blob--1 {
+  top: -32%;
+  left: -22%;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-c1, rgba(91, 141, 255, 0.45)) 0%, transparent 64%);
+  animation: ambient-drift-1 52s ease-in-out infinite alternate;
+}
+
+.canvas-ambient__blob--2 {
+  bottom: -38%;
+  right: -26%;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-c2, rgba(59, 232, 173, 0.32)) 0%, transparent 64%);
+  animation: ambient-drift-2 67s ease-in-out infinite alternate;
+}
+
+.canvas-ambient__blob--3 {
+  top: 6%;
+  right: -32%;
+  width: 68vmax;
+  height: 68vmax;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-c3, rgba(124, 77, 255, 0.26)) 0%, transparent 64%);
+  animation: ambient-drift-3 79s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift-1 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(14vw, 8vh, 0) scale(1.18);
+  }
+  100% {
+    transform: translate3d(5vw, 16vh, 0) scale(0.94);
+  }
+}
+
+@keyframes ambient-drift-2 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-12vw, -10vh, 0) scale(0.92);
+  }
+  100% {
+    transform: translate3d(-4vw, -18vh, 0) scale(1.15);
+  }
+}
+
+@keyframes ambient-drift-3 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-16vw, 10vh, 0) scale(1.1) rotate(8deg);
+  }
+  100% {
+    transform: translate3d(-6vw, 2vh, 0) scale(1) rotate(-6deg);
+  }
+}
+
+/* Pulsing dot marking ambient swatches as live in the background picker */
+.canvas-bg-swatch-live {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  animation: ambient-swatch-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ambient-swatch-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+/* Hover micro-lift: widgets float slightly off the scene */
+.canvas-widget-shell {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.canvas-viewport:not(.canvas-viewport--interacting) .canvas-item--widget:hover .canvas-widget-shell {
+  transform: translateY(-2px);
 }
