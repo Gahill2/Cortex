@@ -82,6 +82,7 @@ export function AtAGlanceWidget({
         </div>
       </header>
 
+      <div className="at-glance__scroll">
       <section className="at-glance__section" aria-labelledby="at-glance-tasks">
         <div className="at-glance__section-head" id="at-glance-tasks">
           <CheckSquare size={14} aria-hidden />
@@ -174,6 +175,7 @@ export function AtAGlanceWidget({
           <p className="at-glance__muted">Homelab status unavailable.</p>
         )}
       </section>
+      </div>
 
       <footer className="at-glance__chips">
         <button type="button" className="at-glance__chip" onClick={() => onNavigate("tasks")}>

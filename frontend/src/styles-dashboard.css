@@ -605,6 +605,21 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.at-glance__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  scrollbar-width: thin;
+}
+
+.at-glance__chips {
+  flex-shrink: 0;
 }
 
 .at-glance__eyebrow {

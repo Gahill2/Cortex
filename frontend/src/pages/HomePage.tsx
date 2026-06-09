@@ -25,7 +25,7 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
   useEffect(() => {
     let cancelled = false;
     setBoardDataLoading(true);
-    Promise.all([api.get("/tasks"), api.get("/projects")])
+    Promise.all([api.get("/tasks")])
       .then(([tr]) => {
         if (cancelled) return;
         const body = tr.data as { data?: HomeBoardTask[] } | HomeBoardTask[];

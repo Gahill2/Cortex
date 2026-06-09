@@ -28,6 +28,10 @@ export class CanvasWidgetErrorBoundary extends Component<Props, State> {
     }
   }
 
+  private retry = () => {
+    this.setState({ hasError: false, message: undefined });
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -37,6 +41,9 @@ export class CanvasWidgetErrorBoundary extends Component<Props, State> {
             {this.props.widgetKey} could not render.
             {import.meta.env.DEV && this.state.message ? ` (${this.state.message})` : null}
           </p>
+          <button type="button" className="btn-ghost btn-sm" onClick={this.retry}>
+            Retry
+          </button>
         </div>
       );
     }

@@ -127,7 +127,10 @@ export function CanvasItem({
   const handleSelectPointerCapture = (e: React.PointerEvent) => {
     if (locked || e.button !== 0) return;
     if (!editMode) {
-      if (dashboardWidget || isWidget) {
+      // Live dashboard widgets stay fully interactive (Open, chips, links).
+      if (dashboardWidget) return;
+      if (isInteractiveCanvasTarget(e.target)) return;
+      if (isWidget) {
         onSelect?.();
         e.preventDefault();
       }
@@ -136,6 +139,12 @@ export function CanvasItem({
     if (isInteractiveCanvasTarget(e.target) && !dashboardWidget) return;
     if (dashboardWidget && isInteractiveCanvasTarget(e.target)) return;
     onSelect?.();
+  };
+
+  const handleWidgetDoubleClick = () => {
+    if (!editMode && dashboardWidget && !locked) {
+      onSelect?.();
+    }
   };
 
   const handleBodyPointerCapture = (e: React.PointerEvent) => {
@@ -420,6 +429,7 @@ export function CanvasItem({
         if (!isSelected) setShowStylePicker(false);
       }}
       onPointerDownCapture={handleSelectPointerCapture}
+      onDoubleClick={handleWidgetDoubleClick}
     >
       <div
         className={`canvas-item__header${showEditChrome ? "" : " canvas-item__header--hidden"}`}

@@ -1328,9 +1328,11 @@ export function CanvasDashboard({
       setNodes((prev) =>
         prev.map((n) => {
           if (n.id !== id || n.type !== "widget" || !n.widgetKey) return n;
+          const nextVariant = patch.variant ?? n.widgetVariant;
+          const variantChanged = patch.variant !== undefined && patch.variant !== n.widgetVariant;
           const style = buildWidgetRenderStyle(
             n.widgetKey,
-            patch.variant ?? n.widgetVariant,
+            nextVariant,
             patch.skin ?? n.widgetSkin,
             patch.display ?? n.widgetDisplay,
           );
@@ -1340,8 +1342,8 @@ export function CanvasDashboard({
             widgetVariant: style.variant,
             widgetSkin: style.skin,
             widgetDisplay: style.display,
-            w: preset.w,
-            h: preset.h,
+            w: variantChanged ? preset.w : n.w,
+            h: variantChanged ? preset.h : n.h,
           };
         }),
       );
@@ -1431,7 +1433,9 @@ export function CanvasDashboard({
     setNodes((prev) =>
       prev.map((n) => {
         if (n.id !== id) return n;
-        const next = { ...n, widgetConfig };
+        const cleaned =
+          Object.keys(widgetConfig).length === 0 ? undefined : widgetConfig;
+        const next = { ...n, widgetConfig: cleaned };
         const title = widgetConfig.title;
         if (typeof title === "string" && title.trim()) {
           next.title = title.trim();
@@ -1505,7 +1509,13 @@ export function CanvasDashboard({
           setComposerState(null);
           return;
         }
-        handleBackgroundTap();
+        if (editModeRef.current || libraryOpenRef.current) {
+          exitCustomizeMode();
+          return;
+        }
+        if (selected.size > 0) {
+          setSelected(new Set());
+        }
         return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
@@ -1516,7 +1526,7 @@ export function CanvasDashboard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, composerState, handleBackgroundTap]);
+  }, [selected, composerState, exitCustomizeMode]);
 
   const selectedId = selected.size === 1 ? [...selected][0]! : null;
   const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) : undefined;
@@ -1748,8 +1758,8 @@ export function CanvasDashboard({
 
       <div className="canvas-hints">
         {editMode
-          ? "Widget controls in toolbar · Empty canvas to deselect · Esc to finish"
-          : "Click a widget · customize in toolbar · + Add to insert · Ctrl/Alt+scroll to zoom"}
+          ? "Toolbar controls selected widget · Empty canvas to deselect · Esc to finish"
+          : "Double-click a widget to customize · + Add to insert · Ctrl/Alt+scroll to zoom"}
       </div>
     </div>
   );

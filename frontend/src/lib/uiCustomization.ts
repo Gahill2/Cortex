@@ -202,7 +202,7 @@ export function snapScaleToTextPreset(scale: number): number {
 
 export const DEFAULT_UI_CUSTOMIZATION: UiCustomization = {
   homeFont: "system",
-  textSizePx: 24,
+  textSizePx: 16,
   textScale: 1,
   density: "comfortable",
   surfaceTone: "warm",

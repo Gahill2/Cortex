@@ -387,7 +387,7 @@
 }
 
 .canvas-item--widget.canvas-item--dashboard-widget.canvas-item--selected.canvas-item--edit-mode .canvas-item__body {
-  padding-top: 30px;
+  padding-top: 0;
 }
 
 .canvas-item--widget.canvas-item--dashboard-widget.canvas-item--selected .canvas-item__resize {

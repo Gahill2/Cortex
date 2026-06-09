@@ -217,6 +217,10 @@ html.cortex-notion {
 .canvas-dashboard .canvas-widget-shell .widget--today__chip { font-size: 0.714em; }
 .canvas-dashboard .canvas-widget-shell .widget--today__title { font-size: 1.35em; }
 .canvas-dashboard .canvas-widget-shell .at-glance__title { font-size: 1.2em; }
+.canvas-dashboard .canvas-widget-shell .widget--at-a-glance {
+  padding: 0.65em 0.75em;
+  gap: 0.45em;
+}
 .canvas-dashboard .canvas-widget-shell .widget--today__summary,
 .canvas-dashboard .canvas-widget-shell .widget--calendar__head,
 .canvas-dashboard .canvas-widget-shell .widget--notes__head,
