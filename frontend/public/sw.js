@@ -1,5 +1,5 @@
 /// Cortex Service Worker — offline shell cache + runtime cache for API
-const CACHE_NAME = "cortex-v13";
+const CACHE_NAME = "cortex-v14";
 const SHELL_ASSETS = ["/", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {

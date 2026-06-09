@@ -40,7 +40,20 @@ if ("serviceWorker" in navigator) {
       Promise.all(regs.map((r) => r.unregister()))
     );
   } else if (!w.__ELECTRON__) {
-    void navigator.serviceWorker.register("/sw.js").catch(() => {});
+    void navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        reg.addEventListener("updatefound", () => {
+          const worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "activated" && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        });
+      })
+      .catch(() => {});
   }
 }
 
