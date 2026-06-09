@@ -30,7 +30,11 @@ import {
   mergeCanvasImageUrlsFromLocal,
   migrateCanvasDataUrlImages,
 } from "../../lib/canvasState";
-import { createDefaultDashboardNodes, createStarterDashboardNodes } from "../../dashboard/defaultLayout";
+import {
+  createDefaultDashboardNodes,
+  createStarterDashboardNodes,
+  reconcileStarterLayout,
+} from "../../dashboard/defaultLayout";
 import {
   clearProductivityLayoutAfterMigration,
   tryMigrateProductivityLayoutToCanvas,
@@ -123,7 +127,7 @@ interface Props {
 const STORAGE_KEY = "cortex-canvas-state";
 const CANVAS_STATE_VERSION = 2;
 /** Server layout schema — prompts existing users to opt into the SaaS dashboard refresh. */
-export const SAAS_DASHBOARD_LAYOUT_VERSION = 3;
+export const SAAS_DASHBOARD_LAYOUT_VERSION = 4;
 
 function saasAmbientBackground(): CanvasBackground {
   return { kind: "ambient", value: "", presetId: "horizon" };
@@ -379,6 +383,24 @@ export function CanvasDashboard({
     setZoom(zoomRef.current);
   }, []);
 
+  const applyFitToNodes = useCallback(
+    (boardNodes: CanvasNode[]) => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect || boardNodes.length === 0) return;
+      const { pan: fitPan, zoom: fitZoom } = computeFitView(
+        boardNodes,
+        rect.width,
+        rect.height,
+      );
+      const z = clampZoom(fitZoom);
+      setPan(fitPan);
+      setZoom(z);
+      applyLayerTransform(fitPan, z);
+      commitChromeSync();
+    },
+    [applyLayerTransform, commitChromeSync],
+  );
+
   useLayoutEffect(() => {
     applyLayerTransform(pan, zoom);
   }, [pan, zoom, applyLayerTransform]);
@@ -528,6 +550,7 @@ export function CanvasDashboard({
               ? []
               : normalizeNodes(initialCanvasNodes());
 
+      nextNodes = reconcileStarterLayout(nextNodes);
       nextNodes = mergeCanvasImageUrlsFromLocal(nextNodes, local?.nodes);
       try {
         nextNodes = await migrateCanvasDataUrlImages(nextNodes, true);
@@ -547,12 +570,19 @@ export function CanvasDashboard({
         if (bg.kind !== "default") setBackground(bg);
       }
       const layoutVersion = (layout as CanvasLayoutPref | null)?.layoutVersion ?? 0;
+      const widgetNodes = nextNodes.filter((n) => n.type === "widget");
+      const onStarterBoard =
+        widgetNodes.length > 0 && widgetNodes.every((n) => n.id.startsWith("starter-"));
       if (layout && layoutVersion < SAAS_DASHBOARD_LAYOUT_VERSION) {
-        setShowDashboardUpgrade(true);
+        if (onStarterBoard) {
+          requestAnimationFrame(() => applyFitToNodes(nextNodes));
+        } else {
+          setShowDashboardUpgrade(true);
+        }
       }
       canvasHydratedRef.current = true;
     })();
-  }, [ready, settings.canvasLayout]);
+  }, [ready, settings.canvasLayout, applyFitToNodes]);
 
   // Persist canvas + widgets to account settings (debounced)
   useEffect(() => {
@@ -1311,26 +1341,31 @@ export function CanvasDashboard({
     setEditMode(true);
   }, []);
 
-  const applyStarterLayout = useCallback(() => {
-    const starter = normalizeNodes(createStarterDashboardNodes());
-    setNodes((prev) => {
-      // Keep any non-widget nodes (images, notes, backdrops) already on the board.
-      const next = [...prev.filter((n) => n.type !== "widget"), ...starter];
-      setMaxZ(Math.max(...next.map((n) => n.zIndex), 0));
-      return next;
-    });
-    setSelected(new Set());
-    setPan({ x: 0, y: 0 });
-    setZoom(1);
-  }, []);
+  const applyStarterLayout = useCallback(
+    (replaceAll = false) => {
+      const starter = normalizeNodes(createStarterDashboardNodes());
+      if (replaceAll) {
+        setNodes(starter);
+        setMaxZ(starter.length);
+      } else {
+        setNodes((prev) => {
+          const next = [...prev.filter((n) => n.type !== "widget"), ...starter];
+          setMaxZ(Math.max(...next.map((n) => n.zIndex), 0));
+          return next;
+        });
+      }
+      setSelected(new Set());
+      return starter;
+    },
+    [],
+  );
 
   const applyDashboardUpgrade = useCallback(() => {
-    applyStarterLayout();
+    const starter = applyStarterLayout(true);
     setBackground(saasAmbientBackground());
     setShowDashboardUpgrade(false);
-    setEntranceChoreo(true);
-    window.setTimeout(() => setEntranceChoreo(false), 2000);
-  }, [applyStarterLayout]);
+    requestAnimationFrame(() => applyFitToNodes(starter));
+  }, [applyStarterLayout, applyFitToNodes]);
 
   const widgetNodeCount = nodes.filter((n) => n.type === "widget").length;
   const showEmptyOnboarding = widgetNodeCount === 0;
@@ -1677,7 +1712,7 @@ export function CanvasDashboard({
         {showDashboardUpgrade ? (
           <div className="canvas-dashboard-upgrade" role="status">
             <p className="canvas-dashboard-upgrade__text">
-              A refreshed dashboard layout and living background are available.
+              A refreshed dashboard layout and living background are available. This replaces widgets on your board and fits the view.
             </p>
             <div className="canvas-dashboard-upgrade__actions">
               <button
@@ -1733,7 +1768,11 @@ export function CanvasDashboard({
         {showEmptyOnboarding && (
           <DashboardEmptyState
             onAddWidget={enterCustomizeMode}
-            onUseStarter={applyStarterLayout}
+            onUseStarter={() => {
+              const starter = applyStarterLayout(true);
+              setBackground(saasAmbientBackground());
+              requestAnimationFrame(() => applyFitToNodes(starter));
+            }}
           />
         )}
         <div ref={layerRef} className="canvas-layer">

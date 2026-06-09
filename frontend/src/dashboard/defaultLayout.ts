@@ -1,53 +1,104 @@
 import type { CanvasNode } from "../components/canvas/CanvasDashboard";
+import { getVariantPreset } from "../components/canvas/widgetVariants";
+import type { WidgetSizeVariant } from "../components/canvas/widgetVariants";
 
 /** Empty board — add widgets via the composer (library → configure → insert). */
 export function createDefaultDashboardNodes(): CanvasNode[] {
   return [];
 }
 
-const COL_W = 360;
-const GAP = 16;
-const ORIGIN = 24;
+const ROW_GAP = 20;
+const COL_GAP = 24;
+const ORIGIN = 32;
 
-const col = (i: number) => ORIGIN + i * (COL_W + GAP);
-
-type StarterSpec = {
-  key: string;
-  variant: "small" | "medium" | "large";
-  x: number;
-  y: number;
-  h: number;
+type StarterColumn = {
+  widgets: { key: string; variant: WidgetSizeVariant }[];
 };
 
 /**
- * Curated three-column starter board for first-run users. Sizes stay close to
- * the registry presets; skin/display are filled in by normalizeNodes from
- * each widget's registry defaults.
+ * Curated three-column starter board. Sizes and positions come from each widget's
+ * registry preset so content is not squeezed into arbitrary 360px boxes.
  */
-const STARTER_SPECS: StarterSpec[] = [
-  // Column 1 — your day
-  { key: "today", variant: "medium", x: col(0), y: 24, h: 200 },
-  { key: "tasks", variant: "medium", x: col(0), y: 240, h: 320 },
-  { key: "quote", variant: "small", x: col(0), y: 576, h: 140 },
-  // Column 2 — overview
-  { key: "at-a-glance", variant: "medium", x: col(1), y: 24, h: 360 },
-  { key: "calendar", variant: "medium", x: col(1), y: 400, h: 300 },
-  // Column 3 — signals
-  { key: "weather", variant: "small", x: col(2), y: 24, h: 180 },
-  { key: "mail", variant: "medium", x: col(2), y: 220, h: 300 },
-  { key: "spotify", variant: "small", x: col(2), y: 536, h: 180 },
+const STARTER_COLUMNS: StarterColumn[] = [
+  {
+    widgets: [
+      { key: "today", variant: "medium" },
+      { key: "tasks", variant: "medium" },
+      { key: "quote", variant: "small" },
+    ],
+  },
+  {
+    widgets: [
+      { key: "at-a-glance", variant: "medium" },
+      { key: "calendar", variant: "medium" },
+    ],
+  },
+  {
+    widgets: [
+      { key: "weather", variant: "small" },
+      { key: "mail", variant: "medium" },
+      { key: "spotify", variant: "small" },
+    ],
+  },
 ];
 
+function layoutStarterColumns(): CanvasNode[] {
+  const nodes: CanvasNode[] = [];
+  let x = ORIGIN;
+  let z = 1;
+
+  for (const column of STARTER_COLUMNS) {
+    const colWidth = Math.max(
+      ...column.widgets.map((w) => getVariantPreset(w.key, w.variant).w),
+    );
+    let y = ORIGIN;
+
+    for (const spec of column.widgets) {
+      const preset = getVariantPreset(spec.key, spec.variant);
+      nodes.push({
+        id: `starter-${spec.key}`,
+        type: "widget",
+        x,
+        y,
+        w: preset.w,
+        h: preset.h,
+        widgetKey: spec.key,
+        widgetVariant: spec.variant,
+        zIndex: z++,
+      });
+      y += preset.h + ROW_GAP;
+    }
+
+    x += colWidth + COL_GAP;
+  }
+
+  return nodes;
+}
+
 export function createStarterDashboardNodes(): CanvasNode[] {
-  return STARTER_SPECS.map((spec, index) => ({
-    id: `starter-${spec.key}`,
-    type: "widget" as const,
-    x: spec.x,
-    y: spec.y,
-    w: COL_W,
-    h: spec.h,
-    widgetKey: spec.key,
-    widgetVariant: spec.variant,
-    zIndex: index + 1,
-  }));
+  return layoutStarterColumns();
+}
+
+/** Re-align saved starter widgets to the current canonical layout (fixes older bad sizes). */
+export function reconcileStarterLayout(nodes: CanvasNode[]): CanvasNode[] {
+  const canonical = new Map(
+    createStarterDashboardNodes().map((n) => [n.id, n] as const),
+  );
+  if (!nodes.some((n) => n.type === "widget" && canonical.has(n.id))) {
+    return nodes;
+  }
+
+  return nodes.map((n) => {
+    const canon = canonical.get(n.id);
+    if (!canon || n.type !== "widget") return n;
+    return {
+      ...n,
+      x: canon.x,
+      y: canon.y,
+      w: canon.w,
+      h: canon.h,
+      widgetVariant: canon.widgetVariant,
+      widgetKey: canon.widgetKey,
+    };
+  });
 }

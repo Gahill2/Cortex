@@ -3648,7 +3648,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 95% at 50% 8%, transparent 55%, rgba(0, 0, 0, 0.38) 100%);
+  background: radial-gradient(120% 95% at 50% 8%, transparent 62%, rgba(0, 0, 0, 0.22) 100%);
 }
 
 /* Pre-blurred radial layers; transform-only animation stays on the compositor */
