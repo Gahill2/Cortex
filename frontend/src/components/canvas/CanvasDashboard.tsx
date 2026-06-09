@@ -48,6 +48,7 @@ import { useCanvasViewPrefs } from "./canvasViewPrefs";
 import { computeFitView } from "./canvasFit";
 import { CanvasViewControls } from "./CanvasViewControls";
 import { HomeGlanceBar } from "../home/HomeGlanceBar";
+import { AppVersionBadge } from "../AppVersionBadge";
 import { DashboardCustomizeStrip } from "./DashboardCustomizeStrip";
 import { DashboardTypographyToolbar } from "./DashboardTypographyToolbar";
 import { useUiCustomization } from "../../hooks/useUiCustomization";
@@ -1800,6 +1801,8 @@ export function CanvasDashboard({
         prefs={viewPrefs}
         onPrefsChange={patchViewPrefs}
       />
+
+      <AppVersionBadge className="app-version-badge--canvas" />
 
       <div className="canvas-hints">
         {editMode

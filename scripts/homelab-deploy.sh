@@ -42,7 +42,14 @@ if [[ -f "$ROOT/backend/.env" && -x "$ROOT/scripts/sync-homelab-integrations.sh"
   "$ROOT/scripts/sync-homelab-integrations.sh" || true
 fi
 
-log "Rebuilding and restarting Docker stack..."
+export CORTEX_BUILD_SHA="${LOCAL:0:7}"
+export VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+if [[ -f "$ROOT/frontend/public/sw.js" ]]; then
+  export VITE_SW_VERSION="$(
+    grep -oE 'CACHE_NAME = "[^"]+"' "$ROOT/frontend/public/sw.js" | head -1 | sed 's/.*"\([^"]*\)".*/\1/'
+  )"
+fi
+log "Rebuilding and restarting Docker stack (build ${CORTEX_BUILD_SHA}, cache ${VITE_SW_VERSION:-unknown})..."
 "$DOCKER" up -d --build --remove-orphans
 
 log "Running Prisma migrations..."

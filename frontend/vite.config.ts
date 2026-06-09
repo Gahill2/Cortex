@@ -1,5 +1,46 @@
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+
+function resolveBuildMeta() {
+  const pkg = JSON.parse(
+    readFileSync(resolve(__dirname, "package.json"), "utf8"),
+  ) as { version?: string };
+
+  let sha = process.env.VITE_BUILD_SHA || process.env.CORTEX_BUILD_SHA || "";
+  if (!sha) {
+    try {
+      sha = execSync("git rev-parse --short HEAD", {
+        encoding: "utf8",
+        cwd: resolve(__dirname, ".."),
+      }).trim();
+    } catch {
+      sha = "dev";
+    }
+  }
+
+  let sw = "unknown";
+  try {
+    const swSrc = readFileSync(resolve(__dirname, "public/sw.js"), "utf8");
+    sw = swSrc.match(/CACHE_NAME = "([^"]+)"/)?.[1] ?? "unknown";
+  } catch {
+    /* ignore */
+  }
+
+  return {
+    VITE_APP_VERSION: pkg.version ?? "1.0.0",
+    VITE_BUILD_SHA: sha,
+    VITE_BUILD_TIME: process.env.VITE_BUILD_TIME || new Date().toISOString(),
+    VITE_SW_VERSION: sw,
+  };
+}
+
+const buildMeta = resolveBuildMeta();
+for (const [key, value] of Object.entries(buildMeta)) {
+  process.env[key] = value;
+}
 
 export default defineConfig(({ mode }) => {
   const lite = mode === "lite" || process.env.CORTEX_VITE_LITE === "1";

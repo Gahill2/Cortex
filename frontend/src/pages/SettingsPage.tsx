@@ -18,6 +18,7 @@ import {
   writeSettingsSection,
   type SettingsSectionId,
 } from "../settingsNavigation";
+import { BUILD_INFO, formatAppVersionLabel, formatAppVersionTooltip } from "../lib/buildInfo";
 
 interface Props {
   onLogout: () => void;
@@ -431,8 +432,9 @@ export const SettingsPage = ({ onLogout, onLockSession, onOpenTab }: Props) => {
           {section === "memory" && <MemoryPage embedded />}
           {section === "cortex-link" && <McpLinkPage embedded />}
 
-          <div className="settings-footer">
-            <p>Cortex v1.0.0</p>
+          <div className="settings-footer" title={formatAppVersionTooltip()}>
+            <p>{formatAppVersionLabel()}</p>
+            <p>cache {BUILD_INFO.sw}</p>
             <p>Built with love — {new Date().getFullYear()}</p>
           </div>
 
