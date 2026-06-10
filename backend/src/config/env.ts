@@ -79,6 +79,17 @@ const envSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  /**
+   * Dev-only: skip TOTP (authenticator) at login and fall back to email OTP,
+   * surfacing the code directly so sign-in is one step. NEVER enable on the
+   * public internet — it removes the second factor. Off by default. Flip back
+   * to re-secure the account (TOTP enforced again).
+   */
+  CORTEX_DEV_AUTH_BYPASS: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
   SPOTIFY_CLIENT_ID: z.string().optional().default(""),
   SPOTIFY_CLIENT_SECRET: z.string().optional().default(""),
   SPOTIFY_REDIRECT_URI: z.string().optional().default("http://localhost:4000/api/spotify/oauth/callback"),

@@ -267,7 +267,9 @@ cortexAuthRouter.post("/begin-login", routeRateLimit(OTP_SEND_LIMIT, 60_000), as
   const normalized = email.trim().toLowerCase();
   const { enabled: totpEnabled } = await getTotpStatusForEmail(normalized);
 
-  if (totpEnabled) {
+  // Dev bypass: ignore TOTP and use email OTP so development sign-in is fast.
+  // Re-secures the moment CORTEX_DEV_AUTH_BYPASS is turned off.
+  if (totpEnabled && !env.CORTEX_DEV_AUTH_BYPASS) {
     res.json({
       ok: true,
       method: "totp" as const,
@@ -292,7 +294,12 @@ cortexAuthRouter.post("/begin-login", routeRateLimit(OTP_SEND_LIMIT, 60_000), as
       : "Verification code could not be emailed (check server logs).",
   };
   const otpFallback = env.NODE_ENV === "development" || env.CORTEX_OTP_DEV_FALLBACK;
-  if (otpFallback && !emailed) {
+  // With the dev bypass on, always surface the code so login is one step
+  // (no inbox round-trip), even when SMTP delivery succeeds.
+  if (env.CORTEX_DEV_AUTH_BYPASS) {
+    body.devOtpCode = code;
+    body.devHint = "Dev auth bypass: TOTP skipped. Use the code below.";
+  } else if (otpFallback && !emailed) {
     body.devOtpCode = code;
     body.devHint =
       env.CORTEX_OTP_DEV_FALLBACK && env.NODE_ENV === "production"

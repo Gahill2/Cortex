@@ -24,7 +24,11 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         // Browser dev uses same-origin `/api` (see `api/client.ts`); Electron still hits localhost:4000 directly.
-        "/api": { target: "http://127.0.0.1:4000", changeOrigin: true },
+        // Set CORTEX_API_PROXY_TARGET to point dev at a remote hub (e.g. http://cortex:4000 on the tailnet).
+        "/api": {
+          target: process.env.CORTEX_API_PROXY_TARGET || "http://127.0.0.1:4000",
+          changeOrigin: true,
+        },
       },
     },
   };
