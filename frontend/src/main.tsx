@@ -2,6 +2,14 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+/* Self-hosted fonts (bundled) — no fonts.googleapis.com request, so Pi-hole/offline
+   networks can't stall first paint or drop the brand typography. */
+import "@fontsource/roboto/400.css";
+import "@fontsource/roboto/500.css";
+import "@fontsource/plus-jakarta-sans/500.css";
+import "@fontsource/plus-jakarta-sans/600.css";
+import "@fontsource/plus-jakarta-sans/700.css";
+import "@fontsource/plus-jakarta-sans/800.css";
 /* Bootstrap: grid + full utilities (sm–xxl breakpoints). No reboot — keeps Cortex tokens/buttons. */
 import "bootstrap/dist/css/bootstrap-grid.min.css";
 import "bootstrap/dist/css/bootstrap-utilities.min.css";

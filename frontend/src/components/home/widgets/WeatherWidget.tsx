@@ -86,11 +86,12 @@ export function WeatherWidget({ display = "standard", layout = "default" }: Weat
     setSearching(true);
     setSearchError(null);
     try {
-      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`);
-      const d = await r.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country: string }> };
-      const result = d.results?.[0];
+      const r = await api.get("/weather/geocode", { params: { q } });
+      const result = (r.data?.data ?? r.data)?.result as
+        | { lat: number; lon: number; name: string; country: string }
+        | null;
       if (!result) { setSearchError("City not found"); return; }
-      const loc: WeatherLocationPref = { lat: result.latitude, lon: result.longitude, name: `${result.name}, ${result.country}` };
+      const loc: WeatherLocationPref = { lat: result.lat, lon: result.lon, name: `${result.name}, ${result.country}` };
       persistLocation(loc);
       setCityInput("");
       void fetchWeather(loc.lat, loc.lon, units);

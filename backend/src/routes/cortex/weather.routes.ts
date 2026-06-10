@@ -105,3 +105,34 @@ cortexWeatherRouter.get("/", requireAuth, async (req, res) => {
     throw new HttpError(502, `Weather fetch failed: ${e instanceof Error ? e.message : e}`);
   }
 });
+
+// GET /weather/geocode?q=City — proxied server-side so client networks with
+// DNS filtering (Pi-hole, Tailscale exit nodes) can't break city search.
+cortexWeatherRouter.get("/geocode", requireAuth, async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q || q.length > 120) {
+    throw new HttpError(400, "q required");
+  }
+
+  try {
+    const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    url.searchParams.set("name", q);
+    url.searchParams.set("count", "1");
+    url.searchParams.set("language", "en");
+    url.searchParams.set("format", "json");
+
+    const r = await fetch(url.toString());
+    if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
+    const data = await r.json() as {
+      results?: Array<{ latitude: number; longitude: number; name: string; country: string }>;
+    };
+    const hit = data.results?.[0];
+    sendSuccess(res, {
+      result: hit
+        ? { lat: hit.latitude, lon: hit.longitude, name: hit.name, country: hit.country }
+        : null,
+    });
+  } catch (e) {
+    throw new HttpError(502, `Geocoding failed: ${e instanceof Error ? e.message : e}`);
+  }
+});
