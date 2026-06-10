@@ -19,6 +19,9 @@ interface Props {
   onFit: () => void;
   prefs: CanvasViewPrefs;
   onPrefsChange: (patch: Partial<CanvasViewPrefs>) => void;
+  inline?: boolean;
+  /** Grid/snap/fit only — zoom lives in the main toolbar. */
+  unified?: boolean;
 }
 
 export function CanvasViewControls({
@@ -29,6 +32,8 @@ export function CanvasViewControls({
   onFit,
   prefs,
   onPrefsChange,
+  inline = false,
+  unified = false,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -45,7 +50,10 @@ export function CanvasViewControls({
   const pct = Math.round(zoom * 100);
 
   return (
-    <div className="canvas-view-controls" ref={rootRef}>
+    <div
+      className={`canvas-view-controls${inline ? " canvas-view-controls--inline" : ""}${unified ? " canvas-view-controls--unified" : ""}`}
+      ref={rootRef}
+    >
       <div className="canvas-view-controls__cluster">
         <button
           type="button"
@@ -65,33 +73,37 @@ export function CanvasViewControls({
         >
           <Magnet size={16} strokeWidth={2} />
         </button>
-        <span className="canvas-view-controls__sep" aria-hidden />
-        <button
-          type="button"
-          className="canvas-view-controls__btn"
-          title="Zoom out"
-          onClick={onZoomOut}
-        >
-          <Minus size={16} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          className="canvas-view-controls__btn canvas-view-controls__btn--zoom"
-          title="Zoom level"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-        >
-          {pct}%
-          <ChevronDown size={14} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          className="canvas-view-controls__btn"
-          title="Zoom in"
-          onClick={onZoomIn}
-        >
-          <Plus size={16} strokeWidth={2} />
-        </button>
+        {!unified ? (
+          <>
+            <span className="canvas-view-controls__sep" aria-hidden />
+            <button
+              type="button"
+              className="canvas-view-controls__btn"
+              title="Zoom out"
+              onClick={onZoomOut}
+            >
+              <Minus size={16} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="canvas-view-controls__btn canvas-view-controls__btn--zoom"
+              title="Zoom level"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              {pct}%
+              <ChevronDown size={14} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="canvas-view-controls__btn"
+              title="Zoom in"
+              onClick={onZoomIn}
+            >
+              <Plus size={16} strokeWidth={2} />
+            </button>
+          </>
+        ) : null}
         <button type="button" className="canvas-view-controls__btn" title="Fit board" onClick={onFit}>
           <Maximize2 size={16} strokeWidth={2} />
         </button>

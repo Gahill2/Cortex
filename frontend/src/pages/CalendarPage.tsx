@@ -3,6 +3,7 @@ import { CalendarX } from "lucide-react";
 import type { Tab } from "../tab";
 import { useToastStore } from "../stores/toastStore";
 import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
+import { usePlannerBackendStatus } from "../components/tasks-calendar/usePlannerBackendStatus";
 import type { CategoryFilter, PlannerEvent } from "../components/tasks-calendar/types";
 import { ProductivityShell } from "../productivity/ProductivityShell";
 import { CalendarTopBar } from "../productivity/calendar/CalendarTopBar";
@@ -28,6 +29,7 @@ export function CalendarPage({ onNavigate }: Props) {
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
 
   const calView = useMemo(() => toPlannerCalView(view), [view]);
+  const { databaseOk, databaseMessage } = usePlannerBackendStatus();
   const {
     tasks,
     events,
@@ -100,6 +102,11 @@ export function CalendarPage({ onNavigate }: Props) {
               onOpenInspector={() => setMobileInspectorOpen(true)}
               showInspectorButton={Boolean(selectedEvent || selectedTask)}
             />
+            {databaseOk === false && databaseMessage ? (
+              <p className="pd-route__banner pd-route__banner--error" role="alert">
+                {databaseMessage}
+              </p>
+            ) : null}
             {statusMessage ? (
               <p className="pd-route__banner pd-route__banner--error" role="alert">
                 {statusMessage}

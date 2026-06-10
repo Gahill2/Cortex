@@ -6,6 +6,7 @@ import type { CortexGoal } from "../lib/uiCustomization";
 import { newId } from "../lib/newId";
 import { TasksCalendarKanban } from "../components/tasks-calendar/TasksCalendarKanban";
 import { useTasksCalendarData } from "../components/tasks-calendar/useTasksCalendarData";
+import { usePlannerBackendStatus } from "../components/tasks-calendar/usePlannerBackendStatus";
 import { ProductivityShell } from "../productivity/ProductivityShell";
 import { EventInspectorPanel } from "../productivity/calendar/EventInspectorPanel";
 import { TaskSidebar } from "../productivity/tasks/TaskSidebar";
@@ -53,6 +54,7 @@ export function TasksPage({ onNavigate }: Props) {
 
   const viewDate = useMemo(() => new Date(), []);
   const calView = toPlannerCalView("week");
+  const { databaseOk, databaseMessage } = usePlannerBackendStatus();
 
   const {
     tasks,
@@ -301,6 +303,11 @@ export function TasksPage({ onNavigate }: Props) {
               onOpenInspector={() => setMobileInspectorOpen(true)}
               showInspectorButton={Boolean(selectedItem)}
             />
+            {databaseOk === false && databaseMessage ? (
+              <p className="pd-route__banner pd-route__banner--error" role="alert">
+                {databaseMessage}
+              </p>
+            ) : null}
             {pageTab === "tasks" && projects.length === 0 && !loading ? (
               <p className="pd-route__banner" role="status">
                 Create a project for API-backed tasks. Goals work without one.{" "}

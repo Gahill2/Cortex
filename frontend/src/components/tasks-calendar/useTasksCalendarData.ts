@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../lib/apiError";
 import type { CalendarEvent } from "../calendar/calendarTypes";
 import type { CalendarRangeView, PlannerEvent, PlannerTask } from "./types";
 import { patchCalendarEvent } from "../calendar/calendarApi";
@@ -64,8 +65,13 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
       const projs = unwrapList<Project>(pr.data?.data ?? pr.data);
       setProjects(projs);
       setTasks(raw.map(mapApiTaskToPlanner));
-    } catch {
-      setTasksError("Could not load tasks. Check that you are signed in and the API is running.");
+    } catch (err) {
+      setTasksError(
+        apiErrorMessage(
+          err,
+          "Could not load tasks. Check that you are signed in and the API is running.",
+        ),
+      );
     } finally {
       setTasksLoading(false);
     }
@@ -83,8 +89,10 @@ export function useTasksCalendarData(viewDate: Date, calView: CalendarRangeView)
       const warnings: string[] = Array.isArray(payload?.warnings) ? payload.warnings : [];
       setEvents(evs.map(mapCalendarEventToPlanner));
       setCalendarWarnings(warnings);
-    } catch {
-      setEventsError("Could not load calendar events.");
+    } catch (err) {
+      setEventsError(
+        apiErrorMessage(err, "Could not load calendar events."),
+      );
     } finally {
       setEventsLoading(false);
     }

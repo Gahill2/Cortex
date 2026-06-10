@@ -64,10 +64,6 @@ export const HomePage = ({ onNavigate, onCommand }: Props) => {
             onNavigate={onNavigate}
             onCommand={onCommand}
             renderWidget={renderWidget}
-            editMode={editMode}
-            onEditModeChange={setEditMode}
-            libraryOpen={libraryOpen}
-            onLibraryOpenChange={setLibraryOpen}
           />
         </div>
       </div>

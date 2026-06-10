@@ -36,6 +36,7 @@ import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-servic
 import { getAIStatus } from "../../features/ai/ai-provider.js";
 import { env } from "../../config/env.js";
 import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
+import { prisma } from "../../db/prisma.js";
 
 export const cortexRouter = Router();
 
@@ -54,9 +55,23 @@ cortexRouter.get("/health", async (_req, res) => {
   } catch {
     ollamaRunning = false;
   }
+  let database: { ok: boolean; message?: string } = { ok: false };
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    database = { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    database = {
+      ok: false,
+      message: msg.includes("Can't reach database server")
+        ? "PostgreSQL is not reachable. Start your database (e.g. npm run server:up or npm run hub:up), then npm run db:migrate."
+        : msg.slice(0, 240),
+    };
+  }
   res.json({
-    status: "ok",
+    status: database.ok ? "ok" : "degraded",
     service: "cortex-api",
+    database,
     phase: "phase-1-foundation",
     anthropic_configured: Boolean(env.ANTHROPIC_API_KEY),
     kimi_configured: Boolean(env.KIMI_API_KEY?.trim() || env.MOONSHOT_API_KEY?.trim()),

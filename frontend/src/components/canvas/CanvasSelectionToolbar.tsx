@@ -33,6 +33,9 @@ export type GeometryPatch = Partial<Pick<CanvasNode, "x" | "y" | "w" | "h" | "ro
 export type AppearancePatch = Partial<Pick<CanvasNode, "opacity" | "cornerRadius">>;
 
 interface Props {
+  /** Inline segment of the unified top toolbar (no second bar). */
+  unified?: boolean;
+  onDetailsOpenChange?: (open: boolean) => void;
   node: CanvasNode;
   onGeometryChange?: (patch: GeometryPatch) => void;
   onAppearanceChange?: (patch: AppearancePatch) => void;
@@ -161,6 +164,8 @@ function WidgetTypographyControl({
 }
 
 export function CanvasSelectionToolbar({
+  unified = false,
+  onDetailsOpenChange,
   node,
   onGeometryChange,
   onAppearanceChange,
@@ -192,6 +197,10 @@ export function CanvasSelectionToolbar({
     setAspectRatio(node.h > 0 ? node.w / node.h : 1);
     setDetailsOpen(false);
   }, [node.id, node.w, node.h]);
+
+  useEffect(() => {
+    onDetailsOpenChange?.(detailsOpen);
+  }, [detailsOpen, onDetailsOpenChange]);
 
   const widgetDef =
     node.type === "widget" && node.widgetKey ? getWidgetTypeDef(node.widgetKey) : undefined;
