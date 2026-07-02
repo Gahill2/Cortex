@@ -120,18 +120,6 @@ AirPlay comes from the **client app on your iPhone/iPad**, not from the Jellyfin
 
 ---
 
-## 5) Obsession (2025) — getting it into the library
-
-Curry Barker's *Obsession* is digital-only for now:
-
-- **Buy/rent digital today:** Apple TV, Prime Video, or Fandango at Home — rent ≈ $19.99, buy ≈ $24.99. Digital includes an **unrated cut** + director commentary. Digital purchases are DRM-locked to those apps, so they can't be imported into Jellyfin — but the Apple TV/Prime apps AirPlay natively, so it still works for the trip.
-- **Disc (rippable for the shelf/library): 4K UHD / Blu-ray on July 14** — after that a personal disc copy is the Jellyfin-quality route.
-- Streaming later on **Peacock** (expected).
-
-For the trip: buy it digitally and watch via the store app; add the disc to the collection when it ships.
-
----
-
 ## Pre-trip checklist
 
 - [ ] Split DNS set in Tailscale admin; global override + "Override local DNS" removed
