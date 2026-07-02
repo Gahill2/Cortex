@@ -48,12 +48,16 @@ Any `*.cortex` name resolves to the cortex host IP (wildcard in dnsmasq).
 
 ## Make devices use Pi-hole
 
-**Tailscale (phones/laptops away from home):**
+**Tailscale (phones/laptops away from home) — use Split DNS:**
 
 1. [Tailscale admin → DNS](https://login.tailscale.com/admin/dns)
-2. Nameserver → your cortex Tailscale IP (`100.104.120.29`)
-3. Fallback → `1.1.1.1`
-4. **Override local DNS** on
+2. Keep **MagicDNS** on
+3. Nameservers → **Add custom** → your cortex Tailscale IP (`100.104.120.29`) → toggle **Restrict to domain** → `cortex`
+4. Remove any **global** nameserver pointing at `100.104.120.29` and turn **Override local DNS** **off**
+
+Split DNS sends only `*.cortex` lookups to Pi-hole; all other sites use each device's normal DNS. That way the internet keeps working on every device even if the cortex box is off — only the `.cortex` names (and the services behind them) need Tailscale.
+
+> **Why not a global override?** Pointing the whole tailnet's DNS at Pi-hole gives ad blocking everywhere, but if Pi-hole is down every Tailscale-connected device loses *all* DNS (symptom: "only Jellyfin works"). See [deploy/nas/pihole/README.md](../deploy/nas/pihole/README.md) if you still want that mode.
 
 Verify: `npm run nas:pihole:tailscale-dns`
 

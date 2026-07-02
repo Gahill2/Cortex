@@ -92,7 +92,7 @@ After install: log in with the **same account** you used for the invite.
 
 1. Open the **Tailscale** app.  
 2. Turn **Connect** on (VPN icon should show active).  
-3. Leave **Use Tailscale DNS** enabled (default)—this enables friendly names and ad blocking on the tailnet.
+3. Leave **Use Tailscale DNS** enabled (default)—this makes the friendly `.cortex` names work. Regular websites still use your normal DNS (Split DNS), so the rest of the internet works exactly as usual while Tailscale is on.
 
 **iPhone tips**
 
@@ -155,11 +155,12 @@ Photos:  http://100.104.120.29:2283
 
 | Problem | Try this |
 |---------|----------|
+| **Internet stops working when Tailscale is on** (only Jellyfin etc. load) | Admin problem, not yours: tailnet DNS is set to a *global* Pi-hole override. Admin: [Tailscale admin → DNS](https://login.tailscale.com/admin/dns) → switch to **Split DNS** (restrict the `100.104.120.29` nameserver to domain `cortex`, turn **Override local DNS** off). Also check no **exit node** is forced on the device. |
 | Page does not load | Tailscale **Connected**? Try the `100.x.x.x` links from Discord. |
 | “Untrusted domain” (Nextcloud) | Tell admin; they run `npm run nas:nextcloud:trusted-domains` |
 | Jellyfin plays but buffers | Wi‑Fi weak or server busy; try lower quality in player |
 | Some movies missing | Joey’s PC may be off — his titles only appear when his homelab is online |
-| Still see lots of ads (phone) | Use Tailscale DNS; disable Private DNS (Android) / Private Relay (iOS) |
+| Still see lots of ads (phone) | Pi-hole ad blocking applies on the home Wi‑Fi (router DNS). With Split DNS on the tailnet, browsing away from home uses your normal DNS, so ads are expected. |
 | Forgot Jellyfin password | Ask admin to reset in Jellyfin → Users |
 | Forgot Nextcloud password | Ask admin to reset in Nextcloud → Users |
 

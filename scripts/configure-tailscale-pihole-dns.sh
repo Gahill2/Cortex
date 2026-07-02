@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Verify (and optionally align) Tailscale → Pi-hole DNS for ad blocking on all tailnet devices.
+# Verify (and optionally align) Tailscale → Pi-hole DNS for .cortex names on all tailnet devices.
 #
 # Tailnet DNS is configured in the Tailscale admin console (not via this script alone).
+# Recommended mode is SPLIT DNS: only the `cortex` domain is routed to Pi-hole, so
+# regular internet DNS keeps working on every device even when this host is down.
 # This script checks Pi-hole is listening on your Tailscale IP and that blocking works.
 #
 # Usage:
@@ -90,16 +92,25 @@ if tailscale dns status 2>/dev/null | grep -q .; then
   tailscale dns status 2>/dev/null | sed -n '/Resolvers/,/^$/p' | head -8
   if tailscale dns status 2>/dev/null | grep -q "$TS_IP"; then
     echo ""
-    echo "OK: Tailscale is already using $TS_IP as a resolver on this machine."
+    echo "OK: Tailscale routes DNS to $TS_IP on this machine (global or split)."
   else
     echo ""
-    echo "This device is NOT using $TS_IP as DNS yet."
-    echo "Configure the tailnet (one-time, admin):"
+    echo "This device has no DNS route to $TS_IP yet."
+    echo ""
+    echo "Recommended tailnet DNS — SPLIT DNS (one-time, admin):"
     echo "  https://login.tailscale.com/admin/dns"
-    echo "  1. Nameservers → Add custom → $TS_IP"
-    echo "  2. Add fallback → 1.1.1.1 or 75.75.75.75 (when cortex is offline)"
-    echo "  3. Enable Override local DNS"
-    echo "  4. Keep MagicDNS on"
+    echo "  1. Keep MagicDNS on"
+    echo "  2. Nameservers → Add custom → $TS_IP → toggle 'Restrict to domain' → cortex"
+    echo "     (only *.cortex lookups go to Pi-hole; everything else uses each"
+    echo "      device's normal DNS, so the internet keeps working when this box is off)"
+    echo "  3. Remove any GLOBAL custom nameserver pointing at $TS_IP and turn"
+    echo "     'Override local DNS' OFF — global override makes ALL internet DNS on"
+    echo "     every tailnet device depend on this host being reachable."
+    echo ""
+    echo "Optional alternative (tailnet-wide ad blocking, less resilient):"
+    echo "  Global nameserver $TS_IP + fallback 1.1.1.1 + Override local DNS ON."
+    echo "  Tradeoff: if Pi-hole/this host is down, devices lose ALL DNS while"
+    echo "  Tailscale is connected (symptom: 'only Jellyfin works')."
     echo ""
     echo "On each phone/laptop: Tailscale app connected; DNS defaults to tailnet settings."
     echo "  Android: Settings → Network → Private DNS → Off."

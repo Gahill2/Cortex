@@ -27,19 +27,28 @@ Pick **one**:
 
 Router / DHCP → set **DNS server** to `10.0.0.49` (this PC’s LAN IP).
 
-### Tailscale (all tailnet devices — ads blocked while VPN is on)
+### Tailscale — Split DNS (recommended: `.cortex` names work, internet never breaks)
 
-Any phone, laptop, or tablet with **Tailscale connected** uses Pi-hole for DNS — no router changes.
+Only `*.cortex` lookups go to Pi-hole; every other domain uses the device's normal DNS. If cortex is off, the rest of the internet keeps working on all tailnet devices.
 
 **One-time (tailnet admin):**
 
 1. [Tailscale admin → DNS](https://login.tailscale.com/admin/dns)
-2. **Nameservers** → **Add custom** → this host’s Tailscale IP (`tailscale ip -4`, e.g. `100.104.120.29`)
+2. Keep **MagicDNS** on
+3. **Nameservers** → **Add custom** → this host’s Tailscale IP (`tailscale ip -4`, e.g. `100.104.120.29`) → toggle **Restrict to domain** → enter `cortex`
+4. **Remove** any global custom nameserver pointing at this host and turn **Override local DNS** **off**
+
+**On each device:** leave Tailscale’s default **Use Tailscale DNS** enabled (`tailscale set --accept-dns=true`).
+
+### Tailscale — global override (optional: tailnet-wide ad blocking, less resilient)
+
+All DNS from every tailnet device flows through Pi-hole. **Tradeoff:** if Pi-hole or this host goes down (or its Tailscale IP changes), devices with Tailscale connected lose **all** DNS — the classic symptom is “only Jellyfin works, nothing else loads.”
+
+1. [Tailscale admin → DNS](https://login.tailscale.com/admin/dns)
+2. **Nameservers** → **Add custom** → this host’s Tailscale IP (no domain restriction)
 3. **Add nameserver** again for **fallback** when cortex is off: `1.1.1.1` or `75.75.75.75`
 4. Enable **Override local DNS**
 5. Keep **MagicDNS** on
-
-**On each device:** leave Tailscale’s default **Use Tailscale DNS** enabled (`tailscale set --accept-dns=true`).
 
 **Verify from cortex:**
 
@@ -54,7 +63,7 @@ You should see `doubleclick.net` → `0.0.0.0` when querying `@<tailscale-ip>`.
 
 ### Twitch ads (Tailscale + Pi-hole)
 
-**What already works on your tailnet:** With [Tailscale DNS](https://login.tailscale.com/admin/dns) pointing at this host (`100.104.120.29`) and **Override local DNS** on, every device using Tailscale DNS hits Pi-hole. Verify:
+**Requires global override mode:** this section only applies if you chose the optional global override above. With the recommended **Split DNS**, only `*.cortex` lookups hit Pi-hole, so tailnet-wide ad/Twitch blocking is off (home Wi‑Fi devices still get it via router DNS → `10.0.0.49`). Verify:
 
 ```bash
 npm run nas:pihole:tailscale-dns
