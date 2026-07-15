@@ -1,13 +1,10 @@
 import type { Credentials } from "google-auth-library";
 import { prisma } from "../../db/prisma.js";
+import { createOAuthTokenStore } from "../integrations/oauth-token-store.js";
 
-export const saveGoogleCredentials = async (userId: string, credentials: Credentials): Promise<void> => {
-  await prisma.oAuthToken.upsert({
-    where: { userId_provider: { userId, provider: "google" } },
-    update: { tokens: JSON.stringify(credentials) },
-    create: { userId, provider: "google", tokens: JSON.stringify(credentials) },
-  });
-};
+const googleTokenStore = createOAuthTokenStore<Credentials>("google");
+
+export const saveGoogleCredentials = googleTokenStore.save;
 
 /** Persist refreshed OAuth tokens (access + refresh) for legacy store and linked Mail accounts. */
 export const persistGoogleCredentials = async (
@@ -59,6 +56,4 @@ export const getGoogleCredentialsForEmail = async (
   };
 };
 
-export const clearGoogleCredentials = async (userId: string): Promise<void> => {
-  await prisma.oAuthToken.deleteMany({ where: { userId, provider: "google" } });
-};
+export const clearGoogleCredentials = googleTokenStore.clear;
