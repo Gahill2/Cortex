@@ -10,7 +10,10 @@ async function readNotes(filePath: string): Promise<TaskNote[]> {
     const raw = await fs.readFile(filePath, "utf8");
     const data = JSON.parse(raw) as unknown;
     return Array.isArray(data) ? (data as TaskNote[]) : [];
-  } catch {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      console.warn(`[mcp] failed to read task notes from ${filePath}:`, err instanceof Error ? err.message : err);
+    }
     return [];
   }
 }

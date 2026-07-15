@@ -18,8 +18,10 @@ function loadEnvFile(filePath: string) {
         process.env[key] = val;
       }
     }
-  } catch {
-    /* file not found — skip */
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      console.warn(`[env] failed to read env file ${filePath}:`, err instanceof Error ? err.message : err);
+    }
   }
 }
 
