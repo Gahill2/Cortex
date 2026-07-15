@@ -53,7 +53,9 @@ if ("serviceWorker" in navigator) {
           });
         });
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("[sw] service worker registration failed:", err);
+      });
   }
 }
 

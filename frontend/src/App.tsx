@@ -239,7 +239,9 @@ export default function App() {
       timeoutId = setTimeout(() => {
         void api
           .post("/auth/lock", { lockReason: "idle" })
-          .catch(() => {})
+          .catch((err) => {
+            console.warn("[auth] idle lock request failed:", err);
+          })
           .finally(() => {
             setPinGateReason("idle");
             setSessionUnlocked(false);
