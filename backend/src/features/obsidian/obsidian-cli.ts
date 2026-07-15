@@ -31,11 +31,11 @@ async function obsidianOnPath(): Promise<boolean> {
 async function appendViaCli(options: AppendToVaultOptions): Promise<boolean> {
   const vaultName = options.vaultName || path.basename(options.vaultPath);
   const subcommand = options.useDailyNote ? "daily:append" : "append";
-  const args = [`vault="${vaultName}"`, subcommand, `content=${options.content}`];
+  const args = [`vault=${vaultName}`, subcommand, `content=${options.content}`];
   if (!options.useDailyNote) {
-    args.splice(2, 0, `file="${options.relativePath.replace(/\\/g, "/")}"`);
+    args.splice(2, 0, `file=${options.relativePath.replace(/\\/g, "/")}`);
   }
-  await execFileAsync("obsidian", args, { timeout: 15_000, shell: true });
+  await execFileAsync("obsidian", args, { timeout: 15_000 });
   return true;
 }
 
