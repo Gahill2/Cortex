@@ -2,6 +2,12 @@ import type { NutritionEntry } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
 import { settingsRepo } from "../../repositories/index.js";
 import {
+  dayBoundsUtc,
+  localDateKeyFromUtc,
+  parseTzOffset,
+  weekDateKeys,
+} from "./nutrition-date.js";
+import {
   DEFAULT_NUTRITION_TARGETS,
   type NutritionTargets,
 } from "./nutrition-schemas.js";
@@ -17,6 +23,17 @@ export type MacroTotals = {
   entryCount: number;
 };
 
+export const EMPTY_TOTALS: MacroTotals = {
+  calories: 0,
+  proteinG: 0,
+  carbsG: 0,
+  fatG: 0,
+  fiberG: 0,
+  sugarG: 0,
+  sodiumMg: 0,
+  entryCount: 0,
+};
+
 function toNumber(value: { toNumber?: () => number } | number | null | undefined): number {
   if (value == null) return 0;
   if (typeof value === "number") return value;
@@ -24,12 +41,13 @@ function toNumber(value: { toNumber?: () => number } | number | null | undefined
   return Number(value) || 0;
 }
 
-function startOfDayUtc(dateStr: string): Date {
-  return new Date(`${dateStr}T00:00:00.000Z`);
-}
-
-function endOfDayUtc(dateStr: string): Date {
-  return new Date(`${dateStr}T23:59:59.999Z`);
+function parseAssumptions(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export function serializeEntry(row: NutritionEntry) {
@@ -48,7 +66,7 @@ export function serializeEntry(row: NutritionEntry) {
     sugarG: row.sugarG != null ? toNumber(row.sugarG) : null,
     sodiumMg: row.sodiumMg,
     confidence: row.confidence,
-    assumptions: JSON.parse(row.assumptions) as string[],
+    assumptions: parseAssumptions(row.assumptions),
     sourceType: row.sourceType,
     aiProvider: row.aiProvider,
     aiModel: row.aiModel,
@@ -70,52 +88,30 @@ export function sumEntries(entries: NutritionEntry[]): MacroTotals {
       sodiumMg: acc.sodiumMg + (e.sodiumMg ?? 0),
       entryCount: acc.entryCount + 1,
     }),
-    {
-      calories: 0,
-      proteinG: 0,
-      carbsG: 0,
-      fatG: 0,
-      fiberG: 0,
-      sugarG: 0,
-      sodiumMg: 0,
-      entryCount: 0,
-    }
+    { ...EMPTY_TOTALS }
   );
 }
 
-export async function listEntries(userId: string, from: string, to: string) {
-  return prisma.nutritionEntry.findMany({
-    where: {
-      userId,
-      consumedAt: {
-        gte: startOfDayUtc(from),
-        lte: endOfDayUtc(to),
-      },
-    },
-    orderBy: [{ consumedAt: "desc" }, { createdAt: "desc" }],
-  });
-}
-
-export async function getEntry(userId: string, id: string) {
-  return prisma.nutritionEntry.findFirst({ where: { id, userId } });
-}
-
-export async function getTotalsForDate(userId: string, dateStr: string): Promise<MacroTotals> {
-  const entries = await listEntries(userId, dateStr, dateStr);
-  return sumEntries(entries);
-}
-
-export async function getWeeklyAverages(userId: string, endDateStr: string) {
-  const end = new Date(`${endDateStr}T12:00:00.000Z`);
-  const days: Array<{ date: string; totals: MacroTotals }> = [];
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(end);
-    d.setUTCDate(d.getUTCDate() - i);
-    const date = d.toISOString().slice(0, 10);
-    const totals = await getTotalsForDate(userId, date);
-    days.push({ date, totals });
+export function buildWeeklyFromEntries(
+  entries: NutritionEntry[],
+  endDateStr: string,
+  tzOffsetMinutes: number
+) {
+  const grouped = new Map<string, NutritionEntry[]>();
+  for (const key of weekDateKeys(endDateStr)) {
+    grouped.set(key, []);
   }
+  for (const entry of entries) {
+    const key = localDateKeyFromUtc(entry.consumedAt.getTime(), tzOffsetMinutes);
+    if (grouped.has(key)) {
+      grouped.get(key)!.push(entry);
+    }
+  }
+
+  const days = weekDateKeys(endDateStr).map((date) => ({
+    date,
+    totals: sumEntries(grouped.get(date) ?? []),
+  }));
 
   const withData = days.filter((d) => d.totals.entryCount > 0);
   const divisor = withData.length || 1;
@@ -138,6 +134,80 @@ export async function getWeeklyAverages(userId: string, endDateStr: string) {
       fatG: Math.round(sum.fatG / divisor),
       daysWithEntries: withData.length,
     },
+  };
+}
+
+async function queryEntriesInRange(
+  userId: string,
+  fromDate: string,
+  toDate: string,
+  tzOffsetMinutes: number
+) {
+  const { start } = dayBoundsUtc(fromDate, tzOffsetMinutes);
+  const { end } = dayBoundsUtc(toDate, tzOffsetMinutes);
+  return prisma.nutritionEntry.findMany({
+    where: {
+      userId,
+      consumedAt: { gte: start, lte: end },
+    },
+    orderBy: [{ consumedAt: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function listEntries(
+  userId: string,
+  from: string,
+  to: string,
+  tzOffsetMinutes = 0
+) {
+  return queryEntriesInRange(userId, from, to, tzOffsetMinutes);
+}
+
+export async function getEntry(userId: string, id: string) {
+  return prisma.nutritionEntry.findFirst({ where: { id, userId } });
+}
+
+export async function getTotalsForDate(
+  userId: string,
+  dateStr: string,
+  tzOffsetMinutes = 0
+): Promise<MacroTotals> {
+  const entries = await queryEntriesInRange(userId, dateStr, dateStr, tzOffsetMinutes);
+  return sumEntries(entries);
+}
+
+export async function getWeeklyAverages(
+  userId: string,
+  endDateStr: string,
+  tzOffsetMinutes = 0
+) {
+  const startDate = weekDateKeys(endDateStr)[0];
+  const entries = await queryEntriesInRange(userId, startDate, endDateStr, tzOffsetMinutes);
+  return buildWeeklyFromEntries(entries, endDateStr, tzOffsetMinutes);
+}
+
+export async function getNutritionDashboard(
+  userId: string,
+  dateStr: string,
+  tzOffsetMinutes = 0
+) {
+  const weekStart = weekDateKeys(dateStr)[0];
+  const [weekEntries, targets] = await Promise.all([
+    queryEntriesInRange(userId, weekStart, dateStr, tzOffsetMinutes),
+    getNutritionTargets(userId),
+  ]);
+
+  const todayEntries = weekEntries.filter(
+    (e) => localDateKeyFromUtc(e.consumedAt.getTime(), tzOffsetMinutes) === dateStr
+  );
+
+  return {
+    date: dateStr,
+    tzOffsetMinutes,
+    totals: sumEntries(todayEntries),
+    entries: todayEntries.map(serializeEntry),
+    weekly: buildWeeklyFromEntries(weekEntries, dateStr, tzOffsetMinutes),
+    targets,
   };
 }
 
@@ -170,7 +240,7 @@ export async function updateNutritionTargets(
   return next;
 }
 
-export function entriesToCsv(entries: NutritionEntry[]): string {
+export function entriesToCsv(entries: NutritionEntry[], tzOffsetMinutes = 0): string {
   const header = [
     "Date",
     "Time",
@@ -191,10 +261,11 @@ export function entriesToCsv(entries: NutritionEntry[]): string {
   const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
   const rows = entries.map((e) => {
-    const consumed = e.consumedAt;
-    const date = consumed.toISOString().slice(0, 10);
-    const time = consumed.toISOString().slice(11, 19);
-    const assumptions = (JSON.parse(e.assumptions) as string[]).join("; ");
+    const localMs = e.consumedAt.getTime() - tzOffsetMinutes * 60_000;
+    const local = new Date(localMs);
+    const date = `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, "0")}-${String(local.getUTCDate()).padStart(2, "0")}`;
+    const time = `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}:${String(local.getUTCSeconds()).padStart(2, "0")}`;
+    const assumptions = parseAssumptions(e.assumptions).join("; ");
     return [
       date,
       time,
@@ -215,3 +286,5 @@ export function entriesToCsv(entries: NutritionEntry[]): string {
 
   return [header.join(","), ...rows].join("\n");
 }
+
+export { parseTzOffset };

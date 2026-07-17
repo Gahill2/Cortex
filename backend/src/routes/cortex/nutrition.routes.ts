@@ -8,6 +8,7 @@ import { HttpError } from "../../utils/http-error.js";
 import {
   dateQuerySchema,
   dateRangeQuerySchema,
+  dashboardQuerySchema,
   estimateRequestSchema,
   nutritionTargetsSchema,
   saveEntrySchema,
@@ -20,6 +21,7 @@ import {
 import {
   entriesToCsv,
   getEntry,
+  getNutritionDashboard,
   getNutritionTargets,
   getTotalsForDate,
   getWeeklyAverages,
@@ -31,8 +33,13 @@ import {
 export const cortexNutritionRouter = Router();
 cortexNutritionRouter.use(requireAuth);
 
-function todayUtcDate(): string {
-  return new Date().toISOString().slice(0, 10);
+function localTodayFromOffset(tzOffsetMinutes: number): string {
+  const localMs = Date.now() - tzOffsetMinutes * 60_000;
+  const d = new Date(localMs);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function parseConsumedAt(value: string): Date {
@@ -104,11 +111,20 @@ cortexNutritionRouter.post("/entries", routeRateLimit(60, 60_000), async (req, r
   sendSuccess(res, serializeEntry(row), "live");
 });
 
-/** GET /api/nutrition/entries?from=&to= */
+/** GET /api/nutrition/dashboard?date=&tzOffset= — single round-trip for the Nutrition page */
+cortexNutritionRouter.get("/dashboard", routeRateLimit(60, 60_000), async (req, res) => {
+  const { userId } = req.auth!;
+  const { date, tzOffset } = dashboardQuerySchema.parse(req.query);
+  const targetDate = date ?? localTodayFromOffset(tzOffset);
+  const dashboard = await getNutritionDashboard(userId, targetDate, tzOffset);
+  sendSuccess(res, dashboard, "live");
+});
+
+/** GET /api/nutrition/entries?from=&to=&tzOffset= */
 cortexNutritionRouter.get("/entries", routeRateLimit(60, 60_000), async (req, res) => {
   const { userId } = req.auth!;
-  const { from, to } = dateRangeQuerySchema.parse(req.query);
-  const rows = await listEntries(userId, from, to);
+  const { from, to, tzOffset } = dateRangeQuerySchema.parse(req.query);
+  const rows = await listEntries(userId, from, to, tzOffset);
   sendSuccess(res, rows.map(serializeEntry), "live");
 });
 
@@ -163,29 +179,35 @@ cortexNutritionRouter.delete("/entries/:id", routeRateLimit(60, 60_000), async (
   sendSuccess(res, { ok: true, id: existing.id }, "live");
 });
 
-/** GET /api/nutrition/totals/today */
+/** GET /api/nutrition/totals/today?tzOffset= */
 cortexNutritionRouter.get("/totals/today", routeRateLimit(60, 60_000), async (req, res) => {
   const { userId } = req.auth!;
-  const totals = await getTotalsForDate(userId, todayUtcDate());
-  sendSuccess(res, { date: todayUtcDate(), totals }, "live");
+  const tzOffset = dashboardQuerySchema.parse(req.query).tzOffset;
+  const date = localTodayFromOffset(tzOffset);
+  const totals = await getTotalsForDate(userId, date, tzOffset);
+  sendSuccess(res, { date, totals }, "live");
 });
 
-/** GET /api/nutrition/totals?date=YYYY-MM-DD */
+/** GET /api/nutrition/totals?date=&tzOffset= */
 cortexNutritionRouter.get("/totals", routeRateLimit(60, 60_000), async (req, res) => {
   const { userId } = req.auth!;
-  const { date } = dateQuerySchema.parse(req.query);
-  const targetDate = date ?? todayUtcDate();
-  const totals = await getTotalsForDate(userId, targetDate);
+  const { date, tzOffset } = dateQuerySchema.parse(req.query);
+  const targetDate = date ?? localTodayFromOffset(tzOffset);
+  const totals = await getTotalsForDate(userId, targetDate, tzOffset);
   sendSuccess(res, { date: targetDate, totals }, "live");
 });
 
-/** GET /api/nutrition/totals/weekly?endDate=YYYY-MM-DD */
+/** GET /api/nutrition/totals/weekly?endDate=&tzOffset= */
 cortexNutritionRouter.get("/totals/weekly", routeRateLimit(30, 60_000), async (req, res) => {
   const { userId } = req.auth!;
-  const endDate = z
-    .object({ endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })
-    .parse(req.query).endDate ?? todayUtcDate();
-  const weekly = await getWeeklyAverages(userId, endDate);
+  const parsed = z
+    .object({
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      tzOffset: z.coerce.number().int().min(-840).max(840).optional().default(0),
+    })
+    .parse(req.query);
+  const endDate = parsed.endDate ?? localTodayFromOffset(parsed.tzOffset);
+  const weekly = await getWeeklyAverages(userId, endDate, parsed.tzOffset);
   sendSuccess(res, weekly, "live");
 });
 
@@ -204,12 +226,12 @@ cortexNutritionRouter.patch("/targets", routeRateLimit(30, 60_000), async (req, 
   sendSuccess(res, targets, "live");
 });
 
-/** GET /api/nutrition/export?from=&to= */
+/** GET /api/nutrition/export?from=&to=&tzOffset= */
 cortexNutritionRouter.get("/export", routeRateLimit(10, 60_000), async (req, res) => {
   const { userId } = req.auth!;
-  const { from, to } = dateRangeQuerySchema.parse(req.query);
-  const rows = await listEntries(userId, from, to);
-  const csv = entriesToCsv(rows);
+  const { from, to, tzOffset } = dateRangeQuerySchema.parse(req.query);
+  const rows = await listEntries(userId, from, to, tzOffset);
+  const csv = entriesToCsv(rows, tzOffset);
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="nutrition-log-${from}-to-${to}.csv"`);
   res.send(csv);

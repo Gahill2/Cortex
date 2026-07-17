@@ -60,8 +60,21 @@ export type WeeklyNutrition = {
   };
 };
 
+export type NutritionDashboard = {
+  date: string;
+  tzOffsetMinutes: number;
+  totals: MacroTotals;
+  entries: NutritionEntry[];
+  weekly: WeeklyNutrition;
+  targets: NutritionTargets;
+};
+
 function unwrap<T>(res: { data: { data: T } }): T {
   return res.data.data;
+}
+
+export function timezoneOffsetMinutes(): number {
+  return new Date().getTimezoneOffset();
 }
 
 export async function estimateNutrition(mealDescription: string, consumedAt?: string) {
@@ -83,7 +96,16 @@ export async function saveNutritionEntry(payload: NutritionEstimate & {
 }
 
 export async function listNutritionEntries(from: string, to: string) {
-  const res = await api.get<{ data: NutritionEntry[] }>("/nutrition/entries", { params: { from, to } });
+  const res = await api.get<{ data: NutritionEntry[] }>("/nutrition/entries", {
+    params: { from, to, tzOffset: timezoneOffsetMinutes() },
+  });
+  return unwrap(res);
+}
+
+export async function getNutritionDashboard(date = localDateIso()) {
+  const res = await api.get<{ data: NutritionDashboard }>("/nutrition/dashboard", {
+    params: { date, tzOffset: timezoneOffsetMinutes() },
+  });
   return unwrap(res);
 }
 
@@ -98,13 +120,15 @@ export async function deleteNutritionEntry(id: string) {
 }
 
 export async function getTodayTotals() {
-  const res = await api.get<{ data: { date: string; totals: MacroTotals } }>("/nutrition/totals/today");
+  const res = await api.get<{ data: { date: string; totals: MacroTotals } }>("/nutrition/totals/today", {
+    params: { tzOffset: timezoneOffsetMinutes() },
+  });
   return unwrap(res);
 }
 
 export async function getWeeklyTotals(endDate?: string) {
   const res = await api.get<{ data: WeeklyNutrition }>("/nutrition/totals/weekly", {
-    params: endDate ? { endDate } : undefined,
+    params: { endDate, tzOffset: timezoneOffsetMinutes() },
   });
   return unwrap(res);
 }
@@ -121,7 +145,7 @@ export async function updateNutritionTargets(patch: Partial<NutritionTargets>) {
 
 export async function exportNutritionLog(from: string, to: string): Promise<Blob> {
   const res = await api.get("/nutrition/export", {
-    params: { from, to },
+    params: { from, to, tzOffset: timezoneOffsetMinutes() },
     responseType: "blob",
   });
   return res.data as Blob;

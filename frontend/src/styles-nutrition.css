@@ -237,10 +237,17 @@
   padding: 0.45rem 0.55rem;
 }
 
+.nutrition-page-error {
+  margin: 0;
+}
+
 .nutrition-confidence {
   margin: 0.5rem 0;
   font-size: 0.9rem;
 }
+
+.nutrition-confidence--medium strong { color: #fde68a; }
+.nutrition-confidence--low strong { color: #fca5a5; }
 
 .nutrition-assumptions {
   margin: 0 0 0.85rem;

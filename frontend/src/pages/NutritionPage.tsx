@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import {
   exportNutritionLog,
-  getNutritionTargets,
-  getTodayTotals,
-  getWeeklyTotals,
-  listNutritionEntries,
+  getNutritionDashboard,
   localDateIso,
   type MacroTotals,
   type NutritionEntry,
@@ -30,8 +27,9 @@ const emptyTotals = (): MacroTotals => ({
 });
 
 export function NutritionPage() {
-  const today = localDateIso();
+  const today = useMemo(() => localDateIso(), []);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [totals, setTotals] = useState<MacroTotals>(emptyTotals());
   const [targets, setTargets] = useState<NutritionTargets | null>(null);
   const [entries, setEntries] = useState<NutritionEntry[]>([]);
@@ -40,20 +38,18 @@ export function NutritionPage() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [todayData, targetData, entryData, weeklyData] = await Promise.all([
-        getTodayTotals(),
-        getNutritionTargets(),
-        listNutritionEntries(today, today),
-        getWeeklyTotals(today),
-      ]);
-      setTotals(todayData.totals);
-      setTargets(targetData);
-      setEntries(entryData);
-      setWeekly(weeklyData);
+      const dashboard = await getNutritionDashboard(today);
+      setTotals(dashboard.totals);
+      setTargets(dashboard.targets);
+      setEntries(dashboard.entries);
+      setWeekly(dashboard.weekly);
     } catch {
       setTotals(emptyTotals());
       setEntries([]);
+      setWeekly(null);
+      setError("Could not load nutrition data. Check that the API is running and migrations are applied.");
     } finally {
       setLoading(false);
     }
@@ -61,6 +57,14 @@ export function NutritionPage() {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh]);
 
   const onExport = async () => {
@@ -86,11 +90,13 @@ export function NutritionPage() {
           <h1>Nutrition</h1>
           <p className="nutrition-muted">Log meals by voice or text, review AI estimates, and track daily macros.</p>
         </div>
-        <button type="button" className="nutrition-btn nutrition-btn--ghost" onClick={() => void onExport()} disabled={exporting}>
+        <button type="button" className="nutrition-btn nutrition-btn--ghost" onClick={() => void onExport()} disabled={exporting || loading}>
           <Download size={16} />
           Export nutrition log
         </button>
       </header>
+
+      {error ? <p className="nutrition-error nutrition-page-error">{error}</p> : null}
 
       <div className="nutrition-grid">
         <div className="nutrition-grid__main">

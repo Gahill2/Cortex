@@ -79,10 +79,17 @@ export const DEFAULT_NUTRITION_TARGETS: NutritionTargets = {
 export const dateRangeQuerySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  tzOffset: z.coerce.number().int().min(-840).max(840).optional().default(0),
 });
 
 export const dateQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  tzOffset: z.coerce.number().int().min(-840).max(840).optional().default(0),
+});
+
+export const dashboardQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  tzOffset: z.coerce.number().int().min(-840).max(840).optional().default(0),
 });
 
 /** Extract first JSON object from model text (handles markdown fences). */

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { updateNutritionTargets, type NutritionTargets } from "../../api/nutrition";
 
 type Props = {
@@ -10,6 +10,10 @@ export function NutritionTargetsPanel({ targets, onUpdated }: Props) {
   const [draft, setDraft] = useState(targets);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(targets);
+  }, [targets]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();

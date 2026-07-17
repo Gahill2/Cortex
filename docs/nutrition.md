@@ -92,6 +92,7 @@ On the Nutrition page, use **Daily targets** to set calorie and macro goals manu
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| GET | `/api/nutrition/dashboard?date=&tzOffset=` | **Recommended** — entries, totals, weekly, targets in one request |
 | POST | `/api/nutrition/estimate` | AI estimate (no DB write) |
 | POST | `/api/nutrition/entries` | Save reviewed entry |
 | GET | `/api/nutrition/entries?from=&to=` | List by date range |
@@ -102,11 +103,32 @@ On the Nutrition page, use **Daily targets** to set calorie and macro goals manu
 | GET/PATCH | `/api/nutrition/targets` | Daily targets |
 | GET | `/api/nutrition/export?from=&to=` | CSV download |
 
+## Server setup checklist (homelab)
+
+When you get back from the gym:
+
+```bash
+git pull
+npm run db:migrate
+# In deploy/homelab/env/api.env:
+#   NUTRITION_AI_MOCK=true          # free dev/testing
+#   NUTRITION_AI_PROVIDER=openai    # or anthropic
+#   NUTRITION_AI_API_KEY=sk-...     # or reuse OPENAI_API_KEY
+npm run server:deploy               # rebuild + restart containers
+```
+
+Verify:
+
+1. `GET /api/health` → `nutrition_ai.configured: true`
+2. Open Cortex → **Nutrition** tab loads without error
+3. Log a test meal (mock mode returns sample data instantly)
+4. Set daily targets and confirm progress bars update
+
 ## Limitations (v1)
 
 - Estimates are approximate — not medical advice
 - CSV export only (Excel opens CSV natively)
-- Weekly totals use UTC date boundaries
+- Weekly totals use the browser's local timezone via `tzOffset` (minutes from `Date.getTimezoneOffset()`)
 - Speech recognition quality varies by browser/device
 - Anthropic provider does not use structured output mode (JSON parsed server-side)
 

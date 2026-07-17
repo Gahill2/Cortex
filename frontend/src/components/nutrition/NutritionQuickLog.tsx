@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import {
   estimateNutrition,
@@ -38,6 +38,7 @@ export function NutritionQuickLog({ onSaved }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState(emptyReview());
+  const baselineRef = useRef<NutritionEstimate | null>(null);
 
   useEffect(() => {
     if (speech.transcript) setDescription(speech.transcript);
@@ -55,6 +56,7 @@ export function NutritionQuickLog({ onSaved }: Props) {
     try {
       const consumedAt = localDateTimeIso();
       const estimate = await estimateNutrition(text, consumedAt);
+      baselineRef.current = estimate;
       setReview({
         ...estimate,
         consumedAt,
@@ -74,13 +76,24 @@ export function NutritionQuickLog({ onSaved }: Props) {
     setLoading(true);
     setError(null);
     try {
+      const baseline = baselineRef.current;
+      const userEdited =
+        baseline != null &&
+        (review.calories !== baseline.calories ||
+          review.proteinG !== baseline.proteinG ||
+          review.carbsG !== baseline.carbsG ||
+          review.fatG !== baseline.fatG ||
+          (review.fiberG ?? 0) !== (baseline.fiberG ?? 0) ||
+          review.normalizedDescription !== baseline.normalizedDescription);
+
       await saveNutritionEntry({
         ...review,
-        userEdited: review.originalDescription !== description.trim(),
+        userEdited,
       });
       setStep("log");
       setDescription("");
       speech.setTranscript("");
+      baselineRef.current = null;
       setReview(emptyReview());
       onSaved();
     } catch {
