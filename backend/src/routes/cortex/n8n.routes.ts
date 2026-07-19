@@ -7,8 +7,7 @@ import { isN8nConfigured, triggerN8nWebhook } from "../../features/n8n/n8n-clien
 
 const triggerSchema = z.object({
   event: z.string().min(1).max(120),
-  data: z.record(z.string(), z.unknown()).optional().default({}),
-  webhookUrl: z.string().url().optional()
+  data: z.record(z.string(), z.unknown()).optional().default({})
 });
 
 export const cortexN8nRouter = Router();
@@ -20,10 +19,7 @@ cortexN8nRouter.get("/status", requireAuth, routeRateLimit(30, 60_000), (_req, r
 /** Forward an event to your n8n Webhook workflow (authenticated). */
 cortexN8nRouter.post("/trigger", requireAuth, routeRateLimit(20, 60_000), async (req, res) => {
   const input = triggerSchema.parse(req.body ?? {});
-  const result = await triggerN8nWebhook(
-    { event: input.event, data: input.data },
-    input.webhookUrl
-  );
+  const result = await triggerN8nWebhook({ event: input.event, data: input.data });
   if (!result.ok) {
     throw new HttpError(502, result.error ?? `n8n webhook failed (${result.status ?? "unknown"})`);
   }

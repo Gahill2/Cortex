@@ -143,20 +143,7 @@ For InsForge + shared DB across laptops, switch to `npm run hub:up` and [insforg
 
 ## Login / email OTP
 
-Homelab uses **production** mode. Without SMTP, login codes are not emailed unless you configure mail or enable the homelab fallback.
-
-**Option A — no inbox (local PC / private tailnet only)**  
-In `deploy/homelab/env/api.env`:
-
-```env
-CORTEX_OTP_DEV_FALLBACK=1
-```
-
-Restart API: `docker compose --env-file .env up -d cortex-api` from `deploy/homelab`.  
-Request a code on http://127.0.0.1:8080 — the 6-digit code appears on the login screen.
-
-**Option B — real email (recommended before exposing on the internet)**  
-Gmail example (use a [Google App Password](https://support.google.com/accounts/answer/185833)):
+Homelab uses **production** mode, so login codes are never returned in API responses. Configure SMTP before using OTP login. Gmail example (use a [Google App Password](https://support.google.com/accounts/answer/185833)):
 
 ```env
 CORTEX_OTP_DEV_FALLBACK=0
@@ -172,7 +159,7 @@ Then recreate the API container so env reloads.
 
 | Issue | Fix |
 |-------|-----|
-| “Email is not configured on the server” | Set `CORTEX_OTP_DEV_FALLBACK=1` or SMTP_* in `deploy/homelab/env/api.env`, restart `cortex-api` |
+| “Email is not configured on the server” | Set SMTP_* in `deploy/homelab/env/api.env`, then restart `cortex-api` |
 | Port 4000 / 5173 in use | `npm run cleanup:processes` |
 | `POSTGRES_PASSWORD` unset | Re-run `npm run server:up` (creates `.env`) or copy `.env.example` |
 | Cursor crashes on boot | Close Simple Browser previews; run cleanup; avoid stacking `hub:up` + `dev:desktop` |

@@ -13,10 +13,9 @@ export function isN8nConfigured(): boolean {
 
 /** POST a JSON payload to your n8n Webhook node URL. */
 export async function triggerN8nWebhook(
-  payload: N8nTriggerPayload,
-  webhookUrl?: string
+  payload: N8nTriggerPayload
 ): Promise<{ ok: boolean; status?: number; error?: string }> {
-  const url = (webhookUrl ?? env.N8N_WEBHOOK_URL)?.trim();
+  const url = env.N8N_WEBHOOK_URL?.trim();
   if (!url) {
     return { ok: false, error: "N8N_WEBHOOK_URL not set" };
   }

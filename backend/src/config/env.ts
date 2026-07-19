@@ -208,6 +208,12 @@ const demoPassword = parsed.CORTEX_DEMO_USER_PASSWORD ?? (isProd ? undefined : "
 const demoPin = parsed.CORTEX_DEMO_USER_PIN ?? (isProd ? undefined : "1234");
 
 if (isProd) {
+  if (parsed.CORTEX_DEV_AUTH_BYPASS) {
+    throw new Error("CORTEX_DEV_AUTH_BYPASS must not be enabled in production");
+  }
+  if (parsed.CORTEX_OTP_DEV_FALLBACK) {
+    throw new Error("CORTEX_OTP_DEV_FALLBACK must not be enabled in production");
+  }
   if (demoPassword && WEAK_DEMO_PASSWORDS.has(demoPassword)) {
     throw new Error("CORTEX_DEMO_USER_PASSWORD is too weak for production — set a strong value or unset demo vars");
   }

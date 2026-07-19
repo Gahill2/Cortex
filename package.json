@@ -206,5 +206,8 @@
   },
   "dependencies": {
     "electron-updater": "^6.0.0"
+  },
+  "overrides": {
+    "shell-quote": "1.8.4"
   }
 }

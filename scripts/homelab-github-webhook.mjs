@@ -33,10 +33,13 @@ const PORT = Number(process.env.CORTEX_WEBHOOK_PORT || 9090);
 const BRANCH = process.env.CORTEX_DEPLOY_BRANCH || "main";
 const HOOK_PATH = "/hooks/cortex-deploy";
 
+if (!SECRET) {
+  throw new Error("GITHUB_WEBHOOK_SECRET is required");
+}
+
 let deploying = false;
 
 function verifySignature(body, sigHeader) {
-  if (!SECRET) return true; // dev only — set GITHUB_WEBHOOK_SECRET in production
   if (!sigHeader?.startsWith("sha256=")) return false;
   const expected = createHmac("sha256", SECRET).update(body).digest("hex");
   const actual = sigHeader.slice("sha256=".length);
@@ -112,5 +115,4 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[webhook] listening on :${PORT}${HOOK_PATH}`);
-  if (!SECRET) console.warn("[webhook] GITHUB_WEBHOOK_SECRET unset — signatures not verified");
 });
