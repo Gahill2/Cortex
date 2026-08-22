@@ -31,6 +31,7 @@ import "./styles-productivity-dashboard.css";
 import "./styles-productivity.css";
 import "./styles-google-workspace.css";
 import "./styles-layout-spacing.css";
+import "./styles-nutrition.css";
 
 if ("serviceWorker" in navigator) {
   const w = window as Window & { __ELECTRON__?: boolean };
