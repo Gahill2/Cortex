@@ -25,6 +25,7 @@ import { cortexSettingsRouter } from "./settings.routes.js";
 import { cortexCanvasRouter } from "./canvas.routes.js";
 import { cortexHomelabRouter } from "./homelab.routes.js";
 import { cortexCloudRouter } from "./cloud.routes.js";
+import { cortexNutritionRouter } from "./nutrition.routes.js";
 import { pingAgentmemory } from "../../features/agentmemory/client.js";
 import { getObsidianVaultPaths } from "../../features/obsidian/vault-index.js";
 import { isN8nConfigured } from "../../features/n8n/n8n-client.js";
@@ -34,6 +35,7 @@ import { isSpotifyConfigured } from "../../features/spotify/spotify-service.js";
 import { isLinkedInConfigured } from "../../features/linkedin/linkedin-service.js";
 import { isMicrosoftConfigured } from "../../features/microsoft/microsoft-service.js";
 import { getAIStatus } from "../../features/ai/ai-provider.js";
+import { getNutritionAIStatus } from "../../features/nutrition/nutrition-ai-provider.js";
 import { env } from "../../config/env.js";
 import { getFirebaseAdminStatus } from "../../features/firebase/admin.js";
 import { prisma } from "../../db/prisma.js";
@@ -101,6 +103,7 @@ cortexRouter.get("/health", async (_req, res) => {
       connect_redirect_uri: Boolean(process.env.CANVA_REDIRECT_URI?.trim()),
     },
     firebase: getFirebaseAdminStatus(),
+    nutrition_ai: getNutritionAIStatus(),
   });
 });
 
@@ -130,3 +133,4 @@ cortexRouter.use("/settings", cortexSettingsRouter);
 cortexRouter.use("/canvas", cortexCanvasRouter);
 cortexRouter.use("/homelab", cortexHomelabRouter);
 cortexRouter.use("/cloud", cortexCloudRouter);
+cortexRouter.use("/nutrition", cortexNutritionRouter);
