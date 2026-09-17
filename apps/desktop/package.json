@@ -18,5 +18,8 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
     "concurrently": "^9.2.1"
+  },
+  "overrides": {
+    "shell-quote": "1.8.4"
   }
 }

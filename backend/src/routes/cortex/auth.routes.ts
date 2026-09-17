@@ -4,7 +4,7 @@ import { z } from "zod";
 import { signAccessToken, verifyAccessToken } from "../../utils/jwt.js";
 import { HttpError } from "../../utils/http-error.js";
 import { routeRateLimit } from "../../middleware/rate-limit.js";
-import { requireAuth } from "../../middleware/auth.js";
+import { requireAuth, requireValidSession } from "../../middleware/auth.js";
 import { demoUserStore } from "../../features/auth/demo-user-store.js";
 import { sessionLockStore } from "../../features/auth/session-lock-store.js";
 import { otpStore } from "../../features/auth/otp-store.js";
@@ -64,7 +64,7 @@ function isDatabaseUnavailable(error: unknown): boolean {
   return name === "PrismaClientInitializationError" || code === "P1001" || code === "P1017";
 }
 
-/** Match imported Railway users (cuid id) and demo user; new OTP users keep email as id until first DB write. */
+/** Match the configured demo account or an existing database user. */
 async function resolveOtpUserId(email: string): Promise<{ userId: string; email: string }> {
   const normalized = email.trim().toLowerCase();
   const demoUser = await demoUserStore.getDemoUser();
@@ -79,7 +79,25 @@ async function resolveOtpUserId(email: string): Promise<{ userId: string; email:
   } catch (error) {
     if (!isDatabaseUnavailable(error)) throw error;
   }
-  return { userId: normalized, email: normalized };
+  throw new HttpError(401, "Invalid or expired verification code");
+}
+
+async function isRecognizedOtpEmail(email: string): Promise<boolean> {
+  try {
+    await resolveOtpUserId(email);
+    return true;
+  } catch (error) {
+    if (error instanceof HttpError && error.statusCode === 401) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const normalized = address.startsWith("::ffff:") ? address.slice(7) : address;
+  return normalized === "127.0.0.1" || normalized === "::1";
 }
 
 cortexAuthRouter.post("/login", routeRateLimit(5, 60_000), async (req, res) => {
@@ -141,7 +159,7 @@ cortexAuthRouter.post("/verify-pin", routeRateLimit(10, 60_000), async (req, res
   });
 });
 
-cortexAuthRouter.get("/session", requireAuth, routeRateLimit(30, 60_000), (req, res) => {
+cortexAuthRouter.get("/session", requireValidSession, routeRateLimit(30, 60_000), (req, res) => {
   const bearerToken = req.header("authorization")?.replace("Bearer ", "") ?? "";
   if (sessionLockStore.isLocked(bearerToken)) {
     if (demoAuthEnabled) {
@@ -152,7 +170,7 @@ cortexAuthRouter.get("/session", requireAuth, routeRateLimit(30, 60_000), (req, 
   res.json({ authenticated: true, user: req.auth, pinUnlock: demoAuthEnabled });
 });
 
-cortexAuthRouter.post("/lock", requireAuth, routeRateLimit(10, 60_000), (req, res) => {
+cortexAuthRouter.post("/lock", requireValidSession, routeRateLimit(10, 60_000), (req, res) => {
   const { lockReason } = lockSchema.parse(req.body ?? {});
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (!token) {
@@ -166,7 +184,7 @@ cortexAuthRouter.post("/lock", requireAuth, routeRateLimit(10, 60_000), (req, re
   res.json({ ok: true, lockReason });
 });
 
-cortexAuthRouter.post("/logout", requireAuth, routeRateLimit(5, 60_000), (req, res) => {
+cortexAuthRouter.post("/logout", requireValidSession, routeRateLimit(5, 60_000), (req, res) => {
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (token) {
     sessionLockStore.lock(token);
@@ -175,10 +193,9 @@ cortexAuthRouter.post("/logout", requireAuth, routeRateLimit(5, 60_000), (req, r
 });
 
 // ── Desktop (Electron) auto-login ────────────────────────────────────────────
-// Only works when called from localhost — safe for local-only desktop app.
+// Only works when the network peer is localhost.
 cortexAuthRouter.get("/desktop-token", routeRateLimit(10, 60_000), (req, res) => {
-  const host = req.hostname;
-  if (host !== "localhost" && host !== "127.0.0.1") {
+  if (!isLoopbackAddress(req.socket.remoteAddress)) {
     throw new HttpError(403, "Desktop token only available from localhost");
   }
   const secret = env.CORTEX_DESKTOP_SECRET?.trim();
@@ -208,6 +225,13 @@ const OTP_SEND_LIMIT = env.NODE_ENV === "development" ? 30 : 3;
 
 cortexAuthRouter.post("/send-otp", routeRateLimit(OTP_SEND_LIMIT, 60_000), async (req, res) => {
   const { email } = sendOtpSchema.parse(req.body);
+  if (!(await isRecognizedOtpEmail(email))) {
+    res.json({
+      ok: true,
+      message: "If that address is recognized, a code has been sent."
+    });
+    return;
+  }
   const code = await otpStore.create(email);
   const emailed = await sendOtpEmail(email, code);
   const body: {
@@ -265,6 +289,14 @@ cortexAuthRouter.post("/verify-otp", routeRateLimit(10, 60_000), async (req, res
 cortexAuthRouter.post("/begin-login", routeRateLimit(OTP_SEND_LIMIT, 60_000), async (req, res) => {
   const { email } = sendOtpSchema.parse(req.body);
   const normalized = email.trim().toLowerCase();
+  if (!(await isRecognizedOtpEmail(normalized))) {
+    res.json({
+      ok: true,
+      method: "email_otp" as const,
+      message: "If that address is recognized, a code has been sent."
+    });
+    return;
+  }
   const { enabled: totpEnabled } = await getTotpStatusForEmail(normalized);
 
   // Dev bypass: ignore TOTP and use email OTP so development sign-in is fast.
