@@ -58,7 +58,8 @@ cortexFilesRouter.get("/desktop", routeRateLimit(60, 60_000), async (_req, res) 
       files = scanned;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[files] desktop scan failed, using mock fallback:", err);
     files = await createMockFileScannerProvider(FALLBACK_FILES.map((file) => file.path)).scanFiles({
       roots: ["~/Desktop"],
       limit: 50
@@ -89,7 +90,8 @@ cortexFilesRouter.get("/downloads", routeRateLimit(60, 60_000), async (_req, res
       files = scanned;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[files] downloads scan failed, using mock fallback:", err);
     files = await createMockFileScannerProvider(FALLBACK_FILES.map((file) => file.path)).scanFiles({
       roots: ["~/Downloads"],
       limit: 50
@@ -121,7 +123,8 @@ cortexFilesRouter.get("/recent", routeRateLimit(60, 60_000), async (req, res) =>
       files = scanned;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[files] recent scan failed, using mock fallback:", err);
     files = await createMockFileScannerProvider(FALLBACK_FILES.map((file) => file.path)).scanFiles({ limit });
   }
 
@@ -150,7 +153,8 @@ cortexFilesRouter.get("/search", routeRateLimit(30, 60_000), async (req, res) =>
       results = scanned;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[files] search failed, using mock fallback:", err);
     results = await createMockFileScannerProvider(FALLBACK_FILES.map((file) => file.path)).scanFiles({ term: q, limit });
   }
 

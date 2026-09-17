@@ -371,8 +371,9 @@ export class VaultIndexService {
           clearTimeout(this.reindexDebounceTimer);
         }
         this.reindexDebounceTimer = setTimeout(() => {
-          void this.reindex().catch(() => {
-            // Reindex errors are surfaced in status.lastError.
+          void this.reindex().catch((err) => {
+            // Also surfaced in status.lastError; log so background failures are visible.
+            console.warn("[vault-index] background reindex failed:", err);
           });
         }, 400);
       });

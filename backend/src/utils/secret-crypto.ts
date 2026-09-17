@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { env } from "../config/env.js";
+import { logger } from "./logger.js";
 
 const ALGO = "aes-256-gcm";
 const IV_BYTES = 12;
@@ -21,7 +22,10 @@ export function encryptSecret(plain: string): string {
 export function decryptSecret(payload: string): string | null {
   try {
     const [ivB64, tagB64, dataB64] = payload.split(".");
-    if (!ivB64 || !tagB64 || !dataB64) return null;
+    if (!ivB64 || !tagB64 || !dataB64) {
+      logger.warn("Secret decryption skipped: malformed payload");
+      return null;
+    }
     const iv = Buffer.from(ivB64, "base64url");
     const tag = Buffer.from(tagB64, "base64url");
     const data = Buffer.from(dataB64, "base64url");
@@ -29,7 +33,10 @@ export function decryptSecret(payload: string): string | null {
     decipher.setAuthTag(tag);
     const dec = Buffer.concat([decipher.update(data), decipher.final()]);
     return dec.toString("utf8");
-  } catch {
+  } catch (err) {
+    logger.warn("Secret decryption failed (wrong key or corrupted data)", {
+      error: err instanceof Error ? err.message : String(err)
+    });
     return null;
   }
 }

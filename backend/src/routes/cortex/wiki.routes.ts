@@ -51,7 +51,8 @@ cortexWikiRouter.get("/search", routeRateLimit(30, 60_000), async (req, res) => 
       results = serviceResults;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[wiki] search failed, using mock fallback:", err);
     results = await createMockWikiSearchProvider(FALLBACK_RESULTS).search({ term: q, limit });
   }
 

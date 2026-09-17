@@ -55,8 +55,9 @@ cortexAppsRouter.get("/list", routeRateLimit(60, 60_000), async (_req, res) => {
       apps = discoveredApps;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
     // Fall back to deterministic mock payload if service providers fail.
+    console.warn("[apps] list discovery failed, using mock fallback:", err);
     apps = await createMockAppDiscoveryProvider(FALLBACK_APPS).discoverApps();
   }
 
@@ -84,7 +85,8 @@ cortexAppsRouter.get("/recent", routeRateLimit(60, 60_000), async (req, res) => 
       apps = discoveredApps;
       sourceMode = "provider";
     }
-  } catch {
+  } catch (err) {
+    console.warn("[apps] recent discovery failed, using mock fallback:", err);
     apps = await createMockAppDiscoveryProvider(FALLBACK_APPS).discoverApps({ limit });
   }
 
