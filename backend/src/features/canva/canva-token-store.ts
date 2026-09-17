@@ -1,4 +1,4 @@
-import { prisma } from "../../db/prisma.js";
+import { createOAuthTokenStore } from "../integrations/oauth-token-store.js";
 
 export interface CanvaTokens {
   access_token: string;
@@ -8,29 +8,9 @@ export interface CanvaTokens {
   scope?: string;
 }
 
-export const saveCanvaTokens = async (userId: string, tokens: CanvaTokens): Promise<void> => {
-  await prisma.oAuthToken.upsert({
-    where: { userId_provider: { userId, provider: "canva" } },
-    update: { tokens: JSON.stringify(tokens) },
-    create: { userId, provider: "canva", tokens: JSON.stringify(tokens) },
-  });
-};
+const store = createOAuthTokenStore<CanvaTokens>("canva", { connectedWhen: "rowExists" });
 
-export const getCanvaTokens = async (userId: string): Promise<CanvaTokens | null> => {
-  const row = await prisma.oAuthToken.findUnique({
-    where: { userId_provider: { userId, provider: "canva" } },
-  });
-  if (!row) return null;
-  return JSON.parse(row.tokens) as CanvaTokens;
-};
-
-export const clearCanvaTokens = async (userId: string): Promise<void> => {
-  await prisma.oAuthToken.deleteMany({ where: { userId, provider: "canva" } });
-};
-
-export const isCanvaConnected = async (userId: string): Promise<boolean> => {
-  const row = await prisma.oAuthToken.findUnique({
-    where: { userId_provider: { userId, provider: "canva" } },
-  });
-  return Boolean(row);
-};
+export const saveCanvaTokens = store.save;
+export const getCanvaTokens = store.get;
+export const clearCanvaTokens = store.clear;
+export const isCanvaConnected = store.isConnected;
