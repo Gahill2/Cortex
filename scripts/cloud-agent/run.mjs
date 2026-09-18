@@ -54,19 +54,20 @@ const BRANCH = "main";
 
 const PROMPT = `You are working on the Cortex monorepo (${REPO}, branch ${BRANCH}).
 
-## Priority 1 — Verify cloud deploy (main has listen-before-migrate)
-1. Confirm Railway passes healthcheck on /api/health/live after deploy (server listens first; prisma migrate runs in background).
-2. If health still fails, fix startup/migrate/Dockerfile without blocking PORT bind.
+## Priority 1 — Homelab Docker deploy
+1. Production runs via deploy/homelab/docker-compose.yml (cortex-api + cortex-web + postgres).
+2. UI uses same-origin /api through nginx — leave VITE_API_BASE_URL empty unless split hosts.
+3. After changes, verify backend and frontend build; homelab redeploy is npm run server:deploy on the server.
 
-## Priority 2 — Vercel frontend
-1. frontend/vercel.json: root directory frontend, Vite build, SPA rewrites.
-2. BrandIcon: simple-icons removed siOpenai — use inlined openAiBrand or /brands/openai.svg (fix if build still fails).
-3. Production UI: HomeProduction bento home must be default (HomePage.tsx).
+## Priority 2 — Dashboard & UI
+1. Production UI: HomeProduction bento home must be default (HomePage.tsx).
+2. Fix visual/layout issues on HomeProduction and widgets (spacing, hierarchy, mobile).
+3. BrandIcon: use inlined openAiBrand or /brands/openai.svg if simple-icons breaks the build.
 
-## Priority 3 — UI polish & bugs
-- Fix visual/layout issues on HomeProduction and widgets (spacing, hierarchy, mobile).
-- Fix API client errors when VITE_API_BASE_URL points at Railway (CORS already configured for https://frontend-seven-snowy-13.vercel.app).
-- Any TypeScript build errors in frontend or backend.
+## Priority 3 — Bugs
+- Fix TypeScript build errors in frontend or backend.
+- Fix API client / CORS issues for homelab origins (deploy/homelab/env/api.env CORS_ORIGINS).
+- Do not add or restore Vercel/Railway-specific wiring — homelab is the primary deploy path (docs/homelab-deploy.md).
 
 ## Rules
 - Create a feature branch, commit focused changes, open a PR with summary + test plan.

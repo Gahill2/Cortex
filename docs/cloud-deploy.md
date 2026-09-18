@@ -1,4 +1,7 @@
-# Cloud deploy (Vercel UI + Railway API)
+# Cloud deploy (Vercel UI + Railway API) — legacy / optional
+
+> **Primary deploy path:** [homelab-deploy.md](./homelab-deploy.md) (Docker on your home server).
+> This document is kept for reference if you still run a public Vercel + Railway stack.
 
 Use this when Cortex should be **public on the internet**, not localhost-first.
 
@@ -147,16 +150,17 @@ Stripe Checkout return URLs use `CORTEX_FRONTEND_URL` (`/?billing=success`, `/?b
 - Do not set `VITE_API_BASE_URL` only in a local `.env` — Vercel must have it for production builds.
 - Homelab / Docker: [homelab-migration.md](./homelab-migration.md) (optional second environment).
 
-## Auto deploy on push
+## Auto deploy on push (legacy cloud only)
 
-With GitHub connected to **Railway** (backend) and **Vercel** (frontend), every **`git push origin main`** redeploys both services.
+With GitHub connected to **Railway** (backend) and **Vercel** (frontend), every **`git push origin main`** can redeploy both services from their dashboards.
 
-- **GitHub Actions** (`.github/workflows/cloud-deploy.yml`): validates backend/frontend builds on each push; twice daily (08:00 and 20:00 UTC) an empty commit on `main` retriggers deploys if you want periodic refreshes without local commits.
-- **Local auto-push** (optional): run `scripts/cloud-sync-push.ps1` on a schedule (Windows Task Scheduler) to commit and push any saved changes.
+Homelab uses **`npm run server:deploy:setup`** on the server instead — see [homelab-deploy.md](./homelab-deploy.md).
+
+CI on `main` runs **`.github/workflows/homelab-ci.yml`** (build validation only; no cloud redeploy triggers).
 
 ## 7. Cursor Cloud Agent (UI + bug fixes while away)
 
-Runs a remote agent on `github.com/Gahill2/Cortex` and opens a PR when done.
+Runs a remote agent on `github.com/Gahill2/Cortex` and opens a PR when done. Agents target **homelab Docker** as the primary deploy path.
 
 1. Create an API key at [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents).
 2. From repo root (PowerShell):
@@ -166,7 +170,7 @@ $env:CURSOR_API_KEY = "cursor_..."
 npm run cloud:agent
 ```
 
-The launcher is `scripts/cloud-agent/run.mjs` (deploy verification, Vercel build, `HomeProduction` polish).
+The launcher is `scripts/cloud-agent/run.mjs` (homelab build verification, `HomeProduction` polish).
 
 ## Quick checklist
 
