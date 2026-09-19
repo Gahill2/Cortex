@@ -60,6 +60,9 @@ const TasksPage = lazy(() =>
 const HomelabPage = lazy(() =>
   import("./pages/HomelabPage").then((m) => ({ default: m.HomelabPage }))
 );
+const NutritionPage = lazy(() =>
+  import("./pages/NutritionPage").then((m) => ({ default: m.NutritionPage }))
+);
 const CloudPage = lazy(() =>
   import("./pages/CloudPage").then((m) => ({ default: m.CloudPage }))
 );
@@ -131,6 +134,7 @@ export default function App() {
       { id: "nav-ai", label: "Go to AI", group: "Navigate", keywords: "chat assistant kimi claude", shortcut: "G A", onSelect: () => setTab("ai") },
       { id: "nav-notes", label: "Go to Notes", group: "Navigate", keywords: "brain obsidian notion vault", onSelect: () => setTab("notes") },
       { id: "nav-mail", label: "Go to Mail", group: "Navigate", keywords: "email gmail outlook inbox", shortcut: "G M", onSelect: () => setTab("mail") },
+      { id: "nav-nutrition", label: "Go to Nutrition", group: "Navigate", keywords: "food calories macros meal log", onSelect: () => setTab("nutrition") },
       { id: "nav-cloud", label: "Go to Cloud", group: "Navigate", keywords: "nextcloud files storage upload", onSelect: () => setTab("cloud") },
       { id: "nav-homelab", label: "Go to Homelab", group: "Navigate", keywords: "server docker grafana monitoring deploy", onSelect: () => setTab("homelab") },
       { id: "nav-spotify", label: "Go to Spotify", group: "Navigate", keywords: "music ai dj playlist", onSelect: () => setTab("spotify") },
@@ -566,6 +570,7 @@ export default function App() {
                   />
                 )}
                 {tab === "mail" && <MailPage />}
+                {tab === "nutrition" && <NutritionPage />}
                 {tab === "cloud" && <CloudPage />}
                 {tab === "homelab" && <HomelabPage />}
                 {tab === "spotify" && <SpotifyPage />}
