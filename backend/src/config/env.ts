@@ -198,6 +198,18 @@ const envSchema = z.object({
   HOMELAB_DEPLOY_TOKEN: z.string().optional().default(""),
   /** Repo root for host-side dev deploy spawn. */
   HOMELAB_REPO_ROOT: z.string().optional().default(""),
+  /** Nutrition AI — openai | anthropic | mock */
+  NUTRITION_AI_PROVIDER: z.string().optional().default("openai"),
+  NUTRITION_AI_MODEL: z.string().optional().default(""),
+  NUTRITION_AI_API_KEY: z.string().optional().default(""),
+  /** When true, nutrition estimate returns sample data without calling a paid API. */
+  NUTRITION_AI_MOCK: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => ["1", "true", "yes", "on"].includes(v.trim().toLowerCase())),
+  /** Request timeout for nutrition AI calls (ms). */
+  NUTRITION_AI_TIMEOUT_MS: z.coerce.number().optional().default(45_000),
 });
 
 const parsed = envSchema.parse(process.env);
