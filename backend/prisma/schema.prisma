@@ -189,3 +189,30 @@ model UserSettings {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 }
+
+/// AI-assisted meal log entries (voice or text).
+model NutritionEntry {
+  id                    String   @id @default(cuid())
+  userId                String
+  consumedAt            DateTime
+  originalDescription   String
+  normalizedDescription String
+  mealType              String   // breakfast | lunch | dinner | snack | unknown
+  calories              Int
+  proteinG              Decimal  @db.Decimal(8, 2)
+  carbsG                Decimal  @db.Decimal(8, 2)
+  fatG                  Decimal  @db.Decimal(8, 2)
+  fiberG                Decimal? @db.Decimal(8, 2)
+  sugarG                Decimal? @db.Decimal(8, 2)
+  sodiumMg              Int?
+  confidence            String   // low | medium | high
+  assumptions           String   // JSON string array
+  sourceType            String
+  aiProvider            String?
+  aiModel               String?
+  userEdited            Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId, consumedAt])
+}
