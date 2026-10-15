@@ -103,7 +103,7 @@ export const GmailPage = () => {
         <div className="gmail-setup-card">
           <div className="gmail-setup-icon">✉</div>
           <h2>Gmail not configured</h2>
-          <p>Add <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and <code>GOOGLE_REDIRECT_URI</code> to your Railway environment variables.</p>
+          <p>Add <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, and <code>GOOGLE_REDIRECT_URI</code> to your API environment (<code>deploy/homelab/env/api.env</code> on Docker homelab).</p>
         </div>
       )}
 
