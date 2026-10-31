@@ -158,7 +158,8 @@
     "revamp:ui:claude": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ui-revamp-pipeline.ps1 -Agent claude",
     "revamp:ui:pi": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ui-revamp-pipeline.ps1 -Agent pi",
     "db:migrate": "node backend/scripts/prisma-deploy.mjs",
-    "railway:deploy": "node -e \"console.log('Railway checklist: docs/railway-deploy.md\\nTemplate: backend/.env.railway.example')\"",
+    "homelab:deploy": "node -e \"console.log('Homelab deploy: docs/homelab-deploy.md\\nOn server: npm run server:deploy')\"",
+    "railway:deploy": "node -e \"console.log('Legacy cloud — docs/cloud-deploy.md\\nPrimary: docs/homelab-deploy.md')\"",
     "cloud:push": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cloud-sync-push.ps1",
     "cloud:agent": "npm install --prefix scripts/cloud-agent && node scripts/cloud-agent/run.mjs"
   },
