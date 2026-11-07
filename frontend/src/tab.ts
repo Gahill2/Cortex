@@ -10,4 +10,5 @@ export type Tab =
   | "spotify"
   | "mail"
   | "homelab"
-  | "cloud";
+  | "cloud"
+  | "nutrition";
