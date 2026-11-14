@@ -45,7 +45,7 @@ function buildCorsOrigins(): string[] {
   }
   if (env.NODE_ENV === "production" && fromEnv.length === 0) {
     console.warn(
-      "[cortex] CORS_ORIGINS and CORTEX_FRONTEND_URL are unset — API will boot for healthchecks; configure before browser traffic (see backend/.env.railway.example)"
+      "[cortex] CORS_ORIGINS and CORTEX_FRONTEND_URL are unset — API will boot for healthchecks; configure before browser traffic (see deploy/homelab/env/api.env.example)"
     );
   }
   return fromEnv.length > 0 ? fromEnv : defaultOrigins;
