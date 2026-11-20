@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": "Legacy optional cloud deploy only — primary production uses deploy/homelab/ (docs/homelab-deploy.md)",
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",

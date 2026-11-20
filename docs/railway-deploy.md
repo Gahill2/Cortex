@@ -1,6 +1,8 @@
 # Railway deploy (Cortex API — PostgreSQL)
 
-**Public cloud (Vercel UI + this API):** see [cloud-deploy.md](./cloud-deploy.md).
+**Public cloud (legacy Vercel UI + Railway API):** see [cloud-deploy.md](./cloud-deploy.md).
+
+**Primary (homelab Docker):** [homelab-deploy.md](./homelab-deploy.md).
 
 **Moving to a home server (ZimaBoard / Docker / Tailscale)?** See [homelab-migration.md](./homelab-migration.md) for Postgres export/import and [`deploy/homelab/`](../deploy/homelab/) compose layout.
 
