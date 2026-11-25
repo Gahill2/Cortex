@@ -12,7 +12,8 @@ export type NavIconName =
   | "music"
   | "settings"
   | "server"
-  | "cloud";
+  | "cloud"
+  | "apple";
 
 export type NavItem = { id: Tab; label: string; icon: NavIconName };
 
@@ -24,6 +25,7 @@ export const CORTEX_MAIN_NAV: NavItem[] = [
   { id: "ai", label: "AI", icon: "bot" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "mail", label: "Mail", icon: "mail" },
+  { id: "nutrition", label: "Nutrition", icon: "apple" },
   { id: "cloud", label: "Cloud", icon: "cloud" },
   { id: "homelab", label: "Homelab", icon: "server" },
   { id: "spotify", label: "Music", icon: "music" },
@@ -40,6 +42,7 @@ export const CORTEX_MOBILE_TAB_NAV: NavItem[] = [
 /** Mobile drawer — secondary destinations (design D2). */
 export const CORTEX_MOBILE_DRAWER_NAV: NavItem[] = [
   { id: "mail", label: "Mail", icon: "mail" },
+  { id: "nutrition", label: "Nutrition", icon: "apple" },
   { id: "cloud", label: "Cloud", icon: "cloud" },
   { id: "notes", label: "Notes", icon: "file-text" },
   { id: "spotify", label: "Music", icon: "music" },
@@ -56,6 +59,7 @@ export const TAB_SCREEN_TITLES: Record<Tab, string> = {
   ai: "AI",
   notes: "Notes",
   mail: "Mail",
+  nutrition: "Nutrition",
   cloud: "Cloud",
   homelab: "Homelab",
   spotify: "Music",
