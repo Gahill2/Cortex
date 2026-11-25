@@ -2,6 +2,8 @@
 
 On the **cortex** hub, redeploy Docker when code changes — **without sudo** for normal operation.
 
+**Full deploy guide (merge at home, first-time setup):** [homelab-deploy.md](./homelab-deploy.md)
+
 ## First time only (Docker permission denied)
 
 If `docker restart` / `docker stop` fails with **permission denied** (snap Docker + AppArmor on Ubuntu):
